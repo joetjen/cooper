@@ -1,0 +1,5 @@
+#@version = 1.0
+import "base.casc"
+
+app.name = "@{shared_name}"
+server.port = 9090

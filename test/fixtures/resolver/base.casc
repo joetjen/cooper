@@ -1,0 +1,3 @@
+#@version = 1.0
+@shared_name = "base-service"
+base.name = "@{shared_name}"

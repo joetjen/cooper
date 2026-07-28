@@ -1,0 +1,43 @@
+@grammar "casc_interp"
+@root text
+@noskip
+
+; This grammar parses double-quoted strings' content (CASC.md §7) into
+; literal text runs and reference segments.
+;
+; Every reference form is captured as ONE whole anchored token (its
+; prefix through the matching closing delimiter), not built from
+; separately-competing sub-tokens for name/index/default (IDENT,
+; INTEGER, ...). Those sub-tokens would join the top-level maximal-munch
+; race *globally*, alongside TEXT_CHUNK -- and an ordinary English word
+; like "hunter2" is exactly as IDENT-shaped as a variable name is, so
+; plain prose would silently lose the tokenizer tie and swallow into the
+; wrong token type. `Cooper.InterpActions` parses each raw token's
+; captured text in plain Elixir instead of through further Aether
+; structure -- see its own moduledoc.
+;
+; A *bare* `@{...}`/`${...}`/`%{...}`/`!{...}`/`!Name(...)` used as a
+; whole value on its own (`region = ${REGION}`) is unaffected by any of
+; this -- it's built directly into `casc.aether`'s own `value` rule,
+; which has no free-form-text concept to collide with.
+
+AT_REF_RAW     := "@{" (!"}" .)* "}"
+ENV_REF_RAW    := "${" (!"}" .)* "}"
+CONFIG_REF_RAW := "%{" (!"}" .)* "}"
+
+; `@native(...)` (Ichor 0.1.1+): tracks real brace-nesting depth instead
+; of a fixed-depth combinator form -- see `Cooper.Native.ResolverRef`'s
+; own moduledoc, and `casc.aether`'s matching token for the full
+; rationale (this grammar's copy exists standalone for the same reason
+; `AT_REF_RAW`/`ENV_REF_RAW`/`CONFIG_REF_RAW` do -- see this file's own
+; header comment).
+RESOLVER_REF_RAW := @native("Cooper.Native.ResolverRef", "scan")
+
+TAG_NAME       := ALPHA (ALNUM | "_" | "+" | "-")* ("?" | "!")?
+TAGGED_REF_RAW := "!" TAG_NAME "(" (!")" .)* ")"
+
+BANG_TAG   := "!" TAG_NAME "("
+TEXT_CHUNK := (!("@{" | "${" | "%{" | "!{" | BANG_TAG) .)+
+
+text    := segment*
+segment := AT_REF_RAW | ENV_REF_RAW | CONFIG_REF_RAW | RESOLVER_REF_RAW | TAGGED_REF_RAW | TEXT_CHUNK

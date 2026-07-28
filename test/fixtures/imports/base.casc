@@ -1,0 +1,5 @@
+#@version = 1.0
+@shared_name = "shared"
+@*local_only = "hidden"
+server.host = "0.0.0.0"
+server.port = 8080

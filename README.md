@@ -1,0 +1,128 @@
+# Cooper
+
+Cooper loads [CASC](guides/casc/CASC.md) config files — a hierarchical,
+extensible config language with imports, variables, string
+interpolation, environment/config references, loops, and
+consumer-registered resolvers and tags — into native Elixir terms.
+
+```text
+# config.casc
+#@version = 1.0
+
+@region = "eu-west"
+
+server {
+  host = "0.0.0.0"
+  port = 8080
+}
+
+database {
+  *password = ${DB_PASSWORD}
+  host = "db.@{region}.internal"
+  pool_size = 10
+  timeout = 500ms
+}
+```
+
+```elixir
+iex> Cooper.load_file("config.casc", env: %{"DB_PASSWORD" => "hunter2"})
+{:ok,
+ %{
+   "server" => %{"host" => "0.0.0.0", "port" => 8080},
+   "database" => %{
+     "password" => [~~REDACTED~~],
+     "host" => "db.eu-west.internal",
+     "pool_size" => 10,
+     "timeout" => {:duration, 500_000_000}
+   }
+ }}
+```
+
+Maps come back with string keys, durations/byte sizes as tagged
+`{:duration, nanoseconds}`/`{:bytes, count}` tuples, tuples as real
+Elixir tuples (never coerced to lists, CASC.md §6.11), and any
+`*key`-prefixed value wrapped in `Cooper.Secret` — redacted by
+`inspect/1` and `to_string/1` by default; call
+`Cooper.Secret.reveal/1` to get the real value back.
+
+## Why
+
+Most config libraries either parse a fixed format (JSON/YAML/TOML) or
+hand you a bespoke DSL with no formal grammar behind it. CASC has a
+real specification ([`guides/casc/CASC.md`](guides/casc/CASC.md)), and
+Cooper implements it via Ichor, a sibling grammar-compiler library,
+rather than hand-rolled string parsing — so the interpreter's behavior
+tracks the grammar, not the other way around.
+
+## How it fits together
+
+Loading a file runs one pipeline, each stage handing off to the next:
+
+1. **Lex + parse** — `Cooper.Grammar` and `Cooper.Actions` turn CASC
+   source into a flat list of assignments and variable declarations,
+   with every literal value (numbers, durations, dates, strings, ...)
+   already converted to its native Elixir form.
+2. **Loop expansion** — `Cooper.Loop` expands each `for` statement
+   (CASC.md §5.5) into the ops it generates.
+3. **Import resolution** — `Cooper.Loader` recursively loads each
+   `import` statement (CASC.md §5.1), splicing the imported file's own
+   ops into the importer's list and propagating its public variables.
+4. **Merge and secret-wrapping** — `Cooper.Merge` folds the flattened
+   ops into a tree, honoring the merge-control sigils (`~`/`+`/`-`,
+   CASC.md §5.7/§8), and wraps every `*key`-prefixed value in
+   `Cooper.Secret` so it can't leak through an accidental
+   `inspect`/log call.
+5. **Reference resolution** — `Cooper.Resolver` resolves everything
+   left unresolved: `@{}` variables, `${}` environment reads, `%{}`
+   config references, `!{resolver:...}` dispatch, and `!Name(...)`
+   tagged values (CASC.md §7) — including re-wrapping a secret that
+   gets copied elsewhere by one of those references, so the redaction
+   travels with the value, not just its original declared path.
+
+See the [tutorial](guides/TUTORIAL.md) for a full walkthrough of both
+the library and the CASC syntax it parses, or the
+[cheatsheet](guides/CHEATSHEET.md) for a terse API reference.
+
+## Installation
+
+Add `cooper` to your list of dependencies in `mix.exs`. `ichor` comes
+along as its own dependency automatically — no separate line needed:
+
+```elixir
+def deps do
+  [
+    {:cooper, "~> 0.1.0"}
+  ]
+end
+```
+
+## Where to go next
+
+- **[Tutorial](guides/TUTORIAL.md)** — loading config, secrets, error
+  handling, test-time env/import injection, and enough CASC syntax to
+  follow along.
+- **[Examples](guides/EXAMPLES.md)** — layered per-environment config,
+  a real secrets manager, IP allowlisting, generating per-shard config
+  from a template, testing config-loading code without touching disk.
+- **[Cheatsheet](guides/CHEATSHEET.md)** — quick reference for
+  `Cooper`'s public API.
+- **[CASC tutorial](guides/casc/TUTORIAL.md)** and
+  **[CASC reference](guides/casc/CASC.md)** — everything about the
+  language itself, independent of the surrounding library.
+
+## Development
+
+```sh
+mix deps.get
+mix test
+mix format --check-formatted
+mix compile --warnings-as-errors
+mix docs
+```
+
+See [CONTRIBUTION.md](CONTRIBUTION.md) for how to propose changes, and
+[CHANGELOG.md](CHANGELOG.md) for release history.
+
+## License
+
+MIT — see [LICENSE.txt](LICENSE.txt).

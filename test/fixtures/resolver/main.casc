@@ -1,0 +1,10 @@
+#@version = 1.0
+import "base.casc"
+
+service.name = "@{shared_name}"
+service.tag = ${EXTRA_TAG}
+
+@counts = [0, 1]
+for @idx in @{counts} as replicas."@{idx}" {
+  cpu = 1
+}

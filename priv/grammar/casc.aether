@@ -1,0 +1,328 @@
+@grammar "casc"
+@root file
+@skip TRIVIA
+
+; -- Comments, version header, `#` disambiguation --------------------------
+;
+; `#` is a comment-start only when NOT immediately followed by an
+; identifier-start, `*`, or `@` -- those are the version header
+; (`#@version`) and disabled-statement (`#key`, `#*key`) forms (CASC.md
+; §3.2). Declared before the implicit "#" literal token used by
+; `version_header`/`disabled_statement` below, so a bare "#" that isn't
+; followed by any of those still counts as an (empty) comment on a
+; maximal-munch tie, rather than falling through unexpectedly. Flagged
+; here deliberately: collapsing this back to a naive `"#" (!"\n" .)*`
+; would silently break the version-header/disabled-statement forms.
+COMMENT := "#" !("@" | ALPHA | "*") (!"\n" .)*
+TRIVIA  := (SPACE | COMMENT)*
+
+; -- Reserved words (must out-rank IDENT on a maximal-munch tie,
+;    so declared before it -- see CASC.md §6.4) ---------------------------
+NIL_KW   := "nil"
+TRUE_KW  := "true"
+FALSE_KW := "false"
+INF_KW   := ("+" | "-")? "inf"
+
+; -- Identifiers (CASC.md §4.1) --------------------------------------------
+IDENT := ALPHA (ALNUM | "_" | "+" | "-")* ("?" | "!")?
+
+; -- Dates and times (CASC.md §6.6) ----------------------------------------
+; Declared before INTEGER/FLOAT: each of these always matches *more*
+; characters than a bare number could at the same position when it
+; matches at all (DATE needs two literal "-"s INTEGER's own body can't
+; produce; DATETIME needs a literal "T" after that), so maximal munch
+; picks them correctly regardless of declaration order -- ordered this
+; way anyway for readability, most-specific first.
+DATE     := DIGIT{4} "-" DIGIT{2} "-" DIGIT{2}
+TIME     := DIGIT{2} ":" DIGIT{2} ":" DIGIT{2} ("." DIGIT+)?
+DATETIME := DATE "T" TIME (("Z") | (("+" | "-") DIGIT{2} ":" DIGIT{2}))?
+
+; -- IP addresses (CASC.md §6.7) -------------------------------------------
+; `HEX_GROUP` is only ever referenced from inside `IPV6`'s own body, never
+; from a rule, so it never joins the top-level maximal-munch race on its
+; own (same story as `SPACE` inside `TRIVIA`). `IPV6` requires either the
+; full 8-group form or a literal "::" -- deliberately *not* a bare
+; `(HEX|":")+`, which would also match just a leading ":" followed by
+; whatever hex-looking letters happen to start an atom (e.g. `:false`'s
+; "fa"), stealing the plain `:` atom sigil out from under `atom_value`.
+HEX_GROUP := HEX{1,4}
+IPV4 := DIGIT{1,3} "." DIGIT{1,3} "." DIGIT{1,3} "." DIGIT{1,3} ("/" DIGIT{1,3})?
+IPV6 := (HEX_GROUP (":" HEX_GROUP){7} | (HEX_GROUP (":" HEX_GROUP)*)? "::" (HEX_GROUP (":" HEX_GROUP)*)?)
+        ("/" DIGIT{1,3})?
+
+; -- Durations (CASC.md §6.8) -----------------------------------------------
+; The strict rules (compound components must be plain integers, strictly
+; descending, no unit repeated) aren't lexer-enforceable without a lot of
+; grammar duplication, so the token shape here is deliberately permissive
+; -- `Cooper.Actions.handle_token/3` does the real validation and raises
+; a proper `Ichor.Error` naming exactly what's wrong. Longer unit spellings
+; ordered first: an ordered choice stops at the first alternative that
+; matches at all, so "ms" must be tried before "m" or "s" alone would
+; ever get the chance to steal one character of it.
+DURATION_UNIT := "ns" | "us" | "µs" | "ms" | "d" | "h" | "m" | "s"
+DURATION := DIGIT+ ("." DIGIT+)? DURATION_UNIT (DIGIT+ DURATION_UNIT)*
+
+; -- Byte sizes (CASC.md §6.9) ----------------------------------------------
+; Case-insensitive per the spec (each unit literal carries the `i`
+; suffix); longer spellings first for the same ordered-choice reason as
+; durations above.
+BYTE_UNIT := "PiB"i | "TiB"i | "GiB"i | "MiB"i | "KiB"i
+           | "PB"i | "TB"i | "GB"i | "MB"i | "kB"i | "B"i
+BYTES := DIGIT+ ("." DIGIT+)? BYTE_UNIT
+
+; -- Numbers (CASC.md §6.3) --------------------------------------------------
+INTEGER := ("+" | "-")? (
+             "0x" HEX (HEX | "_")*
+           | "0o" [0-7] ([0-7] | "_")*
+           | "0b" [01] ([01] | "_")*
+           | DIGIT (DIGIT | "_")*
+           )
+FLOAT := ("+" | "-")? DIGIT (DIGIT | "_")* (
+           "." DIGIT (DIGIT | "_")* (("e" | "E") ("+" | "-")? DIGIT+)?
+         | ("e" | "E") ("+" | "-")? DIGIT+
+         )
+
+; -- Strings (CASC.md §6.5) --------------------------------------------------
+; Backslash-continuation is a follow-up: CASC.md gives no worked example
+; for it (unlike triple-quoting's §6.5 `motd` example), so there's
+; nothing concrete to validate an implementation against yet.
+TRIPLE_STRING := "\"\"\"" (!"\"\"\"" .)* "\"\"\""
+DQ_STRING     := "\"" ("\\" . | !"\"" .)* "\""
+SQ_STRING     := "'" (!"'" .)* "'"
+
+; -- Interpolation and references (CASC.md §7) -----------------------------
+; `@{}`/`${}`/`%{}`/`!{}`/`!Name()` used as a *bare, whole* value
+; (`region = ${REGION}`) are built directly below as ordinary `value`
+; alternatives -- rather than captured as a raw span and redispatched
+; through `casc_interp.aether` -- specifically so `!Name(arg)`'s argument
+; can recurse through this same `value` rule (`!int(${PORT:8080})`,
+; arbitrarily nested tagged values).
+; `casc_interp.aether` is reserved for refs *embedded in a larger
+; double-quoted string* (`"host: @{h}"`), where that recursion isn't
+; needed and a smaller, self-contained grammar is worth it.
+;
+; `${...}`'s name reuses IDENT (below) rather than a dedicated
+; ENV_NAME := ("_"|ALPHA)(ALNUM|"_")* matching CASC.md §7.2's own
+; pattern exactly: for an all-alpha name like "REGION", both tokens
+; match the identical span with the identical length -- a maximal-munch
+; tie whichever one is declared first always wins *everywhere*, not just
+; here, so a dedicated ENV_NAME would silently steal every ordinary key
+; matching that same shape away from IDENT. The accepted trade: env
+; names here can't lead with "_" and can technically include a trailing
+; "+"/"-"/"?"/"!" they shouldn't -- a minor, documented loosening rather
+; than a token that collides with ordinary identifiers.
+
+; A standalone `RESOLVER_PAYLOAD := (!("{"|"}") . | ...)*` token would
+; join the top-level maximal-munch race (it's referenced by a rule) and,
+; having no anchor of its own, would greedily match almost *any* run of
+; non-brace text anywhere in the file -- including the version header,
+; plain keys, anything -- winning by sheer length and breaking the whole
+; grammar. Folding the literal "!{" prefix and closing "}" directly into
+; one token's own pattern anchors it to only match where a resolver ref
+; genuinely starts; `Cooper.Actions` splits "name" from "payload" (first
+; ":" wins) out of the captured raw text afterward.
+;
+; `@native(...)` (Ichor 0.1.1+) rather than ordinary combinators:
+; balanced-brace payload nesting can't be expressed by a fixed-depth
+; token body at all (Aether tokens don't self-reference), so any
+; combinator form is stuck hard-coding a depth and documenting the rest
+; as unsupported. `Cooper.Native.ResolverRef.scan/3` tracks real nesting
+; depth instead -- see its own moduledoc.
+RESOLVER_REF_RAW := @native("Cooper.Native.ResolverRef", "scan")
+
+; ==========================================================================
+; Rules
+; ==========================================================================
+
+; `@skip` only splices trivia *before* a sequence element, never after the
+; last one -- so a trailing comment/blank line at end-of-source, with
+; nothing following it for splicing to trigger on, would otherwise be
+; left unconsumed and fail `Grammar.VM`'s whole-input match. The trailing
+; `TRIVIA?` mops that up explicitly.
+file := version_header statement* TRIVIA?
+
+; `kw` is deliberately an IDENT, not a literal "version" token -- CASC.md
+; §4.1 only reserves `for`/`in`/`from`/`as` as *contextual* keywords, and
+; `version` isn't reserved at all; making it a distinct literal token
+; would globally steal the word "version" from every ordinary key
+; (`app.version = ...`) via the same maximal-munch mechanism that makes
+; the six §6.4 reserved words special. Checked textually in
+; `Cooper.Actions.handle_rule/3` instead.
+version_header := "#" "@" kw:IDENT "="? version_number
+
+; The lexer will greedily fold "1.0" into one FLOAT token before the
+; parser ever sees it, so a naive `INTEGER ("." INTEGER)*` rule can't
+; work here -- for "1.0.0" the actual token stream is FLOAT("1.0") DOT
+; INTEGER("0"), not three separate INTEGER tokens. `version_head`
+; absorbs whichever of FLOAT/INTEGER the lexer produced and hands back
+; its *raw text* for `version_number` to split on "." itself.
+version_head   := FLOAT | INTEGER
+version_number := version_head ("." n:INTEGER)*
+
+statement          := disabled_statement | conditional_statement | real_statement
+disabled_statement := "#" real_statement
+
+; CASC.md §7.2's `${?NAME}` -- "skip the whole statement if unset/empty"
+; -- guards exactly the *one* statement immediately following it (its
+; own worked example: `${?FEATURE_FLAG}` on one line, `enabled = true`
+; on the next, only `enabled` is skipped; `region`/`max_retries` earlier
+; and `allowed_hosts` later are unaffected). "${?" (3 chars) always wins
+; maximal munch over plain "${" (env_ref's own 2-char opener) by sheer
+; length wherever it appears, so no ordering trick is needed here the
+; way RESOLVER_REF_RAW's anchoring needed one.
+conditional_statement := env_guard real_statement
+env_guard              := "${?" name:IDENT "}"
+
+; Order matters: `sigil_kv_statement`'s trailing `rhs` is mandatory, so
+; `-key = [...]` (remove) is tried whole before `delete_statement` ever
+; gets a chance -- if there's no value after the path at all, `rhs` fails
+; and the whole alternative backtracks cleanly, falling through to
+; `delete_statement`'s bare `-key.path` form. Trying them in the other
+; order would let `delete_statement` greedily match just the path and
+; leave a trailing `= [...]` as unparseable garbage.
+real_statement := var_decl | for_statement | import_statement | sigil_kv_statement | delete_statement
+
+; Public `@name = value` / private `@*name = value` (CASC.md §5.2).
+var_decl := "@" private:"*"? name:IDENT "="? value
+
+; CASC.md §5.1: `import "path/to/file.casc"` -- always exactly
+; `import_kw` then a quoted path, no `=`, matching every worked example
+; (unlike ordinary assignments, `=` is never shown as valid here). This
+; genuinely needs to come before `sigil_kv_statement` in `real_statement`
+; above, not just after it for tidiness: `import "path"` is otherwise
+; structurally indistinguishable from an ordinary assignment to a key
+; literally named "import" (`import "path"` == `import = "path"` once
+; §5.3's optional "=" is factored in), so `import_statement` has to get
+; first crack at it. `import_kw` is a bare IDENT, not a literal token,
+; for the same contextual-keyword reasoning as `version_header`'s `kw`
+; and the `for` grammar's `for_kw`/`as_kw`/`from_kw`/`in_kw` above.
+import_statement := import_kw:IDENT path:import_path
+import_path := DQ_STRING | SQ_STRING
+
+; CASC.md §5.5: `for <binding> [, <binding>]* [from <template>] as <dest> { <body> }`.
+; `for_kw`/`as_kw`/`from_kw`/`binding`'s `in_kw` are bare IDENTs, not
+; literal tokens -- same reasoning as `version_header`'s `kw` above:
+; CASC.md §4.1 calls out `for`/`in`/`from`/`as` as *contextual* keywords
+; specifically (reserved only inside a for-statement), never globally
+; reserved words the way §6.4's six are. `Cooper.Actions` validates the
+; text.
+;
+; The optional "from <template>" is written as an explicit CHOICE
+; between two *complete* alternatives (through `as_kw`/`dest`), not
+; `from_part?` factored out on its own. This matters: `?`/`*` in Aether
+; are greedy and commit to matching once they can, with no backtracking
+; if something *later* in the sequence then fails to match -- standard
+; PEG semantics, confirmed empirically here, not an Ichor bug. Since
+; "from"/"as" are both just bare IDENTs at the grammar level, a
+; factored-out `from_part?` would happily (and wrongly) match a bare
+; `as dest` as if "as" were "from"'s keyword and "dest" were its
+; template path, and then have nothing left for the real `as_kw`/`dest`
+; to match against -- failing the whole statement with no recovery. An
+; explicit top-level `|` doesn't have this problem: ordered-choice
+; backtracks to the next alternative when the first one's full sequence
+; fails, so trying "from ... as ... dest" first and falling back to
+; "as ... dest" when that doesn't fully pan out works correctly.
+for_statement := for_kw:IDENT binding ("," binding)*
+                  ((from_kw:IDENT template:key_path as_kw:IDENT dest:key_path)
+                  | (as_kw:IDENT dest:key_path))
+                  block
+
+; `@name` (index-only) or `@name in <iterable>` (element-bound) --
+; CASC.md §5.5. `iterable` deliberately excludes `atom_value` (unlike
+; `value` generally) -- a bare identifier is exactly what a *following*
+; `as`/`from` keyword also looks like at this grammar level, and for the
+; same "no backtracking past a committed `?`" reason as above, a binding
+; ending in `, @idx as dest` (a valid loop: an index binding placed last)
+; would otherwise have `in_kw:IDENT`="as"/`iterable`=(bare atom `dest`)
+; greedily eat the real `as dest` clause. Every *other* value shape
+; (numbers, strings, `@{}`/`%{}`/refs, lists, tuples, dates, ...) has
+; its own distinguishing punctuation a bare identifier lacks, so excluding
+; just the bare-atom case resolves the ambiguity without losing any
+; genuinely useful iterable shape (an atom isn't a list to iterate
+; anyway).
+binding := "@" name:IDENT (in_kw:IDENT iterable:iterable_value)?
+
+iterable_value := NIL_KW | TRUE_KW | FALSE_KW | INF_KW
+                 | DATETIME | DATE | TIME | IPV6 | IPV4 | DURATION | BYTES
+                 | FLOAT | INTEGER
+                 | TRIPLE_STRING | DQ_STRING | SQ_STRING
+                 | list | tuple
+                 | at_ref | env_ref | config_ref | resolver_ref | tagged_ref
+
+; CASC.md §5.7's sigil ordering (`#`, then `~`/`+`/`-`, then `*`, then the
+; key) -- `*` itself is already `key_segment`'s own per-segment prefix
+; (§4.3), so what's left here is just the merge-control sigil directly
+; before the path.
+sigil_kv_statement := sigil:("~" | "+" | "-")? key_path "="? rhs
+delete_statement    := "-" key_path
+
+rhs := block | value
+
+; CASC.md §8.4's own worked example separates two statements in one
+; block with a comma (`server { host = "0.0.0.0", port = 8080 }`), so a
+; trailing comma after a statement has to be tolerated the same way
+; list/tuple elements do, not just newline/whitespace between them.
+block := "{" (statement ","?)* "}"
+
+key_path    := key_segment ("." key_segment)*
+key_segment := secret:"*"? seg
+
+; A plain `seg:(IDENT | DQ_STRING | SQ_STRING)` on key_segment itself
+; would capture the matched *span* generically rather than preserving
+; which token actually matched, silently skipping DQ_STRING/SQ_STRING's
+; own unescaping (`handle_token` never gets dispatched) -- give it its
+; own rule so each alternative stays a bare, individually-dispatched
+; token reference.
+seg := IDENT | DQ_STRING | SQ_STRING
+
+value := NIL_KW | TRUE_KW | FALSE_KW | INF_KW
+       | DATETIME | DATE | TIME | IPV6 | IPV4 | DURATION | BYTES
+       | FLOAT | INTEGER
+       | TRIPLE_STRING | DQ_STRING | SQ_STRING
+       | list | tuple
+       | at_ref | env_ref | config_ref | resolver_ref | tagged_ref
+       | atom_value
+
+; `idx_suffix`/`ref_suffix`/`env_bracket` below are referenced *bare*
+; (no `name:` prefix), even though each is individually optional --
+; `name:some_rule?` (an explicit name directly on something that itself
+; carries a quantifier) collapses to a generic matched-span/empty-text
+; capture in both Grammar.VM backends, losing the referenced rule's own
+; structure entirely (its own `handle_rule` clause never even runs). A
+; *bare* optional reference has no such problem: it auto-captures under
+; the rule's own name when it matches (dispatching normally), and is
+; simply absent from the captures map when it doesn't -- exactly what's
+; needed here. Flagged deliberately: reintroducing `name:` on any of
+; these is a silent regression, not a style choice.
+at_ref     := "@{" name:IDENT idx_suffix? ref_suffix? "}"
+env_ref    := "${" name:IDENT env_bracket? ref_suffix? "}"
+config_ref := "%{" path:key_path idx_suffix? ref_suffix? "}"
+
+resolver_ref := raw:RESOLVER_REF_RAW
+tagged_ref   := "!" name:IDENT "(" arg:value ")"
+
+idx_suffix  := "[" INTEGER "]"
+env_bracket := "[" INTEGER? "]"
+
+; Shared suffix grammar across @{}/${}/%{} (CASC.md §7.2's own note:
+; ":default", ":+alt", ":?\"msg\"" are one rule, not three near-identical
+; ones). "?"/"+" must be tried before the plain default form: a plain
+; `:default` value could itself start with "+" (a signed number), which
+; would otherwise shadow the ":+alt" form -- CASC.md gives no textual way
+; to disambiguate that case, so ordered-choice-first-wins is the
+; resolution, same call as the version-header/number grammar makes.
+ref_suffix := (":" "?" msg:DQ_STRING) | (":" "+" alt:value) | (":" default:value)
+
+; Comma, newline, or bare whitespace all separate elements (CASC.md
+; §6.10-6.11); the trailing `","?` after each element makes the comma
+; optional rather than required, and `@skip`'s default splicing already
+; tolerates newline/whitespace-only separation for free.
+list  := "[" (value ","?)* "]"
+tuple := "(" (value ","?)* ")"
+
+; A bare identifier value (`level = info`) or an explicit `:`-sigiled one
+; (`level = :info`, or `:true`/`:false`/`:nil`/`:inf` to *reach* an atom
+; named after a reserved word -- CASC.md §6.4).
+atom_value := colon_atom | IDENT
+colon_atom := ":" atom_word
+atom_word  := IDENT | NIL_KW | TRUE_KW | FALSE_KW | INF_KW
