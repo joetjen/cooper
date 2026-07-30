@@ -16,9 +16,9 @@ defmodule Cooper.InterpActions do
   case doesn't have this limitation).
   """
 
-  @behaviour Ichor.Actions
-
   import Cooper.RefCommon, only: [eval_each: 2, build_resolver_ref: 2]
+
+  @behaviour Ichor.Actions
 
   @impl true
   def handle_rule(:text, captures, ctx) do

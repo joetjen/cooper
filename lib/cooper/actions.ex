@@ -22,8 +22,6 @@ defmodule Cooper.Actions do
   separate grammar).
   """
 
-  @behaviour Ichor.Actions
-
   alias Ichor.Error
 
   import Cooper.RefCommon,
@@ -35,6 +33,8 @@ defmodule Cooper.Actions do
       env_bracket: 2,
       build_resolver_ref: 2
     ]
+
+  @behaviour Ichor.Actions
 
   # ---- structural rules ---------------------------------------------------
 
@@ -400,6 +400,13 @@ defmodule Cooper.Actions do
     end
   end
 
+  # Four of CASC.md §6.5's five string forms: double/single/triple-quoted
+  # below, plus the bare-atom/identifier fallthrough for anything else.
+  # The fifth -- backslash-continuation ("a bare value starting with `\`
+  # at end-of-line joins onto the next line") -- is a known, deliberate
+  # gap, not an oversight: see `priv/grammar/casc.aether`'s own comment
+  # and `test/SPEC_COVERAGE.md`'s "Known gap" for why (no worked
+  # `Result` example in the spec to validate an implementation against).
   def handle_token(:DQ_STRING, text, _ctx) do
     unescaped = text |> String.slice(1..-2//1) |> unescape()
 

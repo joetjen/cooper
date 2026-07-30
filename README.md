@@ -114,15 +114,15 @@ end
 
 ```sh
 mix deps.get
-mix test
-mix format --check-formatted
-mix compile --warnings-as-errors
-mix docs
+mix precommit
 ```
 
-See [CONTRIBUTION.md](CONTRIBUTION.md) for how to propose changes, and
+`mix precommit` runs everything a change needs to pass before review —
+formatting, `--warnings-as-errors` compilation, Credo, Sobelow, the
+test suite, and Dialyzer, in that order. See
+[CONTRIBUTION.md](CONTRIBUTION.md) for how to propose changes, and
 [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 
-MIT — see [LICENSE.txt](LICENSE.txt).
+MIT — see [LICENSE](LICENSE).

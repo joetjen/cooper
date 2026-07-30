@@ -61,14 +61,14 @@ defmodule Cooper.BackendParityTest do
       ctx = Cooper.Grammar.initial_context(root: File.cwd!())
 
       native = Cooper.Grammar.run_with_context(source, Cooper.Actions, ctx)
-      vm = Cooper.Grammar.run_with_context_vm(source, Cooper.Actions, ctx)
+      vm = Cooper.Test.VMParity.run_with_context_vm(source, Cooper.Actions, ctx)
 
       assert strip_context(native) == strip_context(vm),
              "backends diverged for fixture:\n#{source}\n\nnative: #{inspect(native)}\nvm: #{inspect(vm)}"
     end
   end
 
-  test "Cooper.InterpGrammar (native) and run_vm/1 (VM) agree on interpolation parsing" do
+  test "Cooper.InterpGrammar (native) and run_interp_vm/1 (VM) agree on interpolation parsing" do
     fixtures = [
       "",
       "plain text, no refs",
@@ -79,7 +79,7 @@ defmodule Cooper.BackendParityTest do
     ]
 
     for text <- fixtures do
-      assert Cooper.NativeInterpGrammar.run(text) == Cooper.InterpGrammar.run_vm(text)
+      assert Cooper.NativeInterpGrammar.run(text) == Cooper.Test.VMParity.run_interp_vm(text)
     end
   end
 

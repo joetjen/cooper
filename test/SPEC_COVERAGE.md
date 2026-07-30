@@ -17,7 +17,7 @@ out of scope (per the spec itself, not a Cooper gap).
 | 4.1 | Key names, atoms, variable names | ✅ | `actions_test.exs` ("atoms"); `spec_coverage_test.exs` ("for/in/from/as are contextual") |
 | 4.2 | Quoted key segments | ✅ | `grammar_test.exs` ("quoted key segments") -- double- and single-quoted, dotted position |
 | 4.3 | Secret keys | ✅ | `grammar_test.exs` ("secret keys", all 3 prefix positions); `cooper_test.exs`/`secret_test.exs` -- wrapping, redaction, non-secret siblings; `resolver_test.exs` ("secrecy travels with a copied value" / "partial redaction of a secret embedded in a larger string") -- a `%{...}`/`for...from` copy, a tag or index applied to a secret, and multiple secrets interpolated into one string each stay independently redacted, never leaking via a path the wrapping wasn't originally tied to |
-| 5.1 | Imports | ✅ | `loader_test.exs` (bare path, brace+glob, cycle detection, unregistered scheme, no-match error); `spec_coverage_test.exs` ("later imports override earlier") |
+| 5.1 | Imports | ✅ | `loader_test.exs` (bare path, brace+glob, cycle detection, unregistered scheme, no-match error; "env passed through to an imported file" -- regression, an imported file's own `${?FLAG}` guard, §7.2, used to crash with `KeyError` since the per-import context silently dropped `:env`); `spec_coverage_test.exs` ("later imports override earlier") |
 | 5.2 | Variable declarations | ✅ | `sigils_test.exs` (public/private marker regression); `loader_test.exs` (public visible across imports, private doesn't leak); `spec_coverage_test.exs` (transitive import-of-import) |
 | 5.3 | Assignments (`=` optional) | ✅ | `grammar_test.exs` ("dotted paths, nested blocks, and explicit = { } all desugar identically" -- exercises both forms) |
 | 5.4 | Key paths and blocks | ✅ | `grammar_test.exs` ("key paths and blocks"); `merge_test.exs` (deep-merge at 3+ levels) |
@@ -38,7 +38,7 @@ out of scope (per the spec itself, not a Cooper gap).
 | 7.1 | Variables (`@{}`) | ✅ | `interpolation_test.exs` (unresolved AST); `resolver_test.exs` (resolved: bare, default, substitute, required, indexed, a variable whose own value is itself an unresolved ref, direct/transitive self-reference cycle error) |
 | 7.2 | Environment expansion (`${}`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (spec's own worked example verbatim, never-coerces, unset error, empty-as-unset); `spec_coverage_test.exs` (`${?NAME}` -- spec's own worked example verbatim, guards exactly one statement, skipped content never evaluated) |
 | 7.3 | Config references (`%{}`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (spec's own worked example verbatim, resolves against final tree regardless of declaration order, cycle detection with full path in error) |
-| 7.4 | Extensible resolution (`!{}`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (dispatch, unregistered-name error) |
+| 7.4 | Extensible resolution (`!{}`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (dispatch, unregistered-name error, payload nesting braces past the old single-level bound -- `Cooper.Native.ResolverRef`, confirms the payload is genuinely "brace-balanced" as this section itself says, not the fixed-depth approximation the combinator-based token had before) |
 | 7.5 | Tagged values (`!Name()`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (all 5 built-ins, nested with `${}`, consumer-registered tag, unregistered-name error) |
 | 8.1 | Blocks and maps (deep-merge) | ✅ | `merge_test.exs` |
 | 8.2 | Lists (replace wholesale) | ✅ | `merge_test.exs` |

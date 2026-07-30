@@ -7,19 +7,41 @@ defmodule Cooper.MixProject do
     [
       app: :cooper,
       version: @version,
-      elixir: "~> 1.18",
+      elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       description: description(),
       package: package(),
       name: "Cooper",
-      docs: docs()
+      docs: docs(),
+      aliases: aliases(),
+      test_coverage: [tool: ExCoveralls],
+      # `:ichor` (`runtime: false`) is invisible to dialyxir's automatic
+      # PLT app discovery -- that walks the OTP *runtime*-dependency
+      # graph, which `runtime: false` deliberately excludes it from,
+      # even though it's compiled and genuinely called by
+      # `test/support/vm_parity.ex` under :test. Added explicitly so
+      # `Aether.Parser`/`Grammar.Analysis`/`Grammar.VM.*` are in the PLT
+      # dialyzer checks that module against.
+      dialyzer: [plt_add_apps: [:mix, :ichor], ignore_warnings: ".dialyzer_ignore.exs"]
     ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  # `mix precommit` chains "test" alongside "format"/"compile"/"credo"/
+  # "sobelow"/"dialyzer" -- unlike a bare `mix test`, Mix doesn't
+  # special-case the env for a task run *through* an alias, so without
+  # this the "test" step in the chain fails outright ("mix test is
+  # running in the dev environment"). Running the *whole* alias under
+  # :test is also what makes credo/dialyzer see `test/support/`
+  # (`Cooper.Test.VMParity`) -- `elixirc_paths/1` above only adds it for
+  # :test in the first place.
+  def cli do
+    [preferred_envs: [precommit: :test]]
+  end
 
   # Run "mix help compile.app" to learn about applications.
   def application do
@@ -29,10 +51,61 @@ defmodule Cooper.MixProject do
   end
 
   # Run "mix help deps" to learn about dependencies.
+  #
+  # `ichor_runtime` is the only actual runtime dependency -- the ~24
+  # modules a `mix ichor.gen`-generated parser calls at runtime (capture
+  # dispatch, error formatting, the compiled Tokenizer/Parser, LR/GLR
+  # runtime). `ichor` proper (the Aether front-end, `Grammar.Analysis`,
+  # both codegen backends -- the bulk of the library) is only ever
+  # needed by `mix ichor.gen` itself and by the `Grammar.VM`-backed
+  # parity backend under `test/support/` -- `only: [:dev, :test]` keeps
+  # it out of a `mix release` build entirely, `runtime: false` keeps it
+  # out of the release's applications list even if something pulled it
+  # in as a compile-time-only dep. Both are independently published,
+  # own repository/release cadence -- `ichor_runtime` is not a
+  # subdirectory of `ichor`'s own repo (see its CHANGELOG.md's 0.2.0
+  # entry) -- so no `override:`/`git:`/`sparse:` wiring is needed to
+  # pull in a matching pair the way there was pre-Hex-publish.
   defp deps do
     [
-      {:ichor, "~> 0.1"},
-      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
+      # === CODE QUALITY & STATIC ANALYSIS ===
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: [:dev, :test], runtime: false},
+      # Credo is invoked via `MIX_ENV=test mix credo`
+      # Dialyzer is invoked via `MIX_ENV=test mix dialyzer`
+      # Sobelow is invoked via `MIX_ENV=test mix sobelow`
+      # Coveralls is invoked via `MIX_ENV=test mix coveralls
+
+      # === TESTING ===
+      {:mox, "~> 1.2", only: [:dev, :test]},
+      {:faker, "~> 0.19", only: [:test]},
+      {:stream_data, "~> 1.4", only: [:test]},
+
+      # === DEVELOPMENT TOOLING ===
+      # Mix, and Hex are built-in (no deps needed)
+      {:ex_doc, "~> 0.40", only: [:dev], runtime: false},
+      # ExDoc is invoked via `MIX_ENV=dev mix docs`
+
+      # === RUNTIME ===
+      {:ichor_runtime, "~> 0.1.0"},
+      {:ichor, "~> 0.2.1", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  # Fast/cheap checks first so a broken commit fails quickly; dialyzer
+  # (slowest, especially its first PLT build) runs last.
+  defp aliases do
+    [
+      precommit: [
+        "format",
+        "compile --warnings-as-errors",
+        "credo --strict",
+        "sobelow",
+        "test",
+        "dialyzer"
+      ]
     ]
   end
 
@@ -46,7 +119,8 @@ defmodule Cooper.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      files: ~w(lib priv/grammar guides .formatter.exs mix.exs README.md CHANGELOG.md LICENSE.txt)
+      links: %{"GitHub" => "https://github.com/joetjen/cooper"},
+      files: ~w(lib priv/grammar guides .formatter.exs mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
 
@@ -71,7 +145,7 @@ defmodule Cooper.MixProject do
       "guides/casc/CASC_CHEATSHEET.md",
       "CHANGELOG.md",
       "CONTRIBUTION.md",
-      "LICENSE.txt"
+      "LICENSE"
     ]
   end
 
