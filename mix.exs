@@ -119,7 +119,7 @@ defmodule Cooper.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/janoetjen/cooper"},
+      links: %{"GitHub" => "https://github.com/joetjen/cooper"},
       files: ~w(lib priv/grammar guides .formatter.exs mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
