@@ -4,32 +4,40 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-  workflow_call:
 
 permissions:
   contents: read
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-    # Elixir version stays pinned to what mix.exs requires (`~> 1.19`,
-    # matching .tool-versions) -- only OTP varies, across the latest
-    # three common majors, so a change doesn't quietly depend on
-    # behavior specific to one BEAM version.
+env:
+  MIX_ENV: test
+
+jobs:
+  ci:
+    name: OTP ${{ matrix.otp }} / Elixir 1.19.4
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        otp: ["26.2", "27.3", "28.2"]
-
+        include:
+          - otp: "28"
+            elixir: "1.19.4-otp-28"
+          - otp: "27"
+            elixir: "1.19.4-otp-27"
+          - otp: "26"
+            elixir: "1.19.4-otp-26"
     steps:
       - uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - name: Set up Elixir
+        id: beam
+        uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ matrix.otp }}
-          elixir-version: "1.19.4"
-          version-type: strict
+          elixir-version: ${{ matrix.elixir }}
 
       - name: Restore deps/_build cache
         uses: actions/cache@v4
@@ -37,20 +45,15 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ matrix.otp }}-1.19.4-${{ hashFiles('**/mix.lock') }}
+          key: mix-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ matrix.otp }}-1.19.4-
+            mix-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-
 
-      - run: mix deps.get
+      - name: Install dependencies
+        run: mix deps.get
 
-      # mix.exs's `cli/0` forces this alias to run under MIX_ENV=test
-      # (preferred_envs), so it needs no env override here. Chains
-      # format/compile --warnings-as-errors/credo --strict/sobelow/
-      # test/dialyzer -- see the alias in mix.exs for details.
-      - run: mix precommit
+      - name: Precommit
+        run: mix precommit
 
-      # Verifies the package as published to Hex actually assembles
-      # (files list in mix.exs's package/0, metadata, tarball build) --
-      # doesn't publish anything, just confirms `mix hex.publish` would
-      # have something valid to send.
-      - run: mix hex.build
+      - name: Verify package assembles (hex.build)
+        run: mix hex.build

@@ -1,19 +1,18 @@
-name: Deploy docs
+name: Docs
 
 on:
   push:
     branches: [main]
-
-# Only one deploy at a time; a newer push to main supersedes an
-# in-flight deploy rather than queueing behind it.
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -21,11 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - name: Set up Elixir
         id: beam
+        uses: erlef/setup-beam@v1
         with:
-          version-file: .tool-versions
-          version-type: strict
+          otp-version: "28.2"
+          elixir-version: "1.19.4-otp-28"
 
       - name: Restore deps/_build cache
         uses: actions/cache@v4
@@ -33,15 +33,18 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
+          key: mix-dev-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-
+            mix-dev-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-
 
-      - run: mix deps.get
-      - run: mix docs
+      - name: Install dependencies
+        run: mix deps.get
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Build docs
+        run: mix docs
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: doc
 
@@ -52,5 +55,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
         id: deployment
+        uses: actions/deploy-pages@v4
