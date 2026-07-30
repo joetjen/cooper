@@ -2,13 +2,24 @@
 
 Instructions for AI agents working in this Elixir codebase.
 
+## Communication
+
+- Every response starts with the user's first name. Determine it from `git config user.name` (take the first name); if that's unavailable or ambiguous, ask once. Remember the answer for the rest of the session rather than re-deriving or re-asking.
+
 ## Before every commit
 
 - Run `mix precommit` and make sure it passes. No exceptions.
 - If `mix precommit` isn't defined yet, add an alias in `mix.exs` (typically `compile --warnings-as-errors`, `format`, `deps.unlock --check-unused`, `test`, `dialyzer`/`credo` if configured).
 
+## Tests
+
+- Tests must stay current with behavior: a change to what code does needs its tests updated in the same commit, not "later" — a passing suite that no longer exercises real current behavior is worse than a failing one.
+- Add tests for new behavior as you write it, not as a follow-up.
+- Where inputs form a space bigger than a handful of examples usefully covers (parsers, encoders/decoders, merge/normalization logic, anything with an invariant that should hold for *all* inputs, not just the ones you thought of), prefer a property-based test (this project already depends on `stream_data`) over enumerating more example cases by hand. Use ordinary example-based tests for fixed, specific scenarios and regressions.
+
 ## Documentation
 
+- Treat every documentation surface touched by a change as part of that change, not optional polish — moduledocs/docstrings, README, guides, changelog, code comments explaining non-obvious behavior. None of it is allowed to go stale.
 - Every public module needs a `@moduledoc`. Every public function needs a `@doc`.
 - Update `@moduledoc`/`@doc` whenever behavior changes — stale docs are worse than none.
 - Keep external docs (README, guides, wikis) in sync with code changes in the same commit/PR.
