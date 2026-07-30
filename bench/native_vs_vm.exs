@@ -1,7 +1,14 @@
 # Checks that Grammar.Native shows the expected speedup over Grammar.VM
 # (~2x, per Ichor's own docs). Run with:
 #
-#   mix run bench/native_vs_vm.exs
+#   MIX_ENV=test mix run bench/native_vs_vm.exs
+#
+# MIX_ENV=test, not a plain `mix run` -- the VM-parity path this
+# benchmark compares against (`Cooper.Test.VMParity`) lives under
+# `test/support/`, only added to `elixirc_paths` for `:test` (see
+# `mix.exs`), since it calls into `ichor` proper (`Grammar.VM`,
+# `Grammar.Analysis`, ...), an `only: [:dev, :test], runtime: false`
+# dependency that a plain `:dev` `mix run` won't have compiled either.
 #
 # Representative fixture sizes, not microbenchmarks -- two of them,
 # deliberately: a realistic multi-feature config (what CASC files
@@ -97,7 +104,7 @@ ctx = Cooper.Grammar.initial_context(root: File.cwd!())
 
 run = fn label, fixture, iterations ->
   native = Cooper.Grammar.run_with_context(fixture, Cooper.Actions, ctx)
-  vm = Cooper.Grammar.run_with_context_vm(fixture, Cooper.Actions, ctx)
+  vm = Cooper.Test.VMParity.run_with_context_vm(fixture, Cooper.Actions, ctx)
 
   if elem(native, 1) != elem(vm, 1) do
     raise "backends disagree on #{label}:\nnative: #{inspect(native)}\nvm: #{inspect(vm)}"
@@ -108,7 +115,9 @@ run = fn label, fixture, iterations ->
     micros
   end
 
-  vm_micros = time.(fn input -> Cooper.Grammar.run_with_context_vm(input, Cooper.Actions, ctx) end)
+  vm_micros =
+    time.(fn input -> Cooper.Test.VMParity.run_with_context_vm(input, Cooper.Actions, ctx) end)
+
   native_micros = time.(fn input -> Cooper.Grammar.run_with_context(input, Cooper.Actions, ctx) end)
 
   IO.puts("#{label} (#{iterations} iterations):")
