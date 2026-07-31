@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-07-31
+
+### Fixed
+
+- `test/fixtures/dotenv/empty/`, used by `Cooper.DotenvTest`'s
+  "missing files are never a load-time error" and "System.get_env/0
+  is always the floor" cases, was a genuinely empty directory -- Git
+  doesn't track empty directories, so it was never actually committed
+  despite existing locally, and any fresh checkout (CI included) was
+  missing it entirely, failing both tests with a `File.Error` on
+  `File.cd!/1`. No code behavior changed; added a `.gitkeep`
+  placeholder so the directory itself is tracked.
+
 ## [0.2.0] - 2026-07-31
 
 ### Added
