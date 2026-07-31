@@ -14,12 +14,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   into `${...}` resolution, on by default, via the new optional
   `:dotenvy` dependency and `Cooper.Dotenv` module. A missing file is
   never an error. `:dotenv: false` disables just the `.env` file
-  layers; `:dotenv_env` (defaulting to `Mix.env/0` when Mix is loaded)
-  picks the per-environment file; `:dotenv_files` fully replaces the
-  default four-file list.
+  layers; `:dotenv_env` picks the per-environment file, defaulting to
+  live `Mix.env/0` when Mix is loaded, else
+  `Application.compile_env(:cooper, :dotenv_env)` (opt in from a host
+  release with `config :cooper, dotenv_env: config_env()` in its own
+  `config/config.exs` -- deliberately *not* a bare `Mix.env/0` read
+  from inside Cooper's own source, which Mix always compiles under
+  `:prod` regardless of the host app's real build env, confirmed
+  empirically against `mix help deps`'s documented dependency-env
+  isolation); `:dotenv_files` fully replaces the default four-file
+  list.
+- `Cooper.Cache`: caches everything up to the final `${...}`-resolution
+  step, keyed by mtime across the entry file and every transitively
+  bare-imported file (a GenServer-owned, `:public` ETS table with
+  stampede protection — concurrent misses on the same file coalesce
+  into one load). `${...}` resolution itself is never cached — it
+  re-runs against a freshly-computed `:env` on every call, hit or
+  miss, so an ordinary value read is always current.
+  `Cooper.Cache.invalidate/1` and `Cooper.Cache.clear/0` bust a
+  specific entry or everything. One documented limitation: a
+  `${?NAME}` guard's decision is baked in at populate time and only
+  refreshes when the cache entry itself invalidates, not on every
+  access. (`${...}` inside an `import "..."` path is unrelated --
+  CASC.md §5.1 doesn't support it at all, so it's always an
+  unconditional load-time error, never something cached.)
+- Cooper is now a proper OTP application (`mix.exs` gains a `mod:`
+  entry): a new internal application module starts a small supervision
+  tree owning `Cooper.Cache`'s process. Idle (no background work) until
+  the first `load_file/2` call, and no polling timer until the first
+  call whose file references the environment (see `watch_env` below).
+- `Cooper.Cache` emits `:telemetry` (new, non-optional dependency)
+  events: `[:cooper, :cache, :file_changed]`, always, when a
+  previously-cached entry's fingerprint no longer matches disk (never
+  on first load); `[:cooper, :cache, :env_changed]`, via `load_file/2`'s
+  new `watch_env` option (defaults to `true` for a file that references
+  `${...}` at all -- an ordinary value, a `${?NAME}` guard, or both --
+  `false` otherwise; pass it explicitly to override), when a watched
+  `${NAME}` changes -- a real `System.put_env/2` or a `.env` file edit,
+  either one, checked against `Cooper.Dotenv.env/1` on a poll timer
+  (`Application.get_env(:cooper, :env_poll_interval, 5_000)`), since
+  neither has an OS-level push notification to hook into. A genuine
+  external OS environment change (outside the running app entirely) is
+  never observable by anything, Cooper included -- documented, not a
+  gap to close. A detected change also invalidates the cache entry, so
+  a `${?NAME}` guard depending on a watched name refreshes within one
+  poll interval instead of only on a file change. `Cooper.Resolver`
+  gained `resolve_with_env_names/2` (the ordinary-value-read tracking
+  this relies on, alongside `Cooper.Actions`'/`Cooper.Loader`'s new
+  guard-name tracking) next to the unchanged `resolve/2`.
 
 ### Changed
 
+- **Breaking:** `Cooper.load_file/2` now caches by default (see
+  `Cooper.Cache`, above) -- previously it always did a full fresh
+  parse+merge+resolve on every call. For an unchanged file, the result
+  is identical, just faster on repeat calls; the one real behavior
+  difference is that a `${?NAME}` guard's decision is now sticky until
+  the cache entry invalidates, rather than re-evaluated on every single
+  call (mitigated by `watch_env`'s own default -- see above). Pass
+  `cache: false` to restore the old always-fresh behavior for a
+  specific call. `Cooper.load_string/2` is unaffected -- it never
+  caches, since there is no file to key a cache on.
 - **Breaking:** `:env` is now an override layer, not the sole source of
   `${...}` resolution. The full precedence chain, later winning, is
   `System.get_env/0` < `.env` < `.env.<dotenv_env>` < `.env.local` <

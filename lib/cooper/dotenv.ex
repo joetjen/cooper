@@ -1,7 +1,10 @@
 defmodule Cooper.Dotenv do
   @moduledoc """
   Builds the map `Cooper`'s `${...}` resolution (CASC.md §7.2) reads
-  from. Called once from `Cooper.load_string/2` -- not a separate
+  from. Called from `Cooper.load_file/2`/`load_string/2` on every
+  single call, hit or miss, cached or not -- and again by
+  `Cooper.Cache`'s own `watch_env` poll tick, so a `.env` file edit is
+  detected the same way a real `System.put_env/2` is. Not a separate
   pipeline stage callers normally reach for directly, but its own
   module (rather than inlined) because the layering rules below are
   non-trivial enough to want one place to read, and one place to test,
@@ -14,11 +17,19 @@ defmodule Cooper.Dotenv do
     1. `System.get_env/0` -- always the floor, whether or not `:env` is
        passed.
     2. `.env`
-    3. `.env.<env>` -- `<env>` from `:dotenv_env`, defaulting to
-       `Mix.env/0` when Mix is loaded. A compiled OTP release typically
-       doesn't have Mix available at runtime, so `<env>` (and this
-       whole layer) is silently absent there unless `:dotenv_env` is
-       passed explicitly.
+    3. `.env.<env>` -- `<env>`, in order: the explicit `:dotenv_env`
+       option; else live `Mix.env/0` when Mix is loaded (true for
+       `mix run`/`mix test`/`iex -S mix`, false for a compiled OTP
+       release); else `Application.compile_env(:cooper, :dotenv_env)`
+       -- baked in at *the host application's own* compile time, the
+       only way left to auto-detect an environment in a release. That
+       last one only fires if the host app opts in with `config
+       :cooper, dotenv_env: config_env()` in its own
+       `config/config.exs` -- deliberately not something Cooper can
+       default on its own (see `compiled_env/0`'s own comment for why
+       naively reading `Mix.env/0` from inside Cooper's own source
+       could never work here). No match at all leaves `<env>` (and
+       this whole layer) absent.
     4. `.env.local`
     5. the `:env` option, if the caller passed one -- always the final,
        highest-precedence override, on top of every layer above it.
@@ -55,6 +66,10 @@ defmodule Cooper.Dotenv do
   """
 
   alias Ichor.Error
+
+  # `Application.compile_env/3` must be called from the module body --
+  # see `compiled_env/0`'s own comment for why this exists at all.
+  @compiled_dotenv_env Application.compile_env(:cooper, :dotenv_env)
 
   @base_file ".env"
   @local_file ".env.local"
@@ -135,7 +150,7 @@ defmodule Cooper.Dotenv do
 
   defp current_env(opts) do
     case Keyword.get(opts, :dotenv_env, :auto) do
-      :auto -> mix_env()
+      :auto -> mix_env() || compiled_env()
       env -> env
     end
   end
@@ -145,4 +160,24 @@ defmodule Cooper.Dotenv do
       Mix.env()
     end
   end
+
+  # A release has no live `Mix` to call -- this is the only way to
+  # still auto-detect an environment there, and it only works if the
+  # *consuming* app opts in with `config :cooper, dotenv_env:
+  # config_env()` in its own `config/config.exs`. Deliberately not
+  # `Application.get_env/3` read from a plain module attribute: Mix
+  # compiles *every* dependency (Cooper included) under `Mix.env() ==
+  # :prod`, always, regardless of what the host app is actually
+  # building for (documented in `mix help deps`, under "Dependencies
+  # environment" -- confirmed empirically, not assumed), so capturing
+  # `Mix.env()` directly inside Cooper's own source would silently
+  # bake in `:prod` no matter what. `Application.compile_env/3` (see
+  # `@compiled_dotenv_env` above -- the macro only works at the module
+  # body, not from inside a function) reads config resolved from the
+  # *host* app's own `config/config.exs` instead, which genuinely does
+  # see the host's real build env, and gets Mix's automatic compile-
+  # time/runtime consistency check for free (a release warns at boot if
+  # the two ever disagree) -- neither of which a bare
+  # `Application.get_env/3` would provide.
+  defp compiled_env, do: @compiled_dotenv_env
 end

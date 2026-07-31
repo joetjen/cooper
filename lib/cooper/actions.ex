@@ -99,6 +99,8 @@ defmodule Cooper.Actions do
   # because it happened to be skipped.
   def handle_rule(:conditional_statement, captures, ctx) do
     with {:ok, name, ctx} <- Map.fetch!(captures, :env_guard).eval.(ctx) do
+      ctx = update_in(ctx, [:env_guard_names], &MapSet.put(&1, name))
+
       if env_set?(ctx.env, name) do
         Map.fetch!(captures, :real_statement).eval.(ctx)
       else

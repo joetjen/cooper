@@ -44,9 +44,15 @@ defmodule Cooper.MixProject do
   end
 
   # Run "mix help compile.app" to learn about applications.
+  #
+  # `mod:` -- new alongside `Cooper.load_file/2`'s default caching:
+  # starts `Cooper.Cache`'s GenServer+ETS table, the only thing under
+  # `lib/` that runs as a process. Idle (no work, no timers) until the
+  # first `load_file/2` call.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {Cooper.Application, []}
     ]
   end
 
@@ -96,7 +102,15 @@ defmodule Cooper.MixProject do
       # ends up on that path shouldn't be forced to install it. It's
       # deliberately *not* `only: [:dev, :test]`: `.env.prod` loading is
       # meant to work in a real release too.
-      {:dotenvy, "~> 1.1", optional: true}
+      {:dotenvy, "~> 1.1", optional: true},
+      # Not optional, unlike dotenvy -- `:telemetry.execute/3` is safe
+      # (near-zero cost) to call with zero attached handlers, so there's
+      # no real "app that never needs it" case to spare from the
+      # dependency the way there is for dotenvy's actual file I/O. Tiny,
+      # no transitive deps of its own, the de facto standard for this
+      # exact "emit events, let 0-to-N handlers attach" pattern across
+      # the Elixir ecosystem.
+      {:telemetry, "~> 1.2"}
     ]
   end
 
@@ -165,6 +179,7 @@ defmodule Cooper.MixProject do
     [
       "Public API": [
         Cooper,
+        Cooper.Cache,
         Cooper.Secret,
         Cooper.IPv4,
         Cooper.IPv6

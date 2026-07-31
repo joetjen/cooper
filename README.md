@@ -93,6 +93,22 @@ always wins, but only for the names it defines — anything else still
 falls through). See the tutorial's
 [§11](guides/TUTORIAL.md#11-env-files) for the full layering rules.
 
+## Caching
+
+`Cooper.load_file/2` caches everything up to the final `${...}`-resolution
+step by default, keyed by file mtime (imports included) — a repeat call
+for an unchanged file skips re-parsing entirely, while `${...}` values
+themselves are always re-resolved fresh, hit or miss. Pass `cache:
+false` to opt out for one call. It emits
+[`:telemetry`](https://hex.pm/packages/telemetry) events too —
+`[:cooper, :cache, :file_changed]` whenever a cached file's fingerprint
+changes, and `[:cooper, :cache, :env_changed]` (on by default for any
+file that references `${...}` at all, via `watch_env`) when an
+actually-referenced `${NAME}` changes, a real `System.put_env/2` or a
+`.env` file edit either one. See the tutorial's
+[§12](guides/TUTORIAL.md#12-caching) for the invalidation rules and
+`Cooper.Cache` for the module backing it.
+
 ## Installation
 
 Add `cooper` to your list of dependencies in `mix.exs`. `ichor` comes
@@ -111,9 +127,9 @@ above) — it's optional, so nothing pulls it in for you.
 
 ## Where to go next
 
-- **[Tutorial](guides/TUTORIAL.md)** — loading config, secrets, error
-  handling, test-time env/import injection, and enough CASC syntax to
-  follow along.
+- **[Tutorial](guides/TUTORIAL.md)** — loading config, secrets, guards,
+  error handling, test-time env/import injection, `.env` files,
+  caching, and enough CASC syntax to follow along.
 - **[Examples](guides/EXAMPLES.md)** — layered per-environment config,
   a real secrets manager, IP allowlisting, generating per-shard config
   from a template, testing config-loading code without touching disk.

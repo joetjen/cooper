@@ -44,6 +44,33 @@ defmodule Cooper.DotenvTest do
     end
   end
 
+  describe "current-environment auto-detection (no explicit :dotenv_env)" do
+    test "falls through to live Mix.env/0 -- .env.test wins during this very suite" do
+      in_fixture("auto_env", fn ->
+        assert {:ok, env} = Cooper.Dotenv.env(env: %{})
+        assert env["ONLY_ENV_TEST"] == "from-live-mix-env"
+      end)
+    end
+
+    # The next fallback after live `Mix.env/0` --
+    # `Application.compile_env(:cooper, :dotenv_env)` (`compiled_env/0`
+    # in `Cooper.Dotenv`) -- is a deliberate, called-out gap, same
+    # spirit as the missing-`:dotenvy`-dependency gap below.
+    # `Application.compile_env/3` is a macro that bakes its value into
+    # a module attribute *at Cooper's own compile time*; there is no
+    # way to make it return a different value per test case the way an
+    # ordinary function call could, short of recompiling this whole
+    # test suite under a fake `config :cooper, dotenv_env: ...` --
+    # not something worth doing for one fallback branch. Verified by
+    # hand instead: a scratch host app with `config :cooper, dotenv_env:
+    # config_env()` in its own `config/config.exs`, compiled once per
+    # `MIX_ENV`, correctly bakes in that host's own `:dev`/`:test`/
+    # `:prod` -- immune to Mix's separate (and separately confirmed)
+    # "every dependency compiles under :prod" rule, which is exactly
+    # why `compiled_env/0` uses `Application.compile_env/3` and not a
+    # bare `Mix.env/0` read from inside Cooper's own source.
+  end
+
   describe "the full layer chain, later winning" do
     test ".env, .env.<dotenv_env>, and .env.local each override the layer below them" do
       # `ONLY_BASE` is also injected as a real OS env var here, to prove

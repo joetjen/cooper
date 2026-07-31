@@ -15,9 +15,12 @@ Cooper.load_string(source, opts \\ [])
 ```
 
 `load_file/2` reads `path` and derives `:root`/import-cycle detection
-from it automatically — the ordinary way to load a real file.
-`load_string/2` is for source that isn't (yet, or ever) in a file —
-pass `:root` explicitly if it uses bare (non-`scheme://`) imports.
+from it automatically — the ordinary way to load a real file. Caches
+by default (see [Caching](#caching) below); pass `cache: false` to
+opt out for one call. `load_string/2` is for source that isn't (yet,
+or ever) in a file — pass `:root` explicitly if it uses bare
+(non-`scheme://`) imports; never caches, since there's no file to key
+one on.
 
 ## Options
 
@@ -25,12 +28,26 @@ pass `:root` explicitly if it uses bare (non-`scheme://`) imports.
 |---|---|---|---|
 | `:env` | `%{String.t() => String.t()}` | `%{}` | **Override**, not replacement, for `${...}` resolution — always wins for a name it defines, but a name it doesn't define still falls through to `.env`/the real environment (see [.env files](#env-files)). |
 | `:dotenv` | `boolean()` | `true` | Layer `.env` file(s) between `System.get_env/0` and `:env` (see [.env files](#env-files)). `false` disables just this layer. |
-| `:dotenv_env` | `atom() \| nil` | `Mix.env/0` if Mix is loaded, else `nil` | Which `.env.<env>` file to read. |
+| `:dotenv_env` | `atom() \| nil` | live `Mix.env/0` if Mix is loaded, else `Application.compile_env(:cooper, :dotenv_env)`, else `nil` | Which `.env.<env>` file to read. |
 | `:dotenv_files` | `[String.t()]` | `[".env", ".env.<dotenv_env>", ".env.local"]` | Fully replaces the default `.env` file list. |
 | `:root` | `String.t()` | `path`'s directory (`load_file/2`) / `File.cwd!/0` (`load_string/2`) | Where a bare `import "..."` resolves relative to. |
 | `:resolvers` | `%{String.t() => (payload :: String.t() -> {:ok, term()} \| {:error, term()})}` | `%{}` | One function per `!{resolver:...}` name (CASC.md §7.4). Unregistered use is a load-time error. |
 | `:tags` | `%{String.t() => (arg :: term() -> {:ok, term()} \| {:error, term()})}` | `%{}` | One function per `!Name(...)` beyond the 5 built-ins (CASC.md §7.5). Unregistered use is a load-time error. |
 | `:import_schemes` | `%{String.t() => (rest :: String.t() -> {:ok, String.t()} \| {:error, term()})}` | `%{}` | One loader per `import "scheme://..."` scheme (CASC.md §5.1). Unregistered use is a load-time error. |
+| `:cache` | `boolean()` | `true` | `load_file/2` only. `false` bypasses the cache for that call (see [Caching](#caching)). |
+| `:watch_env` | `boolean()` | whether the call references `${...}` at all | `load_file/2` only. Polls every `${NAME}` the call reads for changes (see [Caching](#caching)); pass explicitly to override the default. |
+
+## Guards
+
+```casc
+${?NAME} statement
+```
+
+Guards the *one* statement immediately after it (same line) —
+`statement` is skipped entirely (never evaluated, not
+evaluated-then-discarded) when `NAME` is unset or empty. See the
+[tutorial](TUTORIAL.md#13-guards) for the full walkthrough, including
+caching/`watch_env` interaction.
 
 ## .env files
 
@@ -47,6 +64,30 @@ name not in `:env` still falls through to `.env`/the real environment.
 Runs through the optional `:dotenvy` dependency — add
 `{:dotenvy, "~> 1.1"}` to your own `mix.exs` deps. See the
 [tutorial](TUTORIAL.md#11-env-files) for the full walkthrough.
+
+## Caching
+
+```elixir
+Cooper.load_file(path, opts \\ [])
+
+Cooper.Cache.invalidate(path)  #=> :ok
+Cooper.Cache.clear()           #=> :ok
+```
+
+`load_file/2` caches everything up to `${...}` resolution by default,
+keyed by mtime (entry file + every transitively bare-imported file).
+`${...}` itself always re-runs fresh, hit or miss. `cache: false`
+bypasses the cache for one call. A `${?NAME}` guard's decision is
+baked in at populate time, refreshed only when the entry invalidates
+-- not per access, unlike an ordinary value read. See the
+[tutorial](TUTORIAL.md#12-caching) for the full walkthrough.
+
+**Telemetry**, both no-op-cost with zero attached handlers:
+
+| Event | Metadata | Fires |
+|---|---|---|
+| `[:cooper, :cache, :file_changed]` | `%{path, root, changed_files}` | Always, when a cached entry's own fingerprint no longer matches disk. Never on first load. |
+| `[:cooper, :cache, :env_changed]` | `%{path, root, changed_names}` | With `watch_env` on (default for any call referencing `${...}`). Polled (`Application.get_env(:cooper, :env_poll_interval, 5_000)`), not pushed -- catches a `System.put_env/2` or a `.env` edit for a `${NAME}` the call actually reads; a real OS-level env change from outside the running app is never observable at all. |
 
 ## Built-in tags
 

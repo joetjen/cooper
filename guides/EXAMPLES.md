@@ -91,6 +91,33 @@ For per-environment *values* rather than whole config files —
 `.env.<env>` file does the same job without a second `.casc` file at
 all; see the tutorial's [§11](TUTORIAL.md#11-env-files).
 
+## Reacting to a config or secret change without restarting
+
+```elixir
+:telemetry.attach_many(
+  "myapp-config-reload",
+  [[:cooper, :cache, :file_changed], [:cooper, :cache, :env_changed]],
+  fn _event, _measurements, metadata, _config ->
+    {:ok, fresh} = Cooper.load_file(metadata.path)
+    MyApp.ConfigStore.put(fresh)
+  end,
+  nil
+)
+
+{:ok, config} = Cooper.load_file("config/app.casc")
+MyApp.ConfigStore.put(config)
+```
+
+`Cooper.load_file/2` already invalidates its own cache when either
+event fires — the handler doesn't need to know *why* something
+changed (a file edit, a real `System.put_env/2`, or a `.env` edit),
+just that calling `load_file/2` again now returns something different.
+`watch_env` defaults to on for any file that reads `${...}` at all, so
+a `*password = ${DB_PASSWORD}` secret rotated via a real environment
+change is covered with no extra option — and a `${?NAME}`-guarded
+block's decision refreshes right along with it, not just ordinary
+values.
+
 ## Testing config-loading code without touching disk or the network
 
 Every option that would otherwise reach for the real filesystem, OS
