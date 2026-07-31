@@ -40,7 +40,12 @@ defmodule Cooper.Resolver do
       :tags,
       cache: %{},
       in_progress: [],
-      var_in_progress: []
+      var_in_progress: [],
+      # Every `${NAME}` this resolve actually looked up, found or not --
+      # `Cooper.Cache`'s own env-change watching (`:watch_env`) uses
+      # this to know which specific names a given load depends on,
+      # rather than diffing the whole environment on every poll tick.
+      env_names: MapSet.new()
     ]
   end
 
@@ -66,6 +71,17 @@ defmodule Cooper.Resolver do
   """
   @spec resolve(term(), keyword()) :: {:ok, term()} | {:error, Error.t()}
   def resolve(tree, opts \\ []) do
+    with {:ok, resolved, _env_names} <- resolve_with_env_names(tree, opts) do
+      {:ok, resolved}
+    end
+  end
+
+  # Like resolve/2, but also returns every `${NAME}` the resolve
+  # actually looked up -- see `State.env_names`'s own comment for why.
+  @doc false
+  @spec resolve_with_env_names(term(), keyword()) ::
+          {:ok, term(), MapSet.t()} | {:error, Error.t()}
+  def resolve_with_env_names(tree, opts \\ []) do
     state = %State{
       tree: tree,
       vars: Keyword.get(opts, :vars, %{}),
@@ -75,7 +91,7 @@ defmodule Cooper.Resolver do
     }
 
     case resolve_value(tree, state) do
-      {:ok, resolved, _state} -> {:ok, resolved}
+      {:ok, resolved, state} -> {:ok, resolved, state.env_names}
       {:error, _} = err -> err
     end
   end
@@ -202,6 +218,7 @@ defmodule Cooper.Resolver do
           :error
       end
 
+    state = %{state | env_names: MapSet.put(state.env_names, name)}
     finish_ref(fetch, suffix, "${#{name}}", state)
   end
 

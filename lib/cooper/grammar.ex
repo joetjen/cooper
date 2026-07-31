@@ -88,11 +88,31 @@ defmodule Cooper.Grammar do
   @spec run_tree(String.t(), keyword()) ::
           {:ok, map(), map()} | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
   def run_tree(source_text, opts \\ []) do
+    with {:ok, tree, vars, _loaded_files, _env_guard_names} <-
+           run_tree_with_files(source_text, opts) do
+      {:ok, tree, vars}
+    end
+  end
+
+  # Like run_tree/2, but also returns the full set of real filesystem
+  # paths (entry file + every transitively bare-imported file --
+  # `ctx.loaded_files`, distinct from `ctx.importing`'s own
+  # cycle-detection-only bookkeeping) the load actually touched, and
+  # every `${?NAME}` guard name used anywhere in that same closure
+  # (`ctx.env_guard_names`) -- both for `Cooper.Cache`'s own use.
+  # `run_tree/2` stays a thin wrapper over this rather than the other
+  # way around, so its own public 2-element return shape never has to
+  # change.
+  @doc false
+  @spec run_tree_with_files(String.t(), keyword()) ::
+          {:ok, map(), map(), MapSet.t(), MapSet.t()}
+          | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
+  def run_tree_with_files(source_text, opts \\ []) do
     with {:ok, entries, ctx} <-
            run_with_context(source_text, Cooper.Actions, initial_context(opts)),
          {:ok, tree} <- Cooper.Merge.assemble(entries) do
       vars = for {name, {value, _public?}} <- ctx.vars, into: %{}, do: {name, value}
-      {:ok, tree, vars}
+      {:ok, tree, vars, ctx.loaded_files, ctx.env_guard_names}
     end
   end
 
@@ -124,7 +144,27 @@ defmodule Cooper.Grammar do
       root: Keyword.get(opts, :root, File.cwd!()),
       import_schemes: Keyword.get(opts, :import_schemes, %{}),
       importing: importing,
-      env: Keyword.get(opts, :env, System.get_env())
+      # Unlike `importing` (an in-progress-descent stack, deliberately
+      # reset once an import completes so the same file can be imported
+      # again later without a false cycle), `loaded_files` only ever
+      # grows -- the full transitive set of real filesystem paths this
+      # load actually read, for `Cooper.Cache`'s fingerprinting. Starts
+      # identical to `importing` (the entry file, if any); the two
+      # diverge from here as `Cooper.Loader` propagates each upward
+      # differently.
+      loaded_files: importing,
+      env: Keyword.get(opts, :env, System.get_env()),
+      # Every name used in a `${?NAME}` guard (CASC.md §7.2) in this
+      # file (or, once `Cooper.Loader` union-propagates it upward, any
+      # transitively bare-imported file) -- `Cooper.load_file/2` uses
+      # this to decide `:watch_env`'s implicit default and, when it
+      # fires, *which* names to actually poll. A guard is exactly the
+      # case where a cached tree's own *shape* silently depends on env,
+      # not just a value inside it -- and a guard name is frequently
+      # never read as an ordinary `${NAME}` value anywhere else in the
+      # file, so `Cooper.Resolver`'s own env-name tracking alone
+      # wouldn't see it.
+      env_guard_names: MapSet.new()
     }
   end
 

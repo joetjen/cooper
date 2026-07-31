@@ -86,6 +86,38 @@ the same path. Adding `config/staging.casc` alongside `prod.casc`, each
 importing `base.casc` and overriding just what differs, avoids
 duplicating the shared two-thirds of the file across every environment.
 
+For per-environment *values* rather than whole config files —
+`${DB_PASSWORD}` differing per environment, not `server.port` — a
+`.env.<env>` file does the same job without a second `.casc` file at
+all; see the tutorial's [§11](TUTORIAL.md#11-env-files).
+
+## Reacting to a config or secret change without restarting
+
+```elixir
+:telemetry.attach_many(
+  "myapp-config-reload",
+  [[:cooper, :cache, :file_changed], [:cooper, :cache, :env_changed]],
+  fn _event, _measurements, metadata, _config ->
+    {:ok, fresh} = Cooper.load_file(metadata.path)
+    MyApp.ConfigStore.put(fresh)
+  end,
+  nil
+)
+
+{:ok, config} = Cooper.load_file("config/app.casc")
+MyApp.ConfigStore.put(config)
+```
+
+`Cooper.load_file/2` already invalidates its own cache when either
+event fires — the handler doesn't need to know *why* something
+changed (a file edit, a real `System.put_env/2`, or a `.env` edit),
+just that calling `load_file/2` again now returns something different.
+`watch_env` defaults to on for any file that reads `${...}` at all, so
+a `*password = ${DB_PASSWORD}` secret rotated via a real environment
+change is covered with no extra option — and a `${?NAME}`-guarded
+block's decision refreshes right along with it, not just ordinary
+values.
+
 ## Testing config-loading code without touching disk or the network
 
 Every option that would otherwise reach for the real filesystem, OS
@@ -124,9 +156,12 @@ end
 ```
 
 No real file named `base.casc` exists anywhere — `mem://base` is
-resolved entirely in memory by the test's own `schemes` map, and
-`POOL_SIZE` is a plain map, not a real environment variable that could
-leak between test runs.
+resolved entirely in memory by the test's own `schemes` map.
+`POOL_SIZE` specifically is guaranteed to be `"50"` regardless of the
+real environment or any `.env` file, because `:env` always wins for a
+name it defines — see the tutorial's [§11](TUTORIAL.md#11-env-files)
+for why that's an override, not full isolation, and doesn't extend to
+`${...}` names a test's `:env` map doesn't mention.
 
 ## IP allowlisting with real CIDR math
 

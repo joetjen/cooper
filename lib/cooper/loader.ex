@@ -116,7 +116,7 @@ defmodule Cooper.Loader do
     else
       case File.read(file) do
         {:ok, source} ->
-          load_source(file, source, ctx)
+          load_source(file, source, %{ctx | loaded_files: MapSet.put(ctx.loaded_files, file)})
 
         {:error, reason} ->
           {:error,
@@ -131,25 +131,33 @@ defmodule Cooper.Loader do
   # A freshly-loaded file starts with an *empty* local `vars` (it
   # doesn't inherit the importer's own variables -- CASC.md §5.2 only
   # describes visibility flowing the other way, imported-file-to-
-  # importer), but the *cycle-detection set*, `import_schemes`, and
-  # `env` do carry forward (an imported file's own `${?NAME}` guard --
-  # CASC.md §7.2 -- reads `ctx.env` at parse time, same as the entry
-  # file's; dropping it here previously crashed with `KeyError` the
-  # first time an import used one), and `root` switches to the newly
-  # loaded file's own directory (its own imports resolve relative to
-  # itself, not the original entry file -- CASC.md §5.1).
+  # importer), but the *cycle-detection set*, `loaded_files`,
+  # `import_schemes`, and `env` do carry forward (an imported file's own
+  # `${?NAME}` guard -- CASC.md §7.2 -- reads `ctx.env` at parse time,
+  # same as the entry file's; dropping it here previously crashed with
+  # `KeyError` the first time an import used one), and `root` switches
+  # to the newly loaded file's own directory (its own imports resolve
+  # relative to itself, not the original entry file -- CASC.md §5.1).
   defp load_source(file, source, ctx) do
     sub_ctx = %{
       vars: %{},
       root: Path.dirname(file),
       import_schemes: ctx.import_schemes,
       importing: MapSet.put(ctx.importing, file),
-      env: ctx.env
+      loaded_files: ctx.loaded_files,
+      env: ctx.env,
+      env_guard_names: MapSet.new()
     }
 
     case Cooper.Grammar.run_with_context(source, Cooper.Actions, sub_ctx) do
       {:ok, entries, result_ctx} ->
-        {:ok, entries, merge_public_vars(ctx, result_ctx.vars)}
+        ctx =
+          ctx
+          |> merge_public_vars(result_ctx.vars)
+          |> merge_loaded_files(result_ctx.loaded_files)
+          |> merge_env_guard_names(result_ctx.env_guard_names)
+
+        {:ok, entries, ctx}
 
       {:error, _} = err ->
         err
@@ -159,6 +167,27 @@ defmodule Cooper.Loader do
   defp merge_public_vars(ctx, imported_vars) do
     public = for {name, {_value, true} = entry} <- imported_vars, into: %{}, do: {name, entry}
     update_in(ctx, [:vars], &Map.merge(&1, public))
+  end
+
+  # Unlike `importing`, deliberately *not* discarded when `load_source/3`
+  # returns -- `result_ctx.loaded_files` (which a nested import may have
+  # grown further) has to make it all the way back up to the top-level
+  # caller, so `Cooper.Cache` can fingerprint every file that
+  # contributed to the load, not just the entry file. A `scheme://`
+  # source (`load_scheme/3`, above) never adds itself here -- there's no
+  # real file to fingerprint for one, so its content simply isn't
+  # independently freshness-tracked; a cached entry only refreshes it
+  # when something file-backed in the same load also changes.
+  defp merge_loaded_files(ctx, imported_files) do
+    update_in(ctx, [:loaded_files], &MapSet.union(&1, imported_files))
+  end
+
+  # Same "only ever grows, propagates upward" treatment as
+  # `merge_loaded_files/2` -- an imported file's own `${?NAME}` guard
+  # names make the *whole* load's shape env-dependent, not just that
+  # one file's.
+  defp merge_env_guard_names(ctx, imported_guard_names) do
+    update_in(ctx, [:env_guard_names], &MapSet.union(&1, imported_guard_names))
   end
 
   # Handles one brace group per pass, recursing on the substituted
