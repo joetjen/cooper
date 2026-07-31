@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `.env` file support: `Cooper.load_file/2`/`load_string/2` now layer
+  `.env`, `.env.<env>`, and `.env.local` (project root, later winning)
+  into `${...}` resolution, on by default, via the new optional
+  `:dotenvy` dependency and `Cooper.Dotenv` module. A missing file is
+  never an error. `:dotenv: false` disables just the `.env` file
+  layers; `:dotenv_env` (defaulting to `Mix.env/0` when Mix is loaded)
+  picks the per-environment file; `:dotenv_files` fully replaces the
+  default four-file list.
+
+### Changed
+
+- **Breaking:** `:env` is now an override layer, not the sole source of
+  `${...}` resolution. The full precedence chain, later winning, is
+  `System.get_env/0` < `.env` < `.env.<dotenv_env>` < `.env.local` <
+  `:env`. Previously, passing `:env` fully replaced `System.get_env/0`
+  and nothing else was consulted; now `System.get_env/0` (and any
+  `.env` file) is always in the mix, and `:env` guarantees a value only
+  for the names it explicitly defines — a `${...}` reference to any
+  other name still falls through to the real environment/`.env` files,
+  exactly as if `:env` weren't passed. Code (including tests) that
+  relied on `:env` fully isolating resolution from the real environment
+  needs to either give every relevant name its own explicit `:env`
+  entry, or pass `dotenv: false` if only the `.env` file layers (not
+  `System.get_env/0`) need ruling out. Per SemVer's pre-1.0 rules, this
+  will ship as a `0.x` bump, not `1.0.0`.
+
 ## [0.1.0] - 2026-07-31
 
 ### Added

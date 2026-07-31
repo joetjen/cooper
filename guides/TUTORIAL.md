@@ -118,7 +118,8 @@ never inherited by whatever imports it back.
 
 ## 4. Environment references
 
-`${NAME}` reads an OS (or injected, see §7) environment variable.
+`${NAME}` reads an OS (or injected, see §7) environment variable —
+including one layered in from a `.env` file, on by default; see §11.
 Unlike `@{...}`, it always resolves to a plain string — CASC never
 guesses that a string "looks like" a number or boolean for you:
 
@@ -265,12 +266,17 @@ iex> Cooper.load_string(source, import_schemes: schemes)
 {:ok, %{"app_name" => "orders", "region" => "eu-west"}}
 ```
 
-The same pattern applies to `:env` (a plain map instead of the real OS
-environment — every example in this tutorial already uses it) and
-`:resolvers`/`:tags` (in-memory stand-ins for whatever a real resolver
-would call out to). None of `Cooper`'s options require touching global
-state, which is what makes config-loading code straightforward to
-test.
+`:resolvers`/`:tags` work the same way — in-memory stand-ins for
+whatever a real resolver would call out to, with no global state to set
+up or tear down.
+
+`:env` (every example in this tutorial already uses it) is a little
+different: it's an **override**, not a replacement — see §11 for why
+`env: %{"REGION" => "eu-west"}` guarantees `REGION` specifically but
+doesn't isolate a test from the real environment or any `.env` file on
+disk the way `:resolvers`/`import_schemes` do. Give every name a test
+needs a deterministic value for its own explicit `:env` entry, rather
+than relying on it being otherwise unset.
 
 ## 8. Merge control and loops
 
@@ -399,6 +405,49 @@ case Cooper.load_file("config.casc", resolvers: resolvers) do
     raise "invalid config: #{error.message}"
 end
 ```
+
+## 11. .env files
+
+By default, `Cooper` layers `.env` files from the project root into
+`${...}` resolution — no extra option needed. The full chain, later
+winning:
+
+```elixir
+iex> Cooper.load_file("config.casc")
+```
+
+1. `System.get_env/0` — always the floor, whether or not `:env` is
+   passed
+2. `.env`
+3. `.env.<env>` — `<env>` is `Mix.env/0` when Mix is loaded (pass
+   `dotenv_env:` explicitly in a release, where Mix usually isn't
+   available)
+4. `.env.local` — a personal, usually-gitignored override
+5. `:env`, if passed — always the final, highest-precedence override
+
+A missing file (2-4) is never an error — `.env.<env>` in particular is
+expected to be absent for every environment but the current one.
+
+**`:env` overrides, it doesn't isolate.** `env: %{"REGION" =>
+"eu-west"}` guarantees `REGION` resolves to `"eu-west"` — but any
+`${...}` reference to a name *not* in that map still falls through to
+`.env`/`.env.local`/the real OS environment, same as if `:env` weren't
+passed at all:
+
+```elixir
+iex> Cooper.load_string(source, env: %{"REGION" => "eu-west"})
+# REGION is guaranteed -- everything else still reads through to
+# .env/.env.local/the real environment
+```
+
+`dotenv: false` disables just the `.env` file layers (2-4) —
+`System.get_env/0` and `:env` still apply either way. `:dotenv_files`
+fully replaces the default four-file list, for a non-standard layout.
+This runs through the optional `:dotenvy` dependency — add
+`{:dotenvy, "~> 1.1"}` to your own `mix.exs` deps. An explicit `dotenv:
+true` without it installed is a load-time error naming it; the
+*default*-enabled case just no-ops instead (same as no `.env` files
+existing).
 
 From here, [CASC.md](casc/CASC.md) is the full reference for anything
 this tutorial only touched briefly, and the

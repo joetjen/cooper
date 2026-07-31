@@ -19,9 +19,21 @@ defmodule Cooper do
 
   Both functions take the same `opts`:
 
-    * `:env` -- `%{String.t() => String.t()}`, the source `${...}`
-      (CASC.md §7.2) reads from. Defaults to `System.get_env/0`; pass an
-      explicit map in tests rather than relying on the real environment.
+    * `:env` -- `%{String.t() => String.t()}`, an override layer for
+      `${...}` (CASC.md §7.2) resolution -- **not** a replacement for
+      the real environment. `System.get_env/0` is always the floor
+      (layered under `.env`/`.env.local`, in turn under `:env`, see
+      `Cooper.Dotenv`); a name given here always wins, but a name
+      *not* given here still falls through to a real OS/`.env` value if
+      one is set. There is currently no option that fully isolates
+      resolution from the real environment -- give every name a test
+      needs a deterministic value under `:env` explicitly, rather than
+      relying on it being otherwise unset.
+    * `:dotenv` / `:dotenv_env` / `:dotenv_files` -- layer `.env`
+      file(s) from the project root between `System.get_env/0` and
+      `:env`, via the optional `:dotenvy` dependency, on by default.
+      See `Cooper.Dotenv` for the full layering rules, environment
+      detection, and how to disable or reconfigure it.
     * `:root` -- filesystem root a bare (non-`scheme://`) `import`
       resolves relative to (§5.1). `load_file/2` derives this from
       `path`'s own directory automatically; `load_string/2` defaults to
@@ -44,10 +56,10 @@ defmodule Cooper do
   Every stage returns `{:error, Ichor.Error.t() | [Ichor.Error.t()]}` on
   failure, reusing `Ichor.Error` directly rather than inventing a
   parallel error type -- lexer/parser/analysis errors come from Ichor's
-  own stages unchanged; `Cooper`'s own stages (`:loop`, `:import`,
-  `:merge`, `:resolve`) extend the same `%Ichor.Error{stage: ...}` shape
-  with new atoms rather than a new struct, so every error looks the same
-  regardless of which stage raised it.
+  own stages unchanged; `Cooper`'s own stages (`:dotenv`, `:loop`,
+  `:import`, `:merge`, `:resolve`) extend the same `%Ichor.Error{stage:
+  ...}` shape with new atoms rather than a new struct, so every error
+  looks the same regardless of which stage raised it.
 
   ## A note on atoms
 
@@ -66,6 +78,9 @@ defmodule Cooper do
 
   @type opts :: [
           env: %{optional(String.t()) => String.t()},
+          dotenv: boolean(),
+          dotenv_env: atom() | nil,
+          dotenv_files: [String.t()],
           root: String.t(),
           resolvers: %{optional(String.t()) => (String.t() -> {:ok, term()} | {:error, term()})},
           tags: %{optional(String.t()) => (term() -> {:ok, term()} | {:error, term()})},
@@ -109,11 +124,14 @@ defmodule Cooper do
   """
   @spec load_string(String.t(), opts()) :: {:ok, term()} | {:error, Error.t() | [Error.t()]}
   def load_string(source, opts \\ []) do
-    grammar_opts = Keyword.take(opts, [:root, :file, :import_schemes, :env])
+    with {:ok, env} <- Cooper.Dotenv.env(opts) do
+      opts = Keyword.put(opts, :env, env)
+      grammar_opts = Keyword.take(opts, [:root, :file, :import_schemes, :env])
 
-    with {:ok, tree, vars} <- Cooper.Grammar.run_tree(source, grammar_opts),
-         resolver_opts = [vars: vars] ++ Keyword.take(opts, [:env, :resolvers, :tags]) do
-      Cooper.Resolver.resolve(tree, resolver_opts)
+      with {:ok, tree, vars} <- Cooper.Grammar.run_tree(source, grammar_opts),
+           resolver_opts = [vars: vars] ++ Keyword.take(opts, [:env, :resolvers, :tags]) do
+        Cooper.Resolver.resolve(tree, resolver_opts)
+      end
     end
   end
 end

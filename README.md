@@ -83,6 +83,16 @@ See the [tutorial](guides/TUTORIAL.md) for a full walkthrough of both
 the library and the CASC syntax it parses, or the
 [cheatsheet](guides/CHEATSHEET.md) for a terse API reference.
 
+## .env files
+
+`${...}` reads pick up `.env`/`.env.<env>`/`.env.local` from the
+project root automatically — on by default, no option needed — via the
+optional [`dotenvy`](https://hex.pm/packages/dotenvy) dependency, layered
+between the real OS environment and an explicit `:env` option (which
+always wins, but only for the names it defines — anything else still
+falls through). See the tutorial's
+[§11](guides/TUTORIAL.md#11-env-files) for the full layering rules.
+
 ## Installation
 
 Add `cooper` to your list of dependencies in `mix.exs`. `ichor` comes
@@ -95,6 +105,9 @@ def deps do
   ]
 end
 ```
+
+Add `{:dotenvy, "~> 1.1"}` too if you want `.env` file support (see
+above) — it's optional, so nothing pulls it in for you.
 
 ## Where to go next
 

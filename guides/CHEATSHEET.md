@@ -23,11 +23,30 @@ pass `:root` explicitly if it uses bare (non-`scheme://`) imports.
 
 | Option | Shape | Default | Effect |
 |---|---|---|---|
-| `:env` | `%{String.t() => String.t()}` | `System.get_env/0` | What `${...}` reads from. |
+| `:env` | `%{String.t() => String.t()}` | `%{}` | **Override**, not replacement, for `${...}` resolution — always wins for a name it defines, but a name it doesn't define still falls through to `.env`/the real environment (see [.env files](#env-files)). |
+| `:dotenv` | `boolean()` | `true` | Layer `.env` file(s) between `System.get_env/0` and `:env` (see [.env files](#env-files)). `false` disables just this layer. |
+| `:dotenv_env` | `atom() \| nil` | `Mix.env/0` if Mix is loaded, else `nil` | Which `.env.<env>` file to read. |
+| `:dotenv_files` | `[String.t()]` | `[".env", ".env.<dotenv_env>", ".env.local"]` | Fully replaces the default `.env` file list. |
 | `:root` | `String.t()` | `path`'s directory (`load_file/2`) / `File.cwd!/0` (`load_string/2`) | Where a bare `import "..."` resolves relative to. |
 | `:resolvers` | `%{String.t() => (payload :: String.t() -> {:ok, term()} \| {:error, term()})}` | `%{}` | One function per `!{resolver:...}` name (CASC.md §7.4). Unregistered use is a load-time error. |
 | `:tags` | `%{String.t() => (arg :: term() -> {:ok, term()} \| {:error, term()})}` | `%{}` | One function per `!Name(...)` beyond the 5 built-ins (CASC.md §7.5). Unregistered use is a load-time error. |
 | `:import_schemes` | `%{String.t() => (rest :: String.t() -> {:ok, String.t()} \| {:error, term()})}` | `%{}` | One loader per `import "scheme://..."` scheme (CASC.md §5.1). Unregistered use is a load-time error. |
+
+## .env files
+
+On by default. Layers, later winning:
+
+```text
+System.get_env/0 < .env < .env.<dotenv_env> < .env.local < :env
+```
+
+`.env`/`.env.<dotenv_env>`/`.env.local` are optional -- missing is
+never an error. `:env`, if passed, always wins for the names it
+defines, but doesn't isolate resolution from anything below it -- a
+name not in `:env` still falls through to `.env`/the real environment.
+Runs through the optional `:dotenvy` dependency — add
+`{:dotenvy, "~> 1.1"}` to your own `mix.exs` deps. See the
+[tutorial](TUTORIAL.md#11-env-files) for the full walkthrough.
 
 ## Built-in tags
 
@@ -101,20 +120,28 @@ string; `error.stage` says roughly where it came from:
 | `:import` | A file couldn't be read, an import cycle, or an unregistered `scheme://`. |
 | `:merge` | A `~`/`+`/`-` sigil applied to a value it can't operate on (e.g. `+`/`-` against a tuple). |
 | `:resolve` | An undefined `@{}`/`${}` reference with no default, a `${NAME:?"msg"}` failure, a `%{...}`/`@{...}` reference cycle, or an unregistered resolver/tag. |
+| `:dotenv` | An `.env` file that exists but fails to parse, or `dotenv: true` explicitly requested without the optional `:dotenvy` dependency installed. |
 
 ## Test-time injection
 
-Every option that would otherwise touch the real filesystem, OS
-environment, or an external service is a plain function/map you supply
-— nothing in `Cooper` reaches for global state on its own:
+`:resolvers`/`:import_schemes` fully replace whatever they'd otherwise
+reach for — a plain function/map you supply, no global state involved:
 
 ```elixir
 Cooper.load_string(source,
-  env: %{"DB_PASSWORD" => "test-secret"},
   resolvers: %{"vault" => fn payload -> {:ok, "stub:" <> payload} end},
   import_schemes: %{"mem" => fn _rest -> {:ok, other_source} end}
 )
 ```
+
+`:env` is different — it's an **override**, not an isolation
+mechanism (see [.env files](#env-files)). `env: %{"DB_PASSWORD" =>
+"test-secret"}` guarantees `DB_PASSWORD` specifically, but any other
+`${...}` a test's source reads still falls through to `.env` files and
+the real OS environment. Give every name the test depends on an
+explicit `:env` entry rather than relying on it being otherwise unset;
+`dotenv: false` additionally skips the `.env` file layers if a test
+needs to rule those out too.
 
 ## Pipeline modules
 
@@ -123,6 +150,7 @@ through `Cooper.load_file/2`/`load_string/2`:
 
 | Module | Stage |
 |---|---|
+| `Cooper.Dotenv` | Build the `${...}`-resolution env map (see [.env files](#env-files)). |
 | `Cooper.Grammar` / `Cooper.Actions` | Lex + parse into flattened ops. |
 | `Cooper.Loop` | Expand `for` statements into the ops they generate. |
 | `Cooper.Loader` | Resolve and recursively load `import` statements. |

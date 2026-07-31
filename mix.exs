@@ -90,7 +90,13 @@ defmodule Cooper.MixProject do
 
       # === RUNTIME ===
       {:ichor_runtime, "~> 0.1.0"},
-      {:ichor, "~> 0.2.1", only: [:dev, :test], runtime: false}
+      {:ichor, "~> 0.2.1", only: [:dev, :test], runtime: false},
+      # `optional: true` -- `Cooper.Dotenv` calls into it, but only when
+      # `.env` loading actually runs (the default), so an app that never
+      # ends up on that path shouldn't be forced to install it. It's
+      # deliberately *not* `only: [:dev, :test]`: `.env.prod` loading is
+      # meant to work in a real release too.
+      {:dotenvy, "~> 1.1", optional: true}
     ]
   end
 
@@ -176,6 +182,7 @@ defmodule Cooper.MixProject do
         Cooper.Merge.Layered
       ],
       Pipeline: [
+        Cooper.Dotenv,
         Cooper.Grammar,
         Cooper.Actions,
         Cooper.Loop,
