@@ -117,7 +117,7 @@ along as its own dependency automatically — no separate line needed:
 ```elixir
 def deps do
   [
-    {:cooper, "~> 0.1.0"}
+    {:cooper, "~> 0.2.0"}
   ]
 end
 ```
