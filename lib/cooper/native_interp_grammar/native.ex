@@ -535,7 +535,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__0(stream, pos, ref_stack, context) do
       case parse_rule__segment(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack, %{segment: {:rule, :segment, sub_captures}}}
+          {:ok, new_pos, new_ref_stack, segment: {:rule, :segment, sub_captures}}
 
         _fail ->
           :fail
@@ -549,10 +549,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__1(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :AT_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, %{AT_REF_RAW: {:token, :AT_REF_RAW, text}}}
+          {:ok, new_pos, ref_stack, AT_REF_RAW: {:token, :AT_REF_RAW, text}}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, %{AT_REF_RAW: capture}}
+          {:ok, new_pos, ref_stack, AT_REF_RAW: capture}
 
         :fail ->
           :fail
@@ -562,10 +562,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__2(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ENV_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, %{ENV_REF_RAW: {:token, :ENV_REF_RAW, text}}}
+          {:ok, new_pos, ref_stack, ENV_REF_RAW: {:token, :ENV_REF_RAW, text}}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, %{ENV_REF_RAW: capture}}
+          {:ok, new_pos, ref_stack, ENV_REF_RAW: capture}
 
         :fail ->
           :fail
@@ -575,10 +575,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__3(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :CONFIG_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, %{CONFIG_REF_RAW: {:token, :CONFIG_REF_RAW, text}}}
+          {:ok, new_pos, ref_stack, CONFIG_REF_RAW: {:token, :CONFIG_REF_RAW, text}}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, %{CONFIG_REF_RAW: capture}}
+          {:ok, new_pos, ref_stack, CONFIG_REF_RAW: capture}
 
         :fail ->
           :fail
@@ -588,10 +588,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__4(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :RESOLVER_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, %{RESOLVER_REF_RAW: {:token, :RESOLVER_REF_RAW, text}}}
+          {:ok, new_pos, ref_stack, RESOLVER_REF_RAW: {:token, :RESOLVER_REF_RAW, text}}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, %{RESOLVER_REF_RAW: capture}}
+          {:ok, new_pos, ref_stack, RESOLVER_REF_RAW: capture}
 
         :fail ->
           :fail
@@ -601,10 +601,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__5(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TAGGED_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, %{TAGGED_REF_RAW: {:token, :TAGGED_REF_RAW, text}}}
+          {:ok, new_pos, ref_stack, TAGGED_REF_RAW: {:token, :TAGGED_REF_RAW, text}}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, %{TAGGED_REF_RAW: capture}}
+          {:ok, new_pos, ref_stack, TAGGED_REF_RAW: capture}
 
         :fail ->
           :fail
@@ -614,10 +614,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__6(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TEXT_CHUNK) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, %{TEXT_CHUNK: {:token, :TEXT_CHUNK, text}}}
+          {:ok, new_pos, ref_stack, TEXT_CHUNK: {:token, :TEXT_CHUNK, text}}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, %{TEXT_CHUNK: capture}}
+          {:ok, new_pos, ref_stack, TEXT_CHUNK: capture}
 
         :fail ->
           :fail
@@ -654,7 +654,8 @@ defmodule Cooper.NativeInterpGrammar.Native do
     )
 
     @doc "Matches `input` against the grammar's root rule, requiring the entire (tokenized) input to be consumed. A bare recognizer -- no `Ichor.Actions` involved. `context` is read-only and only ever consulted by a `Grammar.IR.Custom` `@native(...)` node, if the grammar has one."
-    @spec parse(String.t(), term()) :: {:ok, non_neg_integer(), map()} | {:error, Ichor.Error.t()}
+    @spec parse(String.t(), term()) ::
+            {:ok, non_neg_integer(), Ichor.Capture.raw_captures()} | {:error, Ichor.Error.t()}
     def parse(input, context \\ nil) do
       with {:ok, tokens} <- tokenize(input, context) do
         stream = List.to_tuple(tokens)

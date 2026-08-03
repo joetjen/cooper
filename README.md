@@ -149,7 +149,7 @@ mix precommit
 `mix precommit` runs everything a change needs to pass before review —
 formatting, `--warnings-as-errors` compilation, Credo, Sobelow, the
 test suite, and Dialyzer, in that order. See
-[CONTRIBUTION.md](CONTRIBUTION.md) for how to propose changes, and
+[CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes, and
 [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
