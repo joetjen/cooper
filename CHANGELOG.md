@@ -179,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.credo.exs` and `.dialyzer_ignore.exs` (the latter narrowly scoped
   to two known-benign Dialyzer findings around `MapSet`'s opaque type
   in generated code, not a blanket suppression) are new at the repo
-  root. See `CONTRIBUTION.md`'s "Making a change" §4.
+  root. See `CONTRIBUTING.md`'s "Making a change" §4.
 
 ### Changed
 

@@ -164,7 +164,7 @@ defmodule Cooper.MixProject do
       "guides/casc/CASC_EXAMPLES.md",
       "guides/casc/CASC_CHEATSHEET.md",
       "CHANGELOG.md",
-      "CONTRIBUTION.md",
+      "CONTRIBUTING.md",
       "LICENSE"
     ]
   end
