@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Bumped `ichor_runtime` to `~> 0.2` (from `~> 0.1.0`) and the dev/test-only
+  `ichor` to `~> 0.3` (from `~> 0.2.1`, the minimum that depends on
+  `ichor_runtime ~> 0.2` in turn), and dropped the patch component from
+  both requirements (`~> 0.2`/`~> 0.3` rather than pinning a specific
+  patch). `ichor_runtime` 0.2.0's breaking change is internal to the
+  parse pipeline: raw capture data (`Ichor.Capture.node_t/0`'s `:rule`
+  variant) is now an ordered `[{name, value}]` list instead of a plain
+  map, fixing sibling-capture evaluation order depending on a map's own
+  (cross-OTP-version-unstable) iteration order rather than true
+  first-occurrence source order. `lib/cooper/native_grammar/native.ex`
+  and `lib/cooper/native_interp_grammar/native.ex` (both `mix ichor.gen`
+  output for `priv/grammar/casc.aether`/`casc_interp.aether`) were
+  regenerated to match; `lib/cooper/native_grammar/capture_shapes.ex`
+  (`scripts/gen_capture_shapes.exs`) was regenerated too but came out
+  unchanged, since which captures are repeatable is orthogonal to this
+  fix. No hand-written code needed updating: `Cooper.Actions`/
+  `Cooper.InterpActions` only ever see the already-evaluated `captures`
+  map `handle_rule/3` callbacks receive (unaffected by the change), and
+  both modules implement an exhaustive catch-all `handle_rule/3` clause,
+  so `Ichor.Actions`' own default fallback -- the only place the old
+  buggy ordering could actually surface -- was never reachable from
+  Cooper's own grammars in the first place. No observable behavior
+  change for anything calling into `Cooper`'s public API.
+
 ## [0.2.1] - 2026-07-31
 
 ### Fixed
