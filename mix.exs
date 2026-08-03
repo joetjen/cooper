@@ -95,8 +95,8 @@ defmodule Cooper.MixProject do
       # ExDoc is invoked via `MIX_ENV=dev mix docs`
 
       # === RUNTIME ===
-      {:ichor_runtime, "~> 0.1.0"},
-      {:ichor, "~> 0.2.1", only: [:dev, :test], runtime: false},
+      {:ichor_runtime, "~> 0.2"},
+      {:ichor, "~> 0.3", only: [:dev, :test], runtime: false},
       # `optional: true` -- `Cooper.Dotenv` calls into it, but only when
       # `.env` loading actually runs (the default), so an app that never
       # ends up on that path shouldn't be forced to install it. It's
