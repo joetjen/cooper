@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `mix.exs`'s `docs/0` now sets `source_url` and `homepage_url`
+  (`https://github.com/joetjen/cooper` and
+  `https://joetjen.github.io/cooper`), and `package/0`'s `links` gained
+  a `"Docs"` entry alongside `"GitHub"`, so generated docs (both
+  HexDocs and the GitHub Pages copy `.github/workflows/docs.yml`
+  deploys) link back to the right places instead of leaving ExDoc to
+  guess. README.md and CONTRIBUTING.md now link to the published
+  GitHub Pages docs site too.
+
 ## [0.2.2] - 2026-08-03
 
 ### Changed
