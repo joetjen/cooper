@@ -125,7 +125,11 @@ dependency, no local Ichor checkout needed.
    file under `guides/` — broken cross-references between docs are easy
    to introduce and ExDoc doesn't fail the build over them (see the
    Sobelow/Dialyzer note below for the parallel case that *does* fail
-   the build).
+   the build). `mix docs`' output (`doc/`, gitignored) is exactly what
+   `.github/workflows/docs.yml` rebuilds and deploys to
+   [GitHub Pages](https://joetjen.github.io/cooper/) on every push to
+   `main`, so a local `mix docs` run is the fastest way to see what a
+   change will actually look like there before it merges.
 
    First run only: Dialyzer needs to build a PLT (persistent lookup
    table), which takes a minute or two; every run after that is fast.

@@ -127,6 +127,9 @@ above) — it's optional, so nothing pulls it in for you.
 
 ## Where to go next
 
+- **[Full API documentation](https://joetjen.github.io/cooper/)** —
+  generated module docs (also mirrored on
+  [HexDocs](https://hexdocs.pm/cooper) once published).
 - **[Tutorial](guides/TUTORIAL.md)** — loading config, secrets, guards,
   error handling, test-time env/import injection, `.env` files,
   caching, and enough CASC syntax to follow along.
