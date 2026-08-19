@@ -87,11 +87,18 @@ the library and the CASC syntax it parses, or the
 
 `${...}` reads pick up `.env`/`.env.<env>`/`.env.local` from the
 project root automatically — on by default, no option needed — via the
-optional [`dotenvy`](https://hex.pm/packages/dotenvy) dependency, layered
-between the real OS environment and an explicit `:env` option (which
-always wins, but only for the names it defines — anything else still
-falls through). See the tutorial's
-[§11](guides/TUTORIAL.md#11-env-files) for the full layering rules.
+optional [`dotenvy`](https://hex.pm/packages/dotenvy) dependency.
+
+**The real OS environment outranks those files**, and an explicit `:env`
+option outranks everything (but only for the names it defines — anything
+else still falls through). A deployment sets variables in the environment
+it controls, and a file sitting in the working directory must not silently
+beat them; this is also what Ruby's and Node's dotenv do by default. Pass
+`dotenv_override: true` if you want the files on top instead, which is
+occasionally handy locally to shadow something exported in your shell.
+
+See the tutorial's [§11](guides/TUTORIAL.md#11-env-files) for the full
+layering rules.
 
 ## Caching
 

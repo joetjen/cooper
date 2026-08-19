@@ -6,7 +6,7 @@ defmodule Cooper.Ref.Var do
   """
 
   @enforce_keys [:name]
-  defstruct name: nil, index: nil, suffix: nil
+  defstruct name: nil, index: nil, suffix: nil, filters: []
 
   @type suffix :: nil | {:default, term()} | {:substitute, term()} | {:required, String.t()}
   @type t :: %__MODULE__{name: String.t(), index: non_neg_integer() | nil, suffix: suffix()}

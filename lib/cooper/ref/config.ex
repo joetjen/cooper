@@ -7,7 +7,7 @@ defmodule Cooper.Ref.Config do
   """
 
   @enforce_keys [:path]
-  defstruct path: nil, index: nil, suffix: nil
+  defstruct path: nil, index: nil, suffix: nil, filters: []
 
   @type suffix :: nil | {:default, term()} | {:substitute, term()} | {:required, String.t()}
   @type t :: %__MODULE__{path: [String.t()], index: non_neg_integer() | nil, suffix: suffix()}

@@ -6,7 +6,7 @@ defmodule Cooper.Ref.Env do
   """
 
   @enforce_keys [:name]
-  defstruct name: nil, index: nil, list?: false, suffix: nil
+  defstruct name: nil, index: nil, list?: false, suffix: nil, filters: []
 
   @type suffix :: nil | {:default, term()} | {:substitute, term()} | {:required, String.t()}
 

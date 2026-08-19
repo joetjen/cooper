@@ -54,7 +54,10 @@ defmodule Cooper.Resolver do
     "float" => &__MODULE__.tag_float/1,
     "bool" => &__MODULE__.tag_bool/1,
     "duration" => &__MODULE__.tag_duration/1,
-    "bytes" => &__MODULE__.tag_bytes/1
+    "bytes" => &__MODULE__.tag_bytes/1,
+    "trim" => &__MODULE__.tag_trim/1,
+    "downcase" => &__MODULE__.tag_downcase/1,
+    "upcase" => &__MODULE__.tag_upcase/1
   }
 
   @doc """
@@ -67,7 +70,8 @@ defmodule Cooper.Resolver do
     * `:resolvers` -- `%{name => (payload :: String.t() -> {:ok, term()}
       | {:error, term()})}`, for `!{resolver:payload}` (CASC.md §7.4/§9.2).
     * `:tags` -- same shape, for `!Name(arg)` beyond the five built-ins
-      (`int`/`float`/`bool`/`duration`/`bytes`, CASC.md §7.5/§9.1).
+      (`int`/`float`/`bool`/`duration`/`bytes`/`trim`/`downcase`/
+      `upcase`, CASC.md §7.5/§9.1).
   """
   @spec resolve(term(), keyword()) :: {:ok, term()} | {:error, Error.t()}
   def resolve(tree, opts \\ []) do
@@ -174,7 +178,10 @@ defmodule Cooper.Resolver do
   # @{a}` (direct or transitive) cycle the same way `resolve_path/2`
   # guards `%{...}` -- without it, resolving one var could recurse
   # forever instead of failing with a clean, named error.
-  defp resolve_var(%Cooper.Ref.Var{name: name, index: index, suffix: suffix}, state) do
+  defp resolve_var(
+         %Cooper.Ref.Var{name: name, index: index, suffix: suffix, filters: filters},
+         state
+       ) do
     if name in state.var_in_progress do
       {:error, var_cycle_error(state.var_in_progress, name)}
     else
@@ -185,14 +192,14 @@ defmodule Cooper.Resolver do
           case resolve_value(raw, state) do
             {:ok, resolved, state} ->
               state = %{state | var_in_progress: List.delete(state.var_in_progress, name)}
-              finish_ref(apply_index(resolved, index), suffix, "@{#{name}}", state)
+              finish_ref(apply_index(resolved, index), suffix, filters, "@{#{name}}", state)
 
             {:error, _} = err ->
               err
           end
 
         :error ->
-          finish_ref(:error, suffix, "@{#{name}}", state)
+          finish_ref(:error, suffix, filters, "@{#{name}}", state)
       end
     end
   end
@@ -204,7 +211,16 @@ defmodule Cooper.Resolver do
 
   # ---- ${...} (eager, always a string on success) ---------------------------
 
-  defp resolve_env(%Cooper.Ref.Env{name: name, index: index, list?: list?, suffix: suffix}, state) do
+  defp resolve_env(
+         %Cooper.Ref.Env{
+           name: name,
+           index: index,
+           list?: list?,
+           suffix: suffix,
+           filters: filters
+         },
+         state
+       ) do
     fetch =
       case Map.fetch(state.env, name) do
         {:ok, raw} when raw != "" ->
@@ -219,19 +235,22 @@ defmodule Cooper.Resolver do
       end
 
     state = %{state | env_names: MapSet.put(state.env_names, name)}
-    finish_ref(fetch, suffix, "${#{name}}", state)
+    finish_ref(fetch, suffix, filters, "${#{name}}", state)
   end
 
   defp split_env_list(raw), do: raw |> String.split(~r/[,;]/) |> Enum.map(&String.trim/1)
 
   # ---- %{...} (lazy, memoized, cycle-checked against the final tree) --------
 
-  defp resolve_config(%Cooper.Ref.Config{path: path, index: index, suffix: suffix}, state) do
+  defp resolve_config(
+         %Cooper.Ref.Config{path: path, index: index, suffix: suffix, filters: filters},
+         state
+       ) do
     label = "%{#{Enum.join(path, ".")}}"
 
     case resolve_path(path, state) do
-      {:ok, value, state} -> finish_ref(apply_index(value, index), suffix, label, state)
-      {:error, :not_found} -> finish_ref(:error, suffix, label, state)
+      {:ok, value, state} -> finish_ref(apply_index(value, index), suffix, filters, label, state)
+      {:error, :not_found} -> finish_ref(:error, suffix, filters, label, state)
       {:error, _} = err -> err
     end
   end
@@ -365,6 +384,22 @@ defmodule Cooper.Resolver do
     end
   end
 
+  # The three string-normalizing tags below take no parameter, which is what
+  # lets them fit `!Name(argument)`'s single-argument shape. A transform that
+  # needs one -- stripping a specific suffix, say -- is a filter instead
+  # (CASC.md §7.2), because the parameter has nowhere to go here.
+  @doc false
+  def tag_trim(arg) when is_binary(arg), do: {:ok, String.trim(arg)}
+  def tag_trim(arg), do: {:error, "cannot trim #{inspect(arg)}: not a string"}
+
+  @doc false
+  def tag_downcase(arg) when is_binary(arg), do: {:ok, String.downcase(arg)}
+  def tag_downcase(arg), do: {:error, "cannot downcase #{inspect(arg)}: not a string"}
+
+  @doc false
+  def tag_upcase(arg) when is_binary(arg), do: {:ok, String.upcase(arg)}
+  def tag_upcase(arg), do: {:error, "cannot upcase #{inspect(arg)}: not a string"}
+
   @doc false
   def tag_int(arg) when is_integer(arg), do: {:ok, arg}
 
@@ -427,6 +462,18 @@ defmodule Cooper.Resolver do
   # ---- shared default/substitute/required suffix handling -------------------
   # (CASC.md §7.2's own note: the same three-way suffix grammar applies
   # identically across @{}/${}/%{}.)
+
+  # Filters run *after* the suffix has settled what the value is, so a
+  # `${NAME:default | trim}` filters whichever of the two it ended up with.
+  # Filtering before that would mean transforming a value you might not have.
+  defp finish_ref(fetch, suffix, filters, label, state) do
+    with {:ok, value, state} <- finish_ref(fetch, suffix, label, state) do
+      case Cooper.RefCommon.apply_filters(value, filters) do
+        {:ok, filtered} -> {:ok, filtered, state}
+        {:error, message} -> {:error, Error.new(message: "#{label}: #{message}", stage: :resolve)}
+      end
+    end
+  end
 
   defp finish_ref({:ok, value}, suffix, _label, state) do
     case suffix do
