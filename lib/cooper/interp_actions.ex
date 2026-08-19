@@ -35,12 +35,14 @@ defmodule Cooper.InterpActions do
 
   @impl true
   def handle_token(:AT_REF_RAW, text, _ctx) do
-    {name, index, suffix} = text |> strip(2, 1) |> parse_ref_body()
-    {:ok, %Cooper.Ref.Var{name: name, index: index, suffix: suffix}}
+    {body, filters} = text |> strip(2, 1) |> split_filters()
+    {name, index, suffix} = parse_ref_body(body)
+    {:ok, %Cooper.Ref.Var{name: name, index: index, suffix: suffix, filters: filters}}
   end
 
   def handle_token(:ENV_REF_RAW, text, _ctx) do
-    {name, bracket, suffix} = text |> strip(2, 1) |> parse_env_ref_body()
+    {body, filters} = text |> strip(2, 1) |> split_filters()
+    {name, bracket, suffix} = parse_env_ref_body(body)
 
     {index, list?} =
       case bracket do
@@ -49,12 +51,21 @@ defmodule Cooper.InterpActions do
         nil -> {nil, false}
       end
 
-    {:ok, %Cooper.Ref.Env{name: name, index: index, list?: list?, suffix: suffix}}
+    {:ok,
+     %Cooper.Ref.Env{name: name, index: index, list?: list?, suffix: suffix, filters: filters}}
   end
 
   def handle_token(:CONFIG_REF_RAW, text, _ctx) do
-    {path_text, index, suffix} = text |> strip(2, 1) |> parse_ref_body()
-    {:ok, %Cooper.Ref.Config{path: String.split(path_text, "."), index: index, suffix: suffix}}
+    {body, filters} = text |> strip(2, 1) |> split_filters()
+    {path_text, index, suffix} = parse_ref_body(body)
+
+    {:ok,
+     %Cooper.Ref.Config{
+       path: String.split(path_text, "."),
+       index: index,
+       suffix: suffix,
+       filters: filters
+     }}
   end
 
   def handle_token(:RESOLVER_REF_RAW, text, ctx) do
@@ -115,6 +126,66 @@ defmodule Cooper.InterpActions do
   # "[...]" index) never contains one, so splitting on the first
   # occurrence is correct even when the suffix's own default value does
   # (e.g. a quoted-string default containing ":").
+  # Splits the filter chain (CASC.md §7.2) off the reference body.
+  #
+  # Must run *before* `split_suffix/1`: a filter carries its own `:` in
+  # `| trim_suffix: "://"`, and splitting on the first `:` would otherwise eat
+  # the whole chain as a default value -- which is exactly the bug this
+  # hand-parsed path had while `casc.aether` handled it correctly.
+  #
+  # Quote-aware, because a legitimate default can contain a pipe:
+  # `${NAME:"a|b"}` is one default, not a filter.
+  defp split_filters(inner) do
+    case split_top_level_pipes(inner) do
+      [body] -> {body, []}
+      # The body keeps whatever whitespace sat before the first `|`; the aether
+      # path never sees it because `@skip` eats it, so trimming here is what
+      # keeps the two parses identical.
+      [body | filters] -> {String.trim_trailing(body), Enum.map(filters, &parse_filter/1)}
+    end
+  end
+
+  defp split_top_level_pipes(text) do
+    text
+    |> String.graphemes()
+    |> Enum.reduce({[], "", nil}, fn
+      quote_char, {parts, current, nil} when quote_char in ~w(" ') ->
+        {parts, current <> quote_char, quote_char}
+
+      quote_char, {parts, current, quote_char} ->
+        {parts, current <> quote_char, nil}
+
+      "|", {parts, current, nil} ->
+        {parts ++ [current], "", nil}
+
+      char, {parts, current, quoted} ->
+        {parts, current <> char, quoted}
+    end)
+    |> then(fn {parts, current, _quoted} -> parts ++ [current] end)
+  end
+
+  defp parse_filter(text) do
+    case String.split(String.trim(text), ":", parts: 2) do
+      [name] -> {String.trim(name), nil}
+      [name, argument] -> {String.trim(name), argument |> String.trim() |> strip_filter_quotes()}
+    end
+  end
+
+  # A filter argument may be single-quoted, which `strip_quotes/1` (the
+  # double-quoted default-value form) does not handle. Single quotes are the
+  # spelling that works inside an interpolated string.
+  defp strip_filter_quotes(text) do
+    case text do
+      <<?\', rest::binary>> when byte_size(rest) > 0 ->
+        if String.ends_with?(rest, "\'"),
+          do: binary_part(rest, 0, byte_size(rest) - 1),
+          else: text
+
+      _other ->
+        strip_quotes(text)
+    end
+  end
+
   defp split_suffix(inner) do
     case String.split(inner, ":", parts: 2) do
       [name_and_bracket] -> {name_and_bracket, nil}

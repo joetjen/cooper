@@ -24,19 +24,20 @@ defmodule Cooper do
 
     * `:env` -- `%{String.t() => String.t()}`, an override layer for
       `${...}` (CASC.md §7.2) resolution -- **not** a replacement for
-      the real environment. `System.get_env/0` is always the floor
-      (layered under `.env`/`.env.local`, in turn under `:env`, see
-      `Cooper.Dotenv`); a name given here always wins, but a name
-      *not* given here still falls through to a real OS/`.env` value if
-      one is set. There is currently no option that fully isolates
+      the real environment. `.env` files sit lowest, then
+      `System.get_env/0`, then this (see `Cooper.Dotenv`); a name given
+      here always wins, but a name *not* given here still falls through
+      to a real OS/`.env` value if one is set. There is currently no option that fully isolates
       resolution from the real environment -- give every name a test
       needs a deterministic value under `:env` explicitly, rather than
       relying on it being otherwise unset.
-    * `:dotenv` / `:dotenv_env` / `:dotenv_files` -- layer `.env`
-      file(s) from the project root between `System.get_env/0` and
-      `:env`, via the optional `:dotenvy` dependency, on by default.
-      See `Cooper.Dotenv` for the full layering rules, environment
-      detection, and how to disable or reconfigure it.
+    * `:dotenv` / `:dotenv_env` / `:dotenv_files` / `:dotenv_override` --
+      layer `.env` file(s) from the project root *under*
+      `System.get_env/0`, via the optional `:dotenvy` dependency, on by
+      default. The real environment outranks the files, so a deployment's
+      variables are not silently shadowed by one; `dotenv_override: true`
+      swaps that. See `Cooper.Dotenv` for the full layering rules,
+      environment detection, and how to disable or reconfigure it.
     * `:root` -- filesystem root a bare (non-`scheme://`) `import`
       resolves relative to (§5.1). `load_file/2` derives this from
       `path`'s own directory automatically; `load_string/2` defaults to
@@ -94,6 +95,7 @@ defmodule Cooper do
           dotenv: boolean(),
           dotenv_env: atom() | nil,
           dotenv_files: [String.t()],
+          dotenv_override: boolean(),
           cache: boolean(),
           watch_env: boolean(),
           root: String.t(),

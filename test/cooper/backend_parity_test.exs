@@ -49,6 +49,18 @@ defmodule Cooper.BackendParityTest do
     """,
     """
     #@version = 1.0
+    # Filters, whose argument is the one place an inline capture group in
+    # casc.aether silently skipped a token's own unescaping -- a defect the
+    # VM backend would not necessarily have shared.
+    @padded = "  v  "
+    scheme = ${SCHEME | trim_suffix: "://" | upcase}
+    quoted = ${SCHEME | trim_suffix: '://'}
+    trimmed = @{padded | trim}
+    defaulted = ${MISSING:"  d  " | trim}
+    normalized = !downcase("AbC")
+    """,
+    """
+    #@version = 1.0
     @domains = ["a.example.com", "b.example.com"]
     for @idx, @domain in @{domains} as endpoints."domain-@{idx}" {
       url = "https://@{domain}"

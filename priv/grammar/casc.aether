@@ -294,9 +294,9 @@ value := NIL_KW | TRUE_KW | FALSE_KW | INF_KW
 ; simply absent from the captures map when it doesn't -- exactly what's
 ; needed here. Flagged deliberately: reintroducing `name:` on any of
 ; these is a silent regression, not a style choice.
-at_ref     := "@{" name:IDENT idx_suffix? ref_suffix? "}"
-env_ref    := "${" name:IDENT env_bracket? ref_suffix? "}"
-config_ref := "%{" path:key_path idx_suffix? ref_suffix? "}"
+at_ref     := "@{" name:IDENT idx_suffix? ref_suffix? filters? "}"
+env_ref    := "${" name:IDENT env_bracket? ref_suffix? filters? "}"
+config_ref := "%{" path:key_path idx_suffix? ref_suffix? filters? "}"
 
 resolver_ref := raw:RESOLVER_REF_RAW
 tagged_ref   := "!" name:IDENT "(" arg:value ")"
@@ -312,6 +312,30 @@ env_bracket := "[" INTEGER? "]"
 ; to disambiguate that case, so ordered-choice-first-wins is the
 ; resolution, same call as the version-header/number grammar makes.
 ref_suffix := (":" "?" msg:DQ_STRING) | (":" "+" alt:value) | (":" default:value)
+
+; Filters run left to right on whatever the reference resolved to, *after*
+; any `ref_suffix` above has already supplied a default or alternate --
+; filtering a value you might not have is meaningless, so the order is fixed
+; rather than free. Shared across @{}/${}/%{} for the same reason
+; `ref_suffix` is: one rule, not three near-identical ones.
+;
+; The filter set is deliberately closed (CASC.md §7.2). An open one would
+; make every conformant reader in every language implement an unbounded
+; vocabulary, and would turn a config format into an expression language --
+; which is the same reason §7.2 refuses to guess types.
+filters := ("|" filter)+
+; A single-quoted argument is what makes a filter usable *inside* an
+; interpolated string: `"scheme=${S | trim_suffix: '://'}"` has no way to
+; nest a double-quoted argument in a double-quoted string. Both spellings
+; are accepted so a bare reference need not switch quoting style.
+;
+; `filter_arg` is its own rule for exactly the reason `seg` above is: an
+; inline `arg:(DQ_STRING | SQ_STRING)` captures the matched span generically
+; and never dispatches the token's own unescaping, so the argument would
+; arrive still wearing its quotes -- which silently made `trim_suffix` a
+; no-op rather than an error.
+filter     := name:IDENT (":" arg:filter_arg)?
+filter_arg := DQ_STRING | SQ_STRING
 
 ; Comma, newline, or bare whitespace all separate elements (CASC.md
 ; §6.10-6.11); the trailing `","?` after each element makes the comma

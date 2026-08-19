@@ -424,6 +424,7 @@ Three brace-delimited sigils, plus two extensibility mechanisms sharing the same
 - `@{name:+alt}` — substitute `alt` if defined (any value), else empty string
 - `@{name:?"message"}` — fail loading with `message` if undefined
 - `@{name[i]}`, `@{name[i]:default}` — index into a list-valued variable
+- `@{name | filter}` — normalize the resolved value (§7.2)
 
 Private variables (`@*var`) are visible only in the declaring file. Loop-bound variables are visible only in their loop's body, shadowing any outer variable of the same name for that scope.
 
@@ -450,6 +451,29 @@ This is deliberate, not an oversight: guessing a type from what a string looks l
 
 **Note:** real bash uses `${NAME:-default}` (with a dash); CASC drops it so the suffix grammar (`:default`, `:+alt`, `:?"msg"`) is identical across `@{...}`, `${...}`, and `%{...}` — one rule, not three near-identical ones.
 
+#### Filters
+
+A reference may be followed by one or more `| filter` clauses, which normalize the resolved string. Like the suffix grammar, this is **one rule shared by all three reference forms** — `@{...}`, `${...}`, and `%{...}` — not three near-identical ones.
+
+- `${NAME | trim}` — strip leading and trailing whitespace
+- `${NAME | downcase}`, `${NAME | upcase}` — change case
+- `${NAME | trim_prefix: "..."}`, `${NAME | trim_suffix: "..."}` — strip an affix if present
+
+Filters apply **after** the suffix has settled, left to right, so a filter always sees the value that will actually be used — whether that came from the reference or from its default:
+
+```casc
+scheme = ${SCHEME | trim_suffix: "://" | downcase}
+region = ${REGION:"  us-east-1  " | trim}
+```
+
+An argument may be double- or single-quoted. Single quotes exist so a filter remains usable *inside* an interpolated string, where a double-quoted argument has no way to nest:
+
+```casc
+endpoint = "${SCHEME | trim_suffix: '://'}://%{host}"
+```
+
+Filters normalize; they do not convert. A filter applied to a non-string is a load-time error rather than a silent coercion, an unknown filter name is a load-time error naming it, and so is an argument given to a filter that takes none (or omitted from one that requires it). To change a value's *type*, use a tagged value (§7.5).
+
 **Example**, `REGION=eu-west` set, others unset:
 
 ```casc
@@ -471,6 +495,7 @@ allowed_hosts = ${ALLOWED_HOSTS[]:["localhost"]}
 - `%{path}`
 - `%{path:default}`
 - `%{path[i]}`, `%{path[i]:default}`
+- `%{path | filter}` — normalize the resolved value (§7.2)
 
 `path` follows the dotted key-path rules (§5.4).
 
@@ -511,7 +536,7 @@ Giving `vault` meaning is entirely the consumer's job. An unregistered resolver 
 
 `!Name(argument)` constructs a value of type `Name` from one argument (typically a string). Parsing only needs to recognize "a tag plus one parenthesized argument" — giving it meaning is the registered handler's job.
 
-Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9). Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), and `!trim`, `!downcase`, `!upcase` (normalization). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
 
 ---
 

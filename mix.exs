@@ -1,7 +1,7 @@
 defmodule Cooper.MixProject do
   use Mix.Project
 
-  @version "0.2.2"
+  @version "0.3.0"
 
   def project do
     [
@@ -139,14 +139,24 @@ defmodule Cooper.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/joetjen/cooper"},
+      links: %{
+        "GitHub" => "https://github.com/joetjen/cooper",
+        "Docs" => "https://joetjen.github.io/cooper"
+      },
       files: ~w(lib priv/grammar guides .formatter.exs mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
 
+  # `homepage_url` is the GitHub Pages site `.github/workflows/docs.yml`
+  # deploys this same `mix docs` output to on every push to `main` --
+  # distinct from the HexDocs copy Hex publishes automatically from the
+  # `package/0` metadata above, and worth pointing at explicitly so
+  # ExDoc's generated sidebar link doesn't dangle.
   defp docs do
     [
       main: "readme",
+      source_url: "https://github.com/joetjen/cooper",
+      homepage_url: "https://joetjen.github.io/cooper",
       extras: extras(),
       groups_for_extras: groups_for_extras(),
       groups_for_modules: groups_for_modules()

@@ -197,7 +197,11 @@ iex> Cooper.load_string(source, env: %{"REGION" => "eu-west"})
 `${NAME}` always resolves to a plain string — CASC never guesses that a
 string "looks like" a number. `!int(...)` is a **tagged value**: it
 wraps something (typically a `${...}` read) and converts it; `!int`,
-`!float`, `!bool`, `!duration`, `!bytes` are built in. `${?NAME}`
+`!float`, `!bool`, `!duration`, `!bytes` are built in. To *normalize* a
+read rather than convert it, append a filter — `${SCHEME | trim_suffix:
+"://"}` — which is how you accept a value a deployment spells
+inconsistently without pushing the cleanup into application code.
+`${?NAME}`
 guards the *one statement immediately following it* — with
 `FEATURE_FLAG` unset, `beta_enabled = true` is skipped entirely, not
 evaluated and discarded. `${NAME[]:default}` parses a set env var as a

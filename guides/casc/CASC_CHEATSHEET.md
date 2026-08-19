@@ -90,12 +90,36 @@ Shared suffix grammar across `@{}`/`${}`/`%{}`:
 | `${NAME[]:[...]}` | parse `NAME` as a comma/semicolon-separated list, with a default |
 | `${NAME[i]:default}` | index into the split list |
 
+## Filters (§7.2)
+
+| Filter | Effect |
+|---|---|
+| `\| trim` | strip leading and trailing whitespace |
+| `\| downcase`, `\| upcase` | change case |
+| `\| trim_prefix: "..."`, `\| trim_suffix: "..."` | strip an affix if present |
+
+One rule shared by `@{...}`, `${...}` and `%{...}`, exactly like the
+suffix grammar. Applied after the suffix settles, left to right, so a
+filter always sees the value that will actually be used:
+
+```casc
+scheme = ${SCHEME | trim_suffix: "://" | downcase}
+region = ${REGION:"  us-east-1  " | trim}
+```
+
+Single-quoted arguments exist so a filter stays usable inside an
+interpolated string: `"${S | trim_suffix: '://'}://%{host}"`. Filters
+normalize, they never convert -- a non-string is an error, not a
+coercion. Use a tagged value to change a type.
+
 ## Built-in tagged values
 
-`!int(arg)` `!float(arg)` `!bool(arg)` `!duration(arg)` `!bytes(arg)` --
-always available, no registration needed. `!duration`/`!bytes` produce
-the same `{:duration, ns}` / `{:bytes, n}` shape as the bare literal
-forms (§6.8/§6.9).
+`!int(arg)` `!float(arg)` `!bool(arg)` `!duration(arg)` `!bytes(arg)`
+`!trim(arg)` `!downcase(arg)` `!upcase(arg)` -- always available, no
+registration needed. `!duration`/`!bytes` produce the same
+`{:duration, ns}` / `{:bytes, n}` shape as the bare literal forms
+(§6.8/§6.9); the last three normalize a whole value the way the
+matching filter normalizes one reference.
 
 ## Loops (§5.5)
 

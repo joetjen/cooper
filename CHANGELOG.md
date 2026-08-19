@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-19
+
+### Added
+
+- Reference filters: `${NAME | trim}`, `| downcase`, `| upcase`,
+  `| trim_prefix: "..."` and `| trim_suffix: "..."`. Filters are one
+  rule shared by `@{...}`, `${...}` and `%{...}`, exactly like the
+  existing suffix grammar, and apply after the suffix has settled so a
+  filter always sees the value that will actually be used — including
+  one that came from a default. They chain left to right.
+
+  This is for the case where a deployment supplies a value in a spelling
+  you did not choose: `${SCHEME | trim_suffix: "://"}` accepts both
+  `https` and `https://` without the composing code having to normalize
+  what it reads back.
+
+  Arguments may be single- or double-quoted. Single quotes are what make
+  a filter usable *inside* an interpolated string, where a double-quoted
+  argument has nowhere to nest:
+  `"${SCHEME | trim_suffix: '://'}://%{host}"`.
+
+  Filters normalize; they do not convert. A non-string value, an unknown
+  filter name, a missing argument, and an argument given to a filter
+  that takes none are all load-time errors rather than silent coercions.
+
+- `!trim`, `!downcase` and `!upcase` tagged values, which do for a whole
+  value what the matching filter does for one reference.
+
+### Changed
+
+- **BREAKING (behaviour):** `.env` files no longer outrank the real
+  environment. The layering is now
+  `.env` → `.env.<env>` → `.env.local` → `System.get_env/0` → `:env`,
+  where it was `System.get_env/0` → the files → `:env`.
+
+  A deployment sets variables in the environment it controls, and a file
+  in the working directory silently beating them is a debugging trap
+  rather than a feature. It also matches what dotenv implementations in
+  other ecosystems do by default — Ruby's and Node's both decline to
+  overwrite an already-set variable.
+
+  **Nothing errors when this changes which value wins**, so check any
+  setup that relies on a `.env` shadowing an exported variable. Pass the
+  new `dotenv_override: true` option to `Cooper.load_file/2`,
+  `load_string/2`, or `Cooper.Dotenv.env/1` to restore the previous
+  ordering.
+
+- `mix.exs`'s `docs/0` now sets `source_url` and `homepage_url`
+  (`https://github.com/joetjen/cooper` and
+  `https://joetjen.github.io/cooper`), and `package/0`'s `links` gained
+  a `"Docs"` entry alongside `"GitHub"`, so generated docs (both
+  HexDocs and the GitHub Pages copy `.github/workflows/docs.yml`
+  deploys) link back to the right places instead of leaving ExDoc to
+  guess. README.md and CONTRIBUTING.md now link to the published
+  GitHub Pages docs site too.
+
 ## [0.2.2] - 2026-08-03
 
 ### Changed
