@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (behaviour):** `.env` files no longer outrank the real
+  environment. The layering is now
+  `.env` → `.env.<env>` → `.env.local` → `System.get_env/0` → `:env`,
+  where it was `System.get_env/0` → the files → `:env`.
+
+  A deployment sets variables in the environment it controls, and a file
+  in the working directory silently beating them is a debugging trap
+  rather than a feature. It also matches what dotenv implementations in
+  other ecosystems do by default — Ruby's and Node's both decline to
+  overwrite an already-set variable.
+
+  **Nothing errors when this changes which value wins**, so check any
+  setup that relies on a `.env` shadowing an exported variable. Pass the
+  new `dotenv_override: true` option to `Cooper.load_file/2`,
+  `load_string/2`, or `Cooper.Dotenv.env/1` to restore the previous
+  ordering.
+
 - `mix.exs`'s `docs/0` now sets `source_url` and `homepage_url`
   (`https://github.com/joetjen/cooper` and
   `https://joetjen.github.io/cooper`), and `package/0`'s `links` gained

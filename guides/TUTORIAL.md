@@ -421,21 +421,31 @@ winning:
 iex> Cooper.load_file("config.casc")
 ```
 
-1. `System.get_env/0` — always the floor, whether or not `:env` is
-   passed
-2. `.env`
-3. `.env.<env>` — `<env>`, in order: an explicit `:dotenv_env`; else
+1. `.env`
+2. `.env.<env>` — `<env>`, in order: an explicit `:dotenv_env`; else
    live `Mix.env/0` when Mix is loaded (`mix run`/`mix test`/`iex -S
    mix`); else `Application.compile_env(:cooper, :dotenv_env)`, if a
    compiled release's own `config/config.exs` set `config :cooper,
    dotenv_env: config_env()` — the only way left to auto-detect an
    environment once Mix itself isn't around. Pass `dotenv_env:`
    explicitly instead if you'd rather not add that config
-4. `.env.local` — a personal, usually-gitignored override
+3. `.env.local` — a personal, usually-gitignored override
+4. `System.get_env/0` — the real environment, outranking every file
 5. `:env`, if passed — always the final, highest-precedence override
 
-A missing file (2-4) is never an error — `.env.<env>` in particular is
+A missing file (1-3) is never an error — `.env.<env>` in particular is
 expected to be absent for every environment but the current one.
+
+**The real environment wins over the files.** A deployment sets variables
+in the environment it controls, and a file in the working directory must
+not silently beat them — the same choice Ruby's and Node's dotenv make by
+default. If you want the opposite locally, to shadow something exported in
+your shell:
+
+```elixir
+iex> Cooper.load_file("config.casc", dotenv_override: true)
+# .env/.env.<env>/.env.local now sit above System.get_env/0 again
+```
 
 **`:env` overrides, it doesn't isolate.** `env: %{"REGION" =>
 "eu-west"}` guarantees `REGION` resolves to `"eu-west"` — but any

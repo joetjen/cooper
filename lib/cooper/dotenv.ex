@@ -14,10 +14,8 @@ defmodule Cooper.Dotenv do
 
   Five layers, later winning, `Dotenvy.source/2`'s own convention:
 
-    1. `System.get_env/0` -- always the floor, whether or not `:env` is
-       passed.
-    2. `.env`
-    3. `.env.<env>` -- `<env>`, in order: the explicit `:dotenv_env`
+    1. `.env`
+    2. `.env.<env>` -- `<env>`, in order: the explicit `:dotenv_env`
        option; else live `Mix.env/0` when Mix is loaded (true for
        `mix run`/`mix test`/`iex -S mix`, false for a compiled OTP
        release); else `Application.compile_env(:cooper, :dotenv_env)`
@@ -30,9 +28,22 @@ defmodule Cooper.Dotenv do
        naively reading `Mix.env/0` from inside Cooper's own source
        could never work here). No match at all leaves `<env>` (and
        this whole layer) absent.
-    4. `.env.local`
+    3. `.env.local`
+    4. `System.get_env/0` -- the real environment outranks every file.
     5. the `:env` option, if the caller passed one -- always the final,
        highest-precedence override, on top of every layer above it.
+
+  **The real environment wins over `.env` files.** A deployment sets
+  variables in the environment it controls; a file sitting in the working
+  directory must not silently beat them. This also matches what dotenv
+  implementations in other ecosystems do by default -- Ruby's and Node's
+  both decline to overwrite an already-set variable -- and what
+  twelve-factor configuration expects.
+
+  Pass `dotenv_override: true` for the opposite order, where the files
+  outrank the real environment. That is occasionally what a developer
+  wants locally, to shadow something exported in their shell, but it is
+  a deliberate choice rather than the default.
 
   All of 2-4 are optional -- a missing file is silently skipped, never
   a load-time error. `.env.<env>` in particular is *expected* to be
@@ -78,14 +89,18 @@ defmodule Cooper.Dotenv do
           env: %{optional(String.t()) => String.t()},
           dotenv: boolean(),
           dotenv_env: atom() | nil,
-          dotenv_files: [String.t()]
+          dotenv_files: [String.t()],
+          dotenv_override: boolean()
         ]
 
   @doc """
   Resolves the final env map for `opts` (the same options `load_file/2`/
-  `load_string/2` take): `System.get_env/0`, `.env`-layered per the
-  moduledoc above unless disabled, with `:env` (if given) applied last
-  as the final override.
+  `load_string/2` take): the `.env` files layered per the moduledoc
+  above unless disabled, then `System.get_env/0`, with `:env` (if given)
+  applied last as the final override.
+
+  Pass `dotenv_override: true` to put the files above the real
+  environment instead.
   """
   @spec env(opts()) :: {:ok, %{String.t() => String.t()}} | {:error, Error.t()}
   def env(opts) do
@@ -107,7 +122,7 @@ defmodule Cooper.Dotenv do
 
   defp load(overrides, opts, required?) do
     if Code.ensure_loaded?(Dotenvy) do
-      sources = [System.get_env() | files(opts)] ++ [overrides]
+      sources = sources(opts) ++ [overrides]
 
       case Dotenvy.source(sources, require_files: false) do
         {:ok, env} ->
@@ -132,6 +147,20 @@ defmodule Cooper.Dotenv do
            "{:dotenvy, \"~> 1.1\"} to your own mix.exs deps",
        stage: :dotenv
      )}
+  end
+
+  # Orders the file layers and the real environment, lowest precedence first.
+  #
+  # The real environment last by default: a deployment controls it, and a file
+  # in the working directory silently outranking it is a debugging trap rather
+  # than a feature. `dotenv_override: true` restores the opposite order for a
+  # developer who wants a file to shadow their shell.
+  defp sources(opts) do
+    if Keyword.get(opts, :dotenv_override, false) do
+      [System.get_env() | files(opts)]
+    else
+      files(opts) ++ [System.get_env()]
+    end
   end
 
   defp files(opts) do

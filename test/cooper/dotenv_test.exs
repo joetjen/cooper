@@ -11,10 +11,10 @@ defmodule Cooper.DotenvTest do
   # and every test restores the original cwd in `on_exit` even on
   # failure.
   #
-  # `System.get_env/0` is *always* the floor now (see the moduledoc's
-  # "Layering" section) -- the real machine's environment is part of
-  # every result, so tests here can't assert full-map equality against
-  # a clean expected map. Assertions instead check specific,
+  # `System.get_env/0` is part of every result and now outranks the files
+  # (see the moduledoc's "Layering" section) -- the real machine's
+  # environment is part of every result, so tests here can't assert full-map
+  # equality against a clean expected map. Assertions instead check specific,
   # `CDT_`/fixture-namespaced keys via `Map.take/2` or `env[key]`,
   # deliberately ignoring whatever else happens to be set on the
   # machine running the suite.
@@ -27,18 +27,65 @@ defmodule Cooper.DotenvTest do
     fun.()
   end
 
+  # Runs `fun` in a throwaway directory holding only the given `.env` pairs, so a
+  # precedence assertion cannot collide with the shared fixtures other tests read.
+  defp in_own_dotenv(pairs, fun) do
+    dir = Path.join(System.tmp_dir!(), "cooper_dotenv_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    File.write!(Path.join(dir, ".env"), Enum.map_join(pairs, "\n", fn {k, v} -> "#{k}=#{v}" end))
+
+    original = File.cwd!()
+    File.cd!(dir)
+
+    on_exit(fn ->
+      File.cd!(original)
+      File.rm_rf!(dir)
+    end)
+
+    fun.()
+  end
+
   defp with_system_env(pairs, fun) do
     for {name, value} <- pairs, do: System.put_env(name, value)
     on_exit(fn -> for {name, _} <- pairs, do: System.delete_env(name) end)
     fun.()
   end
 
-  describe "System.get_env/0 is always the floor" do
+  describe "System.get_env/0 outranks the files" do
     test "a real OS env var comes through when nothing else defines it" do
       with_system_env([{"CDT_FLOOR", "from-system"}], fn ->
         in_fixture("empty", fn ->
           assert {:ok, env} = Cooper.Dotenv.env(env: %{})
           assert env["CDT_FLOOR"] == "from-system"
+        end)
+      end)
+    end
+
+    test "a real OS env var beats the same name in a .env file" do
+      # The deployment controls the environment; a file in the working
+      # directory must not silently shadow what it set.
+      in_own_dotenv(%{"CDT_PRECEDENCE" => "from-file"}, fn ->
+        with_system_env([{"CDT_PRECEDENCE", "from-system"}], fn ->
+          assert {:ok, env} = Cooper.Dotenv.env(env: %{})
+          assert env["CDT_PRECEDENCE"] == "from-system"
+        end)
+      end)
+    end
+
+    test "dotenv_override: true puts the files back on top" do
+      in_own_dotenv(%{"CDT_PRECEDENCE" => "from-file"}, fn ->
+        with_system_env([{"CDT_PRECEDENCE", "from-system"}], fn ->
+          assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_override: true)
+          assert env["CDT_PRECEDENCE"] == "from-file"
+        end)
+      end)
+    end
+
+    test "an explicit :env still outranks the real environment" do
+      in_own_dotenv(%{"CDT_PRECEDENCE" => "from-file"}, fn ->
+        with_system_env([{"CDT_PRECEDENCE", "from-system"}], fn ->
+          assert {:ok, env} = Cooper.Dotenv.env(env: %{"CDT_PRECEDENCE" => "from-override"})
+          assert env["CDT_PRECEDENCE"] == "from-override"
         end)
       end)
     end
@@ -71,16 +118,32 @@ defmodule Cooper.DotenvTest do
     # bare `Mix.env/0` read from inside Cooper's own source.
   end
 
+  describe "the full layer chain under dotenv_override: true" do
+    test "the files outrank the real environment again" do
+      # The pre-inversion ordering, still reachable for a developer who wants a
+      # file to shadow something exported in their shell.
+      with_system_env([{"ONLY_BASE", "from-system"}], fn ->
+        in_fixture("layering", fn ->
+          assert {:ok, env} =
+                   Cooper.Dotenv.env(env: %{}, dotenv_env: :dev, dotenv_override: true)
+
+          assert env["ONLY_BASE"] == "from-base"
+        end)
+      end)
+    end
+  end
+
   describe "the full layer chain, later winning" do
     test ".env, .env.<dotenv_env>, and .env.local each override the layer below them" do
-      # `ONLY_BASE` is also injected as a real OS env var here, to prove
-      # `.env` overrides `System.get_env/0`, not just that it's present.
+      # `ONLY_BASE` is also injected as a real OS env var here, to prove the
+      # real environment now outranks every file layer -- the files still
+      # order among themselves exactly as before.
       with_system_env([{"ONLY_BASE", "from-system"}], fn ->
         in_fixture("layering", fn ->
           assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_env: :dev)
 
           assert Map.take(env, ~w(ONLY_BASE SHARED DEV_AND_LOCAL ONLY_LOCAL ONLY_DEV)) == %{
-                   "ONLY_BASE" => "from-base",
+                   "ONLY_BASE" => "from-system",
                    "SHARED" => "from-dev",
                    "DEV_AND_LOCAL" => "from-local",
                    "ONLY_LOCAL" => "from-local",
@@ -207,11 +270,12 @@ defmodule Cooper.DotenvTest do
   # merge/precedence behavior to protect, which is why it's flagged here
   # rather than contorted into a fake test.
 
-  property "precedence always holds: .env < .env.<dotenv_env> < .env.local < :env, for arbitrary key/value layers" do
+  property "precedence always holds: .env < .env.<dotenv_env> < .env.local < System.get_env/0 < :env, for arbitrary key/value layers" do
     check all(
             dotenv <- layer_map(),
             env_file <- layer_map(),
             local <- layer_map(),
+            system <- layer_map(),
             override <- layer_map(),
             max_runs: 25
           ) do
@@ -231,11 +295,15 @@ defmodule Cooper.DotenvTest do
           dotenv
           |> Map.merge(env_file)
           |> Map.merge(local)
+          |> Map.merge(system)
           |> Map.merge(override)
+
+        for {name, value} <- system, do: System.put_env(name, value)
 
         assert {:ok, actual} = Cooper.Dotenv.env(env: override, dotenv_env: :proptest)
         assert Map.take(actual, ~w(CDT_A CDT_B CDT_C CDT_D CDT_E CDT_F)) == expected
       after
+        for {name, _value} <- system, do: System.delete_env(name)
         File.cd!(original)
         File.rm_rf!(dir)
       end
