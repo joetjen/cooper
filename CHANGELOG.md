@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `!module("Name")`, a built-in tag naming a module of the host language:
+
+      client_module = !module("ASCO.Redis.TestClient")
+      formatter = !module("${LOG_FORMATTER}")
+
+  §6.4's atoms are bare identifiers, so a dotted module name cannot be written
+  as a literal — and a module is often deployment-selected, arriving through
+  `${...}` as a string. There was no way to express either.
+
+  **The tag is the same in every Cooper implementation; the shape it accepts is
+  not.** What counts as a module name belongs to the language an implementation
+  targets, so a document naming a module stays readable across ports even where
+  the convention differs. This implementation accepts dot-separated identifiers,
+  mapping an upper-case initial to an Elixir module (`Foo.Bar` →
+  `Elixir.Foo.Bar`) and anything else to an Erlang module (`crypto` →
+  `:crypto`), and rejects anything longer than 512 bytes.
+
+  Like a bare atom literal, this creates an atom, with the same caveat: fine for
+  a fixed, trusted set of configuration files, not for untrusted input.
+
 ## [0.3.0] - 2026-08-19
 
 ### Added

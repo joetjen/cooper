@@ -536,7 +536,20 @@ Giving `vault` meaning is entirely the consumer's job. An unregistered resolver 
 
 `!Name(argument)` constructs a value of type `Name` from one argument (typically a string). Parsing only needs to recognize "a tag plus one parenthesized argument" — giving it meaning is the registered handler's job.
 
-Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), and `!trim`, `!downcase`, `!upcase` (normalization). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), `!trim`, `!downcase`, `!upcase` (normalization), and `!module` (below). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+
+**`!module("Name")`** names a module of the host language:
+
+```casc
+client_module = !module("ASCO.Redis.TestClient")
+formatter = !module("${LOG_FORMATTER}")
+```
+
+It exists because §6.4's atoms are bare identifiers, so a dotted module name cannot be written as a literal — and because a module is often deployment-selected, which means it arrives through `${...}` as a string.
+
+**The tag is the same in every implementation; the shape it accepts is not.** What counts as a module name belongs to the language a given implementation targets, so a document that names a module stays readable across ports even where the naming convention differs. This implementation accepts dot-separated identifiers, mapping an upper-case initial to an Elixir module (`Foo.Bar` → `Elixir.Foo.Bar`) and anything else to an Erlang module (`crypto` → `:crypto`).
+
+Like a bare atom literal, this creates an atom, with the same caveat: fine for a fixed, trusted set of configuration files, not for untrusted input.
 
 ---
 

@@ -93,8 +93,10 @@ baked in at populate time, refreshed only when the entry invalidates
 ## Built-in tags
 
 `!int(arg)`, `!float(arg)`, `!bool(arg)`, `!duration(arg)`,
-`!bytes(arg)`, `!trim(arg)`, `!downcase(arg)`, `!upcase(arg)` — always
-registered, need no `:tags` entry.
+`!bytes(arg)`, `!trim(arg)`, `!downcase(arg)`, `!upcase(arg)`,
+`!module(arg)` — always registered, need no `:tags` entry.
+`!module("Foo.Bar")` yields `Elixir.Foo.Bar`; a lower-case name such as
+`!module("crypto")` yields the Erlang module `:crypto`.
 `!duration(...)` and a bare duration literal (`500ms`) both produce
 `{:duration, nanoseconds}`; `!bytes(...)` and a bare byte-size literal
 (`512MiB`) both produce `{:bytes, count}`.

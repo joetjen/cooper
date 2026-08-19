@@ -115,11 +115,12 @@ coercion. Use a tagged value to change a type.
 ## Built-in tagged values
 
 `!int(arg)` `!float(arg)` `!bool(arg)` `!duration(arg)` `!bytes(arg)`
-`!trim(arg)` `!downcase(arg)` `!upcase(arg)` -- always available, no
-registration needed. `!duration`/`!bytes` produce the same
+`!trim(arg)` `!downcase(arg)` `!upcase(arg)` `!module(arg)` -- always
+available, no registration needed. `!duration`/`!bytes` produce the same
 `{:duration, ns}` / `{:bytes, n}` shape as the bare literal forms
-(§6.8/§6.9); the last three normalize a whole value the way the
-matching filter normalizes one reference.
+(§6.8/§6.9); `!trim`/`!downcase`/`!upcase` normalize a whole value the
+way the matching filter normalizes one reference; `!module("Foo.Bar")`
+names a module, which §6.4's bare-identifier atoms cannot express.
 
 ## Loops (§5.5)
 
