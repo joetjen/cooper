@@ -93,7 +93,8 @@ baked in at populate time, refreshed only when the entry invalidates
 ## Built-in tags
 
 `!int(arg)`, `!float(arg)`, `!bool(arg)`, `!duration(arg)`,
-`!bytes(arg)` — always registered, need no `:tags` entry.
+`!bytes(arg)`, `!trim(arg)`, `!downcase(arg)`, `!upcase(arg)` — always
+registered, need no `:tags` entry.
 `!duration(...)` and a bare duration literal (`500ms`) both produce
 `{:duration, nanoseconds}`; `!bytes(...)` and a bare byte-size literal
 (`512MiB`) both produce `{:bytes, count}`.

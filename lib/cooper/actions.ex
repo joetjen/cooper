@@ -31,6 +31,9 @@ defmodule Cooper.Actions do
       eval_each: 2,
       ref_suffix: 2,
       env_bracket: 2,
+      eval_filters: 2,
+      eval_filter_list: 2,
+      filter: 2,
       build_resolver_ref: 2
     ]
 
@@ -263,15 +266,17 @@ defmodule Cooper.Actions do
   def handle_rule(:at_ref, captures, ctx) do
     with {:ok, name, ctx} <- Map.fetch!(captures, :name).eval.(ctx),
          {:ok, index, ctx} <- eval_optional(Map.get(captures, :idx_suffix), ctx),
-         {:ok, suffix, ctx} <- eval_optional(Map.get(captures, :ref_suffix), ctx) do
-      {:ok, %Cooper.Ref.Var{name: name, index: index, suffix: suffix}, ctx}
+         {:ok, suffix, ctx} <- eval_optional(Map.get(captures, :ref_suffix), ctx),
+         {:ok, filters, ctx} <- eval_filters(captures, ctx) do
+      {:ok, %Cooper.Ref.Var{name: name, index: index, suffix: suffix, filters: filters}, ctx}
     end
   end
 
   def handle_rule(:env_ref, captures, ctx) do
     with {:ok, name, ctx} <- Map.fetch!(captures, :name).eval.(ctx),
          {:ok, bracket, ctx} <- eval_optional(Map.get(captures, :env_bracket), ctx),
-         {:ok, suffix, ctx} <- eval_optional(Map.get(captures, :ref_suffix), ctx) do
+         {:ok, suffix, ctx} <- eval_optional(Map.get(captures, :ref_suffix), ctx),
+         {:ok, filters, ctx} <- eval_filters(captures, ctx) do
       {index, list?} =
         case bracket do
           {:index, i} -> {i, false}
@@ -279,15 +284,19 @@ defmodule Cooper.Actions do
           nil -> {nil, false}
         end
 
-      {:ok, %Cooper.Ref.Env{name: name, index: index, list?: list?, suffix: suffix}, ctx}
+      {:ok,
+       %Cooper.Ref.Env{name: name, index: index, list?: list?, suffix: suffix, filters: filters},
+       ctx}
     end
   end
 
   def handle_rule(:config_ref, captures, ctx) do
     with {:ok, {segments, _secret?}, ctx} <- Map.fetch!(captures, :path).eval.(ctx),
          {:ok, index, ctx} <- eval_optional(Map.get(captures, :idx_suffix), ctx),
-         {:ok, suffix, ctx} <- eval_optional(Map.get(captures, :ref_suffix), ctx) do
-      {:ok, %Cooper.Ref.Config{path: segments, index: index, suffix: suffix}, ctx}
+         {:ok, suffix, ctx} <- eval_optional(Map.get(captures, :ref_suffix), ctx),
+         {:ok, filters, ctx} <- eval_filters(captures, ctx) do
+      {:ok, %Cooper.Ref.Config{path: segments, index: index, suffix: suffix, filters: filters},
+       ctx}
     end
   end
 
@@ -305,6 +314,9 @@ defmodule Cooper.Actions do
 
   def handle_rule(:env_bracket, captures, ctx), do: env_bracket(captures, ctx)
   def handle_rule(:ref_suffix, captures, ctx), do: ref_suffix(captures, ctx)
+
+  def handle_rule(:filter, captures, ctx), do: filter(captures, ctx)
+  def handle_rule(:filters, captures, ctx), do: eval_filter_list(captures, ctx)
 
   # ---- atoms (CASC.md §6.4) ------------------------------------------------
   #
