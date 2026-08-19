@@ -109,12 +109,13 @@ its environment's overlay, last so it overrides them:
 
 ```casc
 import "inc/database.casc"
-import "env/${MIX_ENV:prod}.casc"
+import "env/${MIX_ENV:dev}.casc"
 ```
 
 Every selectable file must exist -- a missing import is a load error, so
-keep an `env/prod.casc` even when it overrides nothing -- and default to
-the safest environment, since a variable that is unset selects it.
+keep an `env/prod.casc` even when it overrides nothing. Default to the
+environment whose tooling does *not* set the variable, which is usually
+`dev`: deployed environments set it explicitly.
 
 ## Filters (§7.2)
 
