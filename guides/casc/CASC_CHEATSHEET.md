@@ -104,6 +104,18 @@ Only `${...}`; `%{...}` needs the finished tree, which does not exist
 while the document is still being parsed. An unset variable with no
 default is an error, not an empty segment.
 
+The common shape is an entry document importing shared concerns and then
+its environment's overlay, last so it overrides them:
+
+```casc
+import "inc/database.casc"
+import "env/${MIX_ENV:prod}.casc"
+```
+
+Every selectable file must exist -- a missing import is a load error, so
+keep an `env/prod.casc` even when it overrides nothing -- and default to
+the safest environment, since a variable that is unset selects it.
+
 ## Filters (§7.2)
 
 | Filter | Effect |
