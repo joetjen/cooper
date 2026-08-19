@@ -102,6 +102,15 @@ import "vault://secret/base"
 1. **No `scheme://` prefix** — resolves relative to the current file. Brace (`{a,b}`) and glob (`**.casc`) patterns expand against the filesystem; matches load in lexicographic order.
 2. **`scheme://` prefix** — dispatched entirely to the loader registered for that scheme (§9.3); expansion, ordering, and path meaning are that loader's to define. An unregistered scheme is a load-time error naming it (§9.4).
 3. **Merge**: later imports override earlier ones for the same path, per §8.
+4. **A path may interpolate `${NAME}` or `${NAME:default}`** (§7.2), which is how one document selects among several:
+
+   ```casc
+   import "env/${MIX_ENV:dev}.casc"
+   ```
+
+   Only `${...}` works. An import is resolved *while the document is parsed* — the imported file's statements are spliced into the importer — so a reference needing the finished tree (`%{...}`, §7.3) cannot be available yet and is a load-time error. The environment is available, which is the same thing `${?NAME}` reads (§7.2).
+
+   Unset and empty are treated alike, as everywhere else. An unset variable **without** a default is an error rather than an empty segment, since a path that silently became `env/.casc` would import the wrong file or none.
 
 ### 5.2 Variable declarations
 

@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An import path may now interpolate `${NAME}` or `${NAME:default}`:
+
+      import "env/${MIX_ENV:dev}.casc"
+
+  which is how one document selects among several without the selection living
+  in the consuming application's code.
+
+  Only `${...}` is permitted. An import is resolved while the document is
+  parsed, so a reference needing the finished tree (`%{...}`) cannot exist yet
+  and remains a load-time error. The environment is available at that point,
+  which is what a `${?NAME}` guard already reads.
+
+  Unset and empty are treated alike, as everywhere else. An unset variable
+  **without** a default is an error rather than an empty segment: a path that
+  silently became `env/.casc` would import the wrong file, or none.
+
 - `!module("Name")`, a built-in tag naming a module of the host language:
 
       client_module = !module("ASCO.Redis.TestClient")

@@ -90,6 +90,20 @@ Shared suffix grammar across `@{}`/`${}`/`%{}`:
 | `${NAME[]:[...]}` | parse `NAME` as a comma/semicolon-separated list, with a default |
 | `${NAME[i]:default}` | index into the split list |
 
+## Imports (§5.1)
+
+`import "path.casc"` -- relative to the current file; brace/glob
+patterns expand against the filesystem. A path may interpolate
+`${NAME}`/`${NAME:default}` to select one:
+
+```casc
+import "env/${MIX_ENV:dev}.casc"
+```
+
+Only `${...}`; `%{...}` needs the finished tree, which does not exist
+while the document is still being parsed. An unset variable with no
+default is an error, not an empty segment.
+
 ## Filters (§7.2)
 
 | Filter | Effect |

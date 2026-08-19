@@ -32,9 +32,11 @@ defmodule Cooper.Loader do
   @scheme_re ~r/^([a-zA-Z][a-zA-Z0-9+.\-]*):\/\/(.+)$/s
 
   @doc """
-  `path` is the import statement's already-evaluated string (a load-time
-  error if it isn't a plain string -- an import path can't contain an
-  unresolved reference). Returns the imported file(s)' spliced-together
+  `path` is the import statement's already-evaluated string, or an
+  interpolated string whose references are all `${NAME}`/`${NAME:default}`
+  -- those resolve from `ctx.env`, which is available while parsing. A
+  reference needing the finished tree (`%{...}`) cannot be, since an
+  import is resolved as the file is parsed, and is a load-time error. Returns the imported file(s)' spliced-together
   op/var-decl entries and `ctx` with their *public* variables folded
   into `ctx.vars`, ready to hand straight back as `handle_rule/3`'s own
   `{:ok, entries, ctx}`.
@@ -47,12 +49,81 @@ defmodule Cooper.Loader do
     end
   end
 
+  def load_import(%Cooper.Interp.Text{segments: segments}, ctx) do
+    case interpolate_path(segments, ctx, []) do
+      {:ok, path} -> load_import(path, ctx)
+      {:error, error} -> {:error, error}
+    end
+  end
+
   def load_import(_non_string, _ctx) do
     {:error,
      Error.new(
-       message: "import path must be a literal string with no unresolved references",
+       message:
+         "import path must be a string, or a string interpolating only #{inspect("${NAME}")} references",
        stage: :import
      )}
+  end
+
+  # Builds an import path from an interpolated string, at parse time.
+  #
+  # Only `${NAME}` and `${NAME:default}` are permitted. Imports are resolved
+  # while parsing -- an imported file's entries are spliced into the importer --
+  # so anything needing the finished tree (`%{...}`) or the importer's own
+  # variables cannot be available yet. `${...}` can: `ctx.env` is already
+  # present at this point, which is what a `${?NAME}` guard reads too.
+  @spec interpolate_path(list(), map(), [String.t()]) :: {:ok, String.t()} | {:error, Error.t()}
+  defp interpolate_path([], _ctx, acc), do: {:ok, acc |> Enum.reverse() |> Enum.join()}
+
+  defp interpolate_path([segment | rest], ctx, acc) when is_binary(segment) do
+    interpolate_path(rest, ctx, [segment | acc])
+  end
+
+  defp interpolate_path(
+         [%Cooper.Ref.Env{index: nil, list?: false, filters: []} = ref | rest],
+         ctx,
+         acc
+       ) do
+    case import_env_value(ref, ctx) do
+      {:ok, value} -> interpolate_path(rest, ctx, [value | acc])
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  defp interpolate_path([unsupported | _rest], _ctx, _acc) do
+    {:error,
+     Error.new(
+       message:
+         "an import path may interpolate only #{inspect("${NAME}")} or #{inspect("${NAME:default}")}, got: #{inspect(unsupported)}",
+       stage: :import
+     )}
+  end
+
+  # Reads one environment reference for an import path.
+  #
+  # Unset and empty are treated alike, matching `${NAME:default}` everywhere
+  # else (CASC.md 7.2). Without a default, an absent variable is an error: a
+  # path that silently became `".casc"` would import the wrong file or none.
+  @spec import_env_value(Cooper.Ref.Env.t(), map()) :: {:ok, String.t()} | {:error, Error.t()}
+  defp import_env_value(%Cooper.Ref.Env{name: name, suffix: suffix}, ctx) do
+    case Map.get(ctx.env, name) do
+      value when is_binary(value) and value != "" ->
+        {:ok, value}
+
+      _unset_or_empty ->
+        case suffix do
+          {:default, default} ->
+            {:ok, to_string(default)}
+
+          _none ->
+            {:error,
+             Error.new(
+               message:
+                 "import path references #{inspect(name)}, which is unset and has no default",
+               stage: :import
+             )}
+        end
+    end
   end
 
   defp load_scheme(scheme, rest, ctx) do
