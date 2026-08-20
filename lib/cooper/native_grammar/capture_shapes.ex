@@ -36,6 +36,7 @@ defmodule Cooper.NativeGrammar.CaptureShapes do
         key_segment: MapSet.new([]),
         list: MapSet.new([:value]),
         real_statement: MapSet.new([]),
+        ref_name: MapSet.new([]),
         ref_suffix: MapSet.new([]),
         resolver_ref: MapSet.new([]),
         rhs: MapSet.new([]),

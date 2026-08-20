@@ -45,7 +45,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Like a bare atom literal, this creates an atom, with the same caveat: fine for
   a fixed, trusted set of configuration files, not for untrusted input.
 
+- A reference's **name** may now be built by interpolation, given as a
+  double-quoted string:
+
+      @which = "HOST"
+      host = ${"APP_@{which}"}     # reads APP_HOST
+
+  which, with a loop, is how a document follows a deployment convention of one
+  variable per tenant — something it previously could not express at all, since
+  CASC reads named variables and cannot enumerate the environment:
+
+      @supervisor_ids = ["1", "2", "3"]
+
+      for @id in @{supervisor_ids} as tokens {
+        "@{id}" = ${"TOKEN_@{id}"}
+      }
+
+  The same applies to `@{"..."}` and to a `%{...}` path segment. A built
+  `${...}`/`@{...}` name must resolve to an identifier; a `%{...}` key may be
+  any single segment; neither may be built from a secret, since names reach
+  error messages unredacted. Only the bare form may be built — a reference
+  nested inside a larger string keeps a plain name, the same scope trim that
+  position's `:default` grammar already has.
+
+  This is interpolation pointed at the name, not a new expression form. There
+  is still deliberately no concatenation operator.
+
 ### Fixed
+
+- An interpolated `%{...}` path segment (`%{tokens."supervisor-@{id}"}`) parsed
+  but never resolved: the unresolved struct reached `Enum.join/2` and raised
+  `Protocol.UndefinedError` instead of either working or failing cleanly. It now
+  resolves.
+
+- A `for` loop's bindings did not substitute into a **body key**, only into
+  values. An interpolated key stayed an unresolved `Cooper.Interp.Text` used as
+  a map key, so every iteration collapsed onto that single struct key and only
+  the last survived:
+
+      for @id in @{ids} as out {
+        "@{id}" = "value-@{id}"     # previously produced one entry, not one per id
+      }
 
 - Private (`@*name`) variables were not file-local. Visibility was applied to
   the *declaration* environment while `@{...}` references were resolved later,

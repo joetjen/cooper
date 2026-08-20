@@ -524,6 +524,55 @@ allowed_hosts = ${ALLOWED_HOSTS[]:["localhost"]}
 %{"region" => "eu-west", "max_retries" => 3, "allowed_hosts" => ["localhost"]}
 ```
 
+#### Built names
+
+A reference's **name** may be built by interpolation instead of written
+out, by giving it as a double-quoted string:
+
+```casc
+@which = "HOST"
+host = ${"APP_@{which}"}     # reads APP_HOST
+```
+
+This exists for one thing a document otherwise cannot do at all: follow
+a deployment convention of one variable per tenant. CASC reads *named*
+variables and has no way to enumerate the environment, so without it a
+set like `TOKEN_1`, `TOKEN_2`, … can only be written out one line at a
+time. With a loop (§5.5) it becomes a list of ids:
+
+```casc
+@supervisor_ids = ["1", "2", "3"]
+
+for @id in @{supervisor_ids} as tokens {
+  "@{id}" = ${"TOKEN_@{id}"}
+}
+```
+
+```elixir
+%{"tokens" => %{"1" => "tok-one", "2" => "tok-two", "3" => "tok-three"}}
+```
+
+The same applies to `@{"..."}` and to a `%{...}` path segment
+(`%{tokens."supervisor-@{id}"}`).
+
+This is interpolation — the concatenation the language already has,
+pointed at the name — not a new expression form. There is deliberately
+no concatenation operator, for the same reason the filter set is closed:
+that road ends at an expression language, and this is a config format.
+
+Three rules:
+
+- A built `${...}`/`@{...}` name must resolve to an identifier
+  (`[A-Za-z_][A-Za-z0-9_]*`), so a built name and a written-out one are
+  interchangeable. A `%{...}` key needn't — keys are quoted and may
+  contain anything but a `.`, which would silently split the path.
+- A name or key may not be built from a **secret**. Names appear in
+  error messages, which do not redact.
+- Only the **bare** form may be built. A reference nested inside a
+  larger string keeps a plain name: its token ends at the first `}`, so
+  a nested `@{...}` would truncate it — the same scope trim the reduced
+  `:default` grammar already has in that position.
+
 ### 7.3 Config references
 
 - `%{path}`

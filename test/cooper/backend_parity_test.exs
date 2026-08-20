@@ -65,6 +65,17 @@ defmodule Cooper.BackendParityTest do
     for @idx, @domain in @{domains} as endpoints."domain-@{idx}" {
       url = "https://@{domain}"
     }
+    """,
+    """
+    #@version = 1.0
+    @which = "HOST"
+    @ids = ["1", "2"]
+    built_env = ${"APP_@{which}"}
+    built_var = @{"@{which}"}
+    built_key = %{tokens."supervisor-@{which}"}
+    for @id in @{ids} as tokens {
+      "@{id}" = ${"TOKEN_@{id}"}
+    }
     """
   ]
 

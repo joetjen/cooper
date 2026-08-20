@@ -71,6 +71,11 @@ defmodule Cooper.Resolver do
   # a port targeting another language defines its own pattern here and leaves
   # documents that name modules readable in both.
   @module_pattern ~r/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
+  # What a built reference name is allowed to resolve to: the same
+  # shape `casc.aether`'s own IDENT token accepts, so a built name and
+  # a written-out one are interchangeable and nothing becomes reachable
+  # by building it that could not have been written directly.
+  @ref_name_pattern ~r/^[A-Za-z_][A-Za-z0-9_]*$/
   @max_module_bytes 512
 
   @doc """
@@ -198,6 +203,13 @@ defmodule Cooper.Resolver do
   # @{a}` (direct or transitive) cycle the same way `resolve_path/2`
   # guards `%{...}` -- without it, resolving one var could recurse
   # forever instead of failing with a clean, named error.
+  defp resolve_var(%Cooper.Ref.Var{name: name} = ref, state) when not is_binary(name) do
+    case resolve_ref_name(name, "@{...}", state) do
+      {:ok, resolved, state} -> resolve_var(%{ref | name: resolved}, state)
+      {:error, _} = err -> err
+    end
+  end
+
   defp resolve_var(
          %Cooper.Ref.Var{
            name: name,
@@ -281,6 +293,13 @@ defmodule Cooper.Resolver do
 
   # ---- ${...} (eager, always a string on success) ---------------------------
 
+  defp resolve_env(%Cooper.Ref.Env{name: name} = ref, state) when not is_binary(name) do
+    case resolve_ref_name(name, "${...}", state) do
+      {:ok, resolved, state} -> resolve_env(%{ref | name: resolved}, state)
+      {:error, _} = err -> err
+    end
+  end
+
   defp resolve_env(
          %Cooper.Ref.Env{
            name: name,
@@ -308,11 +327,122 @@ defmodule Cooper.Resolver do
     finish_ref(fetch, suffix, filters, "${#{name}}", state)
   end
 
+  # A reference's name may be built by interpolation (CASC.md 7.2) --
+  # `${"TOKEN_@{id}"}`. The name is resolved to a string first, then
+  # looked up exactly as a written-out name would be.
+  #
+  # Two things a *value* may be and a *name* may not. A name that
+  # resolved to something not identifier-shaped is a mistake worth
+  # naming rather than a lookup that quietly misses -- an interpolated
+  # `@{id}` holding "1 2" would otherwise just come back unset. And a
+  # secret must never *become* a name: names appear in error messages
+  # and in `env_names` (which `Cooper.Cache` persists to decide what to
+  # re-poll), neither of which redacts.
+  defp resolve_ref_name(name, label, state) do
+    case resolve_value(name, state) do
+      {:ok, %Cooper.Secret{}, _state} ->
+        {:error,
+         Error.new(message: "#{label} name may not be built from a secret value", stage: :resolve)}
+
+      {:ok, resolved, state} when is_binary(resolved) ->
+        if Regex.match?(@ref_name_pattern, resolved) do
+          {:ok, resolved, state}
+        else
+          {:error,
+           Error.new(
+             message: "#{label} resolved to #{inspect(resolved)}, which is not a valid name",
+             stage: :resolve
+           )}
+        end
+
+      {:ok, resolved, _state} ->
+        {:error,
+         Error.new(
+           message: "#{label} name must resolve to a string, got: #{inspect(resolved)}",
+           stage: :resolve
+         )}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
   defp split_env_list(raw), do: raw |> String.split(~r/[,;]/) |> Enum.map(&String.trim/1)
 
   # ---- %{...} (lazy, memoized, cycle-checked against the final tree) --------
 
-  defp resolve_config(
+  # A path segment may itself be built by interpolation
+  # (`%{tokens."supervisor-@{id}"}`) -- the parser has always produced
+  # one for that form, but nothing resolved it, so the unresolved
+  # struct reached `Enum.join/2` and crashed with a raw
+  # `Protocol.UndefinedError` instead of either working or failing
+  # cleanly. Resolve every segment to a string first, under the same
+  # rules a built `${...}`/`@{...}` name follows.
+  defp resolve_config(%Cooper.Ref.Config{path: path} = ref, state) do
+    case resolve_path_segments(path, state) do
+      {:ok, resolved, state} -> resolve_config_path(%{ref | path: resolved}, state)
+      {:error, _} = err -> err
+    end
+  end
+
+  # A key is not an identifier: `%{tokens."supervisor-1"}` is a
+  # perfectly ordinary quoted key, so the identifier shape a built
+  # `${...}`/`@{...}` *name* must have would reject legitimate paths
+  # here. What a built key may not be is empty (it would silently
+  # address the wrong depth), dotted (it would silently become two
+  # segments rather than one), or a secret (same reason a name may not
+  # be -- it lands in error messages unredacted).
+  defp resolve_key_segment(segment, state) do
+    case resolve_value(segment, state) do
+      {:ok, %Cooper.Secret{}, _state} ->
+        {:error,
+         Error.new(message: "%{...} key may not be built from a secret value", stage: :resolve)}
+
+      {:ok, "", _state} ->
+        {:error, Error.new(message: "%{...} key resolved to an empty string", stage: :resolve)}
+
+      {:ok, resolved, state} when is_binary(resolved) ->
+        if String.contains?(resolved, ".") do
+          {:error,
+           Error.new(
+             message:
+               "%{...} key resolved to #{inspect(resolved)}, which would split into more than one path segment",
+             stage: :resolve
+           )}
+        else
+          {:ok, resolved, state}
+        end
+
+      {:ok, resolved, _state} ->
+        {:error,
+         Error.new(
+           message: "%{...} key must resolve to a string, got: #{inspect(resolved)}",
+           stage: :resolve
+         )}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  defp resolve_path_segments(path, state) do
+    Enum.reduce_while(path, {:ok, [], state}, fn
+      segment, {:ok, acc, state} when is_binary(segment) ->
+        {:cont, {:ok, [segment | acc], state}}
+
+      segment, {:ok, acc, state} ->
+        case resolve_key_segment(segment, state) do
+          {:ok, resolved, state} -> {:cont, {:ok, [resolved | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+    end)
+    |> case do
+      {:ok, acc, state} -> {:ok, Enum.reverse(acc), state}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp resolve_config_path(
          %Cooper.Ref.Config{path: path, index: index, suffix: suffix, filters: filters},
          state
        ) do

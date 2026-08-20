@@ -45,7 +45,7 @@ defmodule Cooper.Scope do
   """
   @spec stamp(term(), String.t()) :: term()
   def stamp(%Cooper.Ref.Var{scope: nil} = ref, scope) do
-    %{ref | suffix: stamp(ref.suffix, scope), scope: scope}
+    %{ref | name: stamp(ref.name, scope), suffix: stamp(ref.suffix, scope), scope: scope}
   end
 
   def stamp(%Cooper.Ref.Var{} = ref, _scope), do: ref
@@ -61,11 +61,11 @@ defmodule Cooper.Scope do
 
   def stamp(%Cooper.Ref.Tagged{arg: arg} = ref, scope), do: %{ref | arg: stamp(arg, scope)}
 
-  def stamp(%Cooper.Ref.Env{suffix: suffix} = ref, scope),
-    do: %{ref | suffix: stamp(suffix, scope)}
+  def stamp(%Cooper.Ref.Env{} = ref, scope),
+    do: %{ref | name: stamp(ref.name, scope), suffix: stamp(ref.suffix, scope)}
 
-  def stamp(%Cooper.Ref.Config{suffix: suffix} = ref, scope),
-    do: %{ref | suffix: stamp(suffix, scope)}
+  def stamp(%Cooper.Ref.Config{} = ref, scope),
+    do: %{ref | path: stamp(ref.path, scope), suffix: stamp(ref.suffix, scope)}
 
   # A struct with no references of its own (`Cooper.Secret`,
   # `Cooper.IPv4`, `DateTime`, ...) is a leaf: walking its fields would
