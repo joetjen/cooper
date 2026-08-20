@@ -31,10 +31,14 @@ defmodule Cooper.Resolver do
 
   defmodule State do
     @moduledoc false
-    @enforce_keys [:tree, :vars, :env, :resolvers, :tags]
+    @enforce_keys [:tree, :vars, :private_vars, :env, :resolvers, :tags]
     defstruct [
       :tree,
       :vars,
+      # `%{scope => %{name => value}}` -- the private (`@*name`)
+      # declarations of each file in the load, consulted only for a
+      # reference stamped with that same scope. See `Cooper.Scope`.
+      :private_vars,
       :env,
       :resolvers,
       :tags,
@@ -71,10 +75,14 @@ defmodule Cooper.Resolver do
 
   @doc """
   `opts`:
-    * `:vars` -- `%{name => value}`, the file's own resolved variable
-      environment (`Cooper.Grammar.run_tree/2` builds this from
-      `Cooper.Actions`' `ctx.vars`, already public/private-filtered by
-      `Cooper.Loader` across imports).
+    * `:vars` -- the load's variable environment, either
+      `{public, private_by_scope}` as `Cooper.Grammar.run_tree/2`
+      returns it, or a plain `%{name => value}` map (treated as
+      entirely public) for a hand-built tree. `public` is shared by
+      every file in the load; `private_by_scope` is
+      `%{scope => %{name => value}}` and is consulted only for a
+      reference stamped with that same scope -- which is what keeps
+      `@*name` file-local. See `Cooper.Scope`.
     * `:env` -- `%{name => value}`, defaults to `System.get_env/0`.
     * `:resolvers` -- `%{name => (payload :: String.t() -> {:ok, term()}
       | {:error, term()})}`, for `!{resolver:payload}` (CASC.md §7.4/§9.2).
@@ -95,9 +103,12 @@ defmodule Cooper.Resolver do
   @spec resolve_with_env_names(term(), keyword()) ::
           {:ok, term(), MapSet.t()} | {:error, Error.t()}
   def resolve_with_env_names(tree, opts \\ []) do
+    {vars, private_vars} = split_var_env(Keyword.get(opts, :vars, %{}))
+
     state = %State{
       tree: tree,
-      vars: Keyword.get(opts, :vars, %{}),
+      vars: vars,
+      private_vars: private_vars,
       env: Keyword.get(opts, :env, System.get_env()),
       resolvers: Keyword.get(opts, :resolvers, %{}),
       tags: Map.merge(@built_in_tags, Keyword.get(opts, :tags, %{}))
@@ -188,19 +199,27 @@ defmodule Cooper.Resolver do
   # guards `%{...}` -- without it, resolving one var could recurse
   # forever instead of failing with a clean, named error.
   defp resolve_var(
-         %Cooper.Ref.Var{name: name, index: index, suffix: suffix, filters: filters},
+         %Cooper.Ref.Var{
+           name: name,
+           index: index,
+           suffix: suffix,
+           filters: filters,
+           scope: scope
+         },
          state
        ) do
-    if name in state.var_in_progress do
+    binding = {scope_of(state, name, scope), name}
+
+    if binding in state.var_in_progress do
       {:error, var_cycle_error(state.var_in_progress, name)}
     else
-      case Map.fetch(state.vars, name) do
+      case fetch_var(state, name, scope) do
         {:ok, raw} ->
-          state = %{state | var_in_progress: [name | state.var_in_progress]}
+          state = %{state | var_in_progress: [binding | state.var_in_progress]}
 
           case resolve_value(raw, state) do
             {:ok, resolved, state} ->
-              state = %{state | var_in_progress: List.delete(state.var_in_progress, name)}
+              state = %{state | var_in_progress: List.delete(state.var_in_progress, binding)}
               finish_ref(apply_index(resolved, index), suffix, filters, "@{#{name}}", state)
 
             {:error, _} = err ->
@@ -213,8 +232,50 @@ defmodule Cooper.Resolver do
     end
   end
 
+  # A reference sees its own file's private (`@*name`) declarations
+  # first, then the shared public environment -- so a private
+  # declaration shadows a public one of the same name *inside its own
+  # file only*, and is invisible everywhere else (CASC.md 5.2). A
+  # reference with no scope at all (a `vars` map handed straight to
+  # `resolve/2` rather than built by `Cooper.Grammar`) simply has no
+  # private environment to consult.
+  defp fetch_var(state, name, scope) do
+    case private_fetch(state, name, scope) do
+      {:ok, _} = found -> found
+      :error -> Map.fetch(state.vars, name)
+    end
+  end
+
+  defp private_fetch(_state, _name, nil), do: :error
+
+  defp private_fetch(state, name, scope) do
+    case Map.fetch(state.private_vars, scope) do
+      {:ok, privates} -> Map.fetch(privates, name)
+      :error -> :error
+    end
+  end
+
+  # Which binding a name actually resolved to, so cycle detection
+  # tracks *that* binding rather than the bare name -- two files may
+  # each declare an unrelated `@*name`, and neither is a cycle in the
+  # other.
+  defp scope_of(state, name, scope) do
+    case private_fetch(state, name, scope) do
+      {:ok, _} -> scope
+      :error -> :public
+    end
+  end
+
+  # `Cooper.Grammar` hands over `{public, private_by_scope}`; a caller
+  # resolving a hand-built tree may still pass a plain `%{name =>
+  # value}` map, which is treated as entirely public.
+  defp split_var_env({vars, private_vars}) when is_map(vars) and is_map(private_vars),
+    do: {vars, private_vars}
+
+  defp split_var_env(vars) when is_map(vars), do: {vars, %{}}
+
   defp var_cycle_error(var_in_progress, name) do
-    chain = Enum.reverse(var_in_progress) ++ [name]
+    chain = Enum.reverse(Enum.map(var_in_progress, &elem(&1, 1))) ++ [name]
     Error.new(message: "circular @{...} reference: #{Enum.join(chain, " -> ")}", stage: :resolve)
   end
 

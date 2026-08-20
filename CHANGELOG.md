@@ -45,6 +45,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Like a bare atom literal, this creates an atom, with the same caveat: fine for
   a fixed, trusted set of configuration files, not for untrusted input.
 
+### Fixed
+
+- Private (`@*name`) variables were not file-local. Visibility was applied to
+  the *declaration* environment while `@{...}` references were resolved later,
+  against the single flattened result of the whole import tree — by which point
+  the file a reference had been written in was no longer known. Three
+  consequences, all now fixed:
+
+  - A private variable declared in an importing file was visible inside the
+    files it imported.
+  - A private variable declared in an *imported* file could not be used by that
+    file's own values at all, failing with `undefined reference` — the
+    declaration was filtered out before resolution ever ran.
+  - A private name was therefore global in one direction and unusable in the
+    other, the opposite of what CASC.md §5.2 specifies.
+
+  Every `@{...}` reference is now attributed to the file that wrote it (see
+  `Cooper.Scope`), and each file's private declarations are resolved only for
+  references carrying that file's scope.
+
+  Existing documents that use only public `@name` variables are unaffected.
+  Documents relying on a private variable leaking into an imported file will now
+  see it as undefined, which is the specified behaviour.
+
+### Changed
+
+- CASC.md §5.2 now states the visibility rules in full. Public variables are
+  visible in **both** directions — to a file's importers and to the files it
+  imports — which is what makes an entry document able to declare values its
+  shared includes consume. This is a documentation fix: it is what the
+  implementation has always done for public names, and it was previously
+  described as flowing only towards importers.
+
+- `Cooper.Ref.Var` carries a new `scope` field, and `Cooper.Grammar.run_tree/2`
+  now returns its variable environment as `{public, private_by_scope}`.
+  `Cooper.Resolver` still accepts a plain `%{name => value}` map for `:vars`,
+  so callers resolving a hand-built tree need no change.
+
 ## [0.3.0] - 2026-08-19
 
 ### Added

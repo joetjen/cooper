@@ -47,6 +47,59 @@ defmodule Cooper.LoaderTest do
     end
   end
 
+  # The two tests above assert on the *declaration* environment. That
+  # is not, on its own, enough to pin the visibility rules down: `@{}`
+  # references are resolved later, against the flattened whole, so a
+  # name can be absent from `result_ctx.vars` and still resolve (and
+  # vice versa). These resolve real values instead -- the regression
+  # that motivated `Cooper.Scope` passed both tests above while getting
+  # every case below wrong.
+  describe "variable visibility, resolved (CASC.md §5.2)" do
+    @visibility Path.join([__DIR__, "..", "fixtures", "visibility"])
+
+    setup do
+      assert {:ok, result} =
+               Cooper.load_file(Path.join(@visibility, "main.casc"),
+                 cache: false,
+                 dotenv: false,
+                 env: %{}
+               )
+
+      %{result: result}
+    end
+
+    test "a private variable is usable inside its own file", %{result: result} do
+      assert result["entry"]["own_private"] == "entry-private"
+    end
+
+    test "an imported file can use its own private variable", %{result: result} do
+      assert result["shared"]["own_private"] == "shared-private"
+    end
+
+    test "the importer's private variable is not visible to an imported file", %{result: result} do
+      assert result["shared"]["from_importer_private"] == "MISSING"
+    end
+
+    test "an imported file's private variable is not visible to the importer", %{result: result} do
+      assert result["entry"]["imported_private"] == "MISSING"
+    end
+
+    test "a public variable travels up, from the imported file to the importer", %{result: result} do
+      assert result["entry"]["imported_public"] == "shared-public"
+    end
+
+    test "a public variable travels down, from the importer to the imported file", %{
+      result: result
+    } do
+      assert result["shared"]["from_importer_public"] == "entry-public"
+    end
+
+    test "two files' identically named private variables stay independent", %{result: result} do
+      assert result["shared"]["own_private"] == "shared-private"
+      assert result["other"]["own_private"] == "other-private"
+    end
+  end
+
   describe "brace and glob expansion (CASC.md §5.1)" do
     test "expands {a,b} and ** against the filesystem, loading matches in lexicographic order" do
       assert {:ok, result} = Cooper.Grammar.run_file(fixture("glob_main.casc"))

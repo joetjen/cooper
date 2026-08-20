@@ -115,11 +115,36 @@ import "vault://secret/base"
 ### 5.2 Variable declarations
 
 ```casc
-@name = "value"      ; public, exported to importers
-@*private = "value"   ; private, file-local
+@name = "value"       # public
+@*private = "value"   # private, file-local
 ```
 
 Operator optional, per §5.3.
+
+**Visibility.** A **public** `@name` belongs to the whole load, not to
+the file that wrote it. It is visible to the files that import that file
+(transitively), *and* to the files that file imports — so an entry
+document can declare a value before its imports and have every imported
+file see it:
+
+```casc
+# app.casc
+@service = "checkout"
+import "inc/telemetry.casc"   # sees @{service}
+
+# inc/telemetry.casc
+telemetry.service_name = "@{service}"
+```
+
+A **private** `@*name` is usable anywhere inside the file that declares
+it and nowhere else. It never reaches an importer, and it is never
+visible to a file it imports. Two files may each declare an unrelated
+`@*name` without colliding, and inside its own file a private
+declaration shadows a public one of the same name.
+
+Because visibility is decided per *file*, and the last file to assign a
+public name wins, prefer `@*name` for anything a file only needs for
+itself — a public name is effectively part of the load's shared surface.
 
 ### 5.3 Assignments
 

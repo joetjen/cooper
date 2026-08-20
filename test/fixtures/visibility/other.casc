@@ -1,0 +1,9 @@
+#@version = 1.0
+
+# Deliberately the same private name as shared.casc, a different value:
+# the two must not collide, shadow, or cycle against each other.
+@*local_secret = "other-private"
+
+other {
+  own_private = "@{local_secret}"
+}

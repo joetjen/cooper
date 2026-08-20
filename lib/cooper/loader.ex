@@ -199,10 +199,18 @@ defmodule Cooper.Loader do
     end
   end
 
-  # A freshly-loaded file starts with an *empty* local `vars` (it
-  # doesn't inherit the importer's own variables -- CASC.md §5.2 only
-  # describes visibility flowing the other way, imported-file-to-
-  # importer), but the *cycle-detection set*, `loaded_files`,
+  # A freshly-loaded file starts with an *empty* local `vars`: nothing
+  # is inherited at *parse* time. That is not the same as the
+  # importer's variables being invisible to it -- a public `@name` is
+  # visible in both directions (CASC.md §5.2), but that visibility is
+  # applied at *resolve* time, against the one shared environment every
+  # file's public declarations merge into, not by seeding this map.
+  # Parse-time consumers (`Cooper.Loop`'s iteration count, `${?NAME}`
+  # guards) are the only things that read `vars` here, and neither may
+  # depend on a variable declared in another file. `private_vars` is
+  # likewise empty: privates are collected per file on the way back up
+  # (`merge_private_vars/3`) and never seed anything. The
+  # *cycle-detection set*, `loaded_files`,
   # `import_schemes`, and `env` do carry forward (an imported file's own
   # `${?NAME}` guard -- CASC.md §7.2 -- reads `ctx.env` at parse time,
   # same as the entry file's; dropping it here previously crashed with
@@ -212,6 +220,8 @@ defmodule Cooper.Loader do
   defp load_source(file, source, ctx) do
     sub_ctx = %{
       vars: %{},
+      private_vars: %{},
+      scope: Cooper.Scope.id(file),
       root: Path.dirname(file),
       import_schemes: ctx.import_schemes,
       importing: MapSet.put(ctx.importing, file),
@@ -225,6 +235,7 @@ defmodule Cooper.Loader do
         ctx =
           ctx
           |> merge_public_vars(result_ctx.vars)
+          |> merge_private_vars(sub_ctx.scope, result_ctx)
           |> merge_loaded_files(result_ctx.loaded_files)
           |> merge_env_guard_names(result_ctx.env_guard_names)
 
@@ -238,6 +249,25 @@ defmodule Cooper.Loader do
   defp merge_public_vars(ctx, imported_vars) do
     public = for {name, {_value, true} = entry} <- imported_vars, into: %{}, do: {name, entry}
     update_in(ctx, [:vars], &Map.merge(&1, public))
+  end
+
+  # The imported file's own private (`@*name`) declarations, filed
+  # under *its* scope, plus any its own nested imports contributed
+  # under theirs. This is deliberately not the mirror of
+  # `merge_public_vars/2`: nothing here ever becomes visible to another
+  # file, it only travels up so the single `Cooper.Resolver` pass at
+  # the end can still resolve each file's own references against the
+  # file that wrote them (CASC.md 5.2). Without it an imported file
+  # could declare `@*name` and then fail to resolve its own `@{name}`.
+  defp merge_private_vars(ctx, scope, result_ctx) do
+    {_public, private} = Cooper.Scope.split(result_ctx.vars)
+
+    nested = Map.merge(ctx.private_vars, result_ctx.private_vars)
+
+    private_vars =
+      if private == %{}, do: nested, else: Map.put(nested, scope, private)
+
+    %{ctx | private_vars: private_vars}
   end
 
   # Unlike `importing`, deliberately *not* discarded when `load_source/3`
