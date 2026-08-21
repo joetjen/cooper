@@ -90,6 +90,33 @@ Shared suffix grammar across `@{}`/`${}`/`%{}`:
 | `${NAME[]:[...]}` | parse `NAME` as a comma/semicolon-separated list, with a default |
 | `${NAME[i]:default}` | index into the split list |
 
+## Imports (§5.1)
+
+`import "path.casc"` -- relative to the current file; brace/glob
+patterns expand against the filesystem. A path may interpolate
+`${NAME}`/`${NAME:default}` to select one:
+
+```casc
+import "env/${MIX_ENV:dev}.casc"
+```
+
+Only `${...}`; `%{...}` needs the finished tree, which does not exist
+while the document is still being parsed. An unset variable with no
+default is an error, not an empty segment.
+
+The common shape is an entry document importing shared concerns and then
+its environment's overlay, last so it overrides them:
+
+```casc
+import "inc/database.casc"
+import "env/${MIX_ENV:dev}.casc"
+```
+
+Every selectable file must exist -- a missing import is a load error, so
+keep an `env/prod.casc` even when it overrides nothing. Default to the
+environment whose tooling does *not* set the variable, which is usually
+`dev`: deployed environments set it explicitly.
+
 ## Filters (§7.2)
 
 | Filter | Effect |
@@ -115,11 +142,12 @@ coercion. Use a tagged value to change a type.
 ## Built-in tagged values
 
 `!int(arg)` `!float(arg)` `!bool(arg)` `!duration(arg)` `!bytes(arg)`
-`!trim(arg)` `!downcase(arg)` `!upcase(arg)` -- always available, no
-registration needed. `!duration`/`!bytes` produce the same
+`!trim(arg)` `!downcase(arg)` `!upcase(arg)` `!module(arg)` -- always
+available, no registration needed. `!duration`/`!bytes` produce the same
 `{:duration, ns}` / `{:bytes, n}` shape as the bare literal forms
-(§6.8/§6.9); the last three normalize a whole value the way the
-matching filter normalizes one reference.
+(§6.8/§6.9); `!trim`/`!downcase`/`!upcase` normalize a whole value the
+way the matching filter normalizes one reference; `!module("Foo.Bar")`
+names a module, which §6.4's bare-identifier atoms cannot express.
 
 ## Loops (§5.5)
 

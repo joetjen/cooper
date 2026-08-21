@@ -294,9 +294,33 @@ value := NIL_KW | TRUE_KW | FALSE_KW | INF_KW
 ; simply absent from the captures map when it doesn't -- exactly what's
 ; needed here. Flagged deliberately: reintroducing `name:` on any of
 ; these is a silent regression, not a style choice.
-at_ref     := "@{" name:IDENT idx_suffix? ref_suffix? filters? "}"
-env_ref    := "${" name:IDENT env_bracket? ref_suffix? filters? "}"
+at_ref     := "@{" name:ref_name idx_suffix? ref_suffix? filters? "}"
+env_ref    := "${" name:ref_name env_bracket? ref_suffix? filters? "}"
 config_ref := "%{" path:key_path idx_suffix? ref_suffix? filters? "}"
+
+; A reference's *name* may be built rather than written out, by giving
+; it as a double-quoted string that interpolates (CASC.md 7.2):
+; `${"TOKEN_@{id}"}` inside a `for` loop reads one differently-named
+; variable per iteration, which is the only way a document can follow a
+; deployment convention like one environment variable per tenant. It is
+; interpolation, not a new expression form -- the same concatenation
+; the language already has, pointed at the name instead of the value --
+; which is why there is deliberately still no concat operator (see
+; `filters` below on keeping this a config format).
+;
+; `ref_name` is its own rule for the same reason `seg` and `filter_arg`
+; are: an inline `name:(IDENT | DQ_STRING)` captures the matched span
+; generically and never dispatches DQ_STRING's own unescaping *or* its
+; interpolation, so the name would arrive still wearing its quotes and
+; with `@{...}` unparsed inside it.
+;
+; Only the bare form is built this way. A reference nested inside a
+; larger string keeps a plain IDENT name: its raw token
+; (`casc_interp.aether`'s `ENV_REF_RAW`) ends at the first `}`, so a
+; nested `@{...}` inside the name would truncate it -- a scope trim of
+; the same kind, and for the same reason, as the reduced `:default`
+; value grammar that form already has.
+ref_name   := IDENT | DQ_STRING
 
 resolver_ref := raw:RESOLVER_REF_RAW
 tagged_ref   := "!" name:IDENT "(" arg:value ")"

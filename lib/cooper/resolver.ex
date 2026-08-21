@@ -31,10 +31,14 @@ defmodule Cooper.Resolver do
 
   defmodule State do
     @moduledoc false
-    @enforce_keys [:tree, :vars, :env, :resolvers, :tags]
+    @enforce_keys [:tree, :vars, :private_vars, :env, :resolvers, :tags]
     defstruct [
       :tree,
       :vars,
+      # `%{scope => %{name => value}}` -- the private (`@*name`)
+      # declarations of each file in the load, consulted only for a
+      # reference stamped with that same scope. See `Cooper.Scope`.
+      :private_vars,
       :env,
       :resolvers,
       :tags,
@@ -57,15 +61,33 @@ defmodule Cooper.Resolver do
     "bytes" => &__MODULE__.tag_bytes/1,
     "trim" => &__MODULE__.tag_trim/1,
     "downcase" => &__MODULE__.tag_downcase/1,
-    "upcase" => &__MODULE__.tag_upcase/1
+    "upcase" => &__MODULE__.tag_upcase/1,
+    "module" => &__MODULE__.tag_module/1
   }
+
+  # A module name this implementation accepts: dot-separated segments, each an
+  # identifier. `!module` is deliberately the same tag in every Cooper
+  # implementation while the shape it accepts is that implementation's own --
+  # a port targeting another language defines its own pattern here and leaves
+  # documents that name modules readable in both.
+  @module_pattern ~r/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
+  # What a built reference name is allowed to resolve to: the same
+  # shape `casc.aether`'s own IDENT token accepts, so a built name and
+  # a written-out one are interchangeable and nothing becomes reachable
+  # by building it that could not have been written directly.
+  @ref_name_pattern ~r/^[A-Za-z_][A-Za-z0-9_]*$/
+  @max_module_bytes 512
 
   @doc """
   `opts`:
-    * `:vars` -- `%{name => value}`, the file's own resolved variable
-      environment (`Cooper.Grammar.run_tree/2` builds this from
-      `Cooper.Actions`' `ctx.vars`, already public/private-filtered by
-      `Cooper.Loader` across imports).
+    * `:vars` -- the load's variable environment, either
+      `{public, private_by_scope}` as `Cooper.Grammar.run_tree/2`
+      returns it, or a plain `%{name => value}` map (treated as
+      entirely public) for a hand-built tree. `public` is shared by
+      every file in the load; `private_by_scope` is
+      `%{scope => %{name => value}}` and is consulted only for a
+      reference stamped with that same scope -- which is what keeps
+      `@*name` file-local. See `Cooper.Scope`.
     * `:env` -- `%{name => value}`, defaults to `System.get_env/0`.
     * `:resolvers` -- `%{name => (payload :: String.t() -> {:ok, term()}
       | {:error, term()})}`, for `!{resolver:payload}` (CASC.md §7.4/§9.2).
@@ -86,9 +108,12 @@ defmodule Cooper.Resolver do
   @spec resolve_with_env_names(term(), keyword()) ::
           {:ok, term(), MapSet.t()} | {:error, Error.t()}
   def resolve_with_env_names(tree, opts \\ []) do
+    {vars, private_vars} = split_var_env(Keyword.get(opts, :vars, %{}))
+
     state = %State{
       tree: tree,
-      vars: Keyword.get(opts, :vars, %{}),
+      vars: vars,
+      private_vars: private_vars,
       env: Keyword.get(opts, :env, System.get_env()),
       resolvers: Keyword.get(opts, :resolvers, %{}),
       tags: Map.merge(@built_in_tags, Keyword.get(opts, :tags, %{}))
@@ -178,20 +203,35 @@ defmodule Cooper.Resolver do
   # @{a}` (direct or transitive) cycle the same way `resolve_path/2`
   # guards `%{...}` -- without it, resolving one var could recurse
   # forever instead of failing with a clean, named error.
+  defp resolve_var(%Cooper.Ref.Var{name: name} = ref, state) when not is_binary(name) do
+    case resolve_ref_name(name, "@{...}", state) do
+      {:ok, resolved, state} -> resolve_var(%{ref | name: resolved}, state)
+      {:error, _} = err -> err
+    end
+  end
+
   defp resolve_var(
-         %Cooper.Ref.Var{name: name, index: index, suffix: suffix, filters: filters},
+         %Cooper.Ref.Var{
+           name: name,
+           index: index,
+           suffix: suffix,
+           filters: filters,
+           scope: scope
+         },
          state
        ) do
-    if name in state.var_in_progress do
+    binding = {scope_of(state, name, scope), name}
+
+    if binding in state.var_in_progress do
       {:error, var_cycle_error(state.var_in_progress, name)}
     else
-      case Map.fetch(state.vars, name) do
+      case fetch_var(state, name, scope) do
         {:ok, raw} ->
-          state = %{state | var_in_progress: [name | state.var_in_progress]}
+          state = %{state | var_in_progress: [binding | state.var_in_progress]}
 
           case resolve_value(raw, state) do
             {:ok, resolved, state} ->
-              state = %{state | var_in_progress: List.delete(state.var_in_progress, name)}
+              state = %{state | var_in_progress: List.delete(state.var_in_progress, binding)}
               finish_ref(apply_index(resolved, index), suffix, filters, "@{#{name}}", state)
 
             {:error, _} = err ->
@@ -204,12 +244,61 @@ defmodule Cooper.Resolver do
     end
   end
 
+  # A reference sees its own file's private (`@*name`) declarations
+  # first, then the shared public environment -- so a private
+  # declaration shadows a public one of the same name *inside its own
+  # file only*, and is invisible everywhere else (CASC.md 5.2). A
+  # reference with no scope at all (a `vars` map handed straight to
+  # `resolve/2` rather than built by `Cooper.Grammar`) simply has no
+  # private environment to consult.
+  defp fetch_var(state, name, scope) do
+    case private_fetch(state, name, scope) do
+      {:ok, _} = found -> found
+      :error -> Map.fetch(state.vars, name)
+    end
+  end
+
+  defp private_fetch(_state, _name, nil), do: :error
+
+  defp private_fetch(state, name, scope) do
+    case Map.fetch(state.private_vars, scope) do
+      {:ok, privates} -> Map.fetch(privates, name)
+      :error -> :error
+    end
+  end
+
+  # Which binding a name actually resolved to, so cycle detection
+  # tracks *that* binding rather than the bare name -- two files may
+  # each declare an unrelated `@*name`, and neither is a cycle in the
+  # other.
+  defp scope_of(state, name, scope) do
+    case private_fetch(state, name, scope) do
+      {:ok, _} -> scope
+      :error -> :public
+    end
+  end
+
+  # `Cooper.Grammar` hands over `{public, private_by_scope}`; a caller
+  # resolving a hand-built tree may still pass a plain `%{name =>
+  # value}` map, which is treated as entirely public.
+  defp split_var_env({vars, private_vars}) when is_map(vars) and is_map(private_vars),
+    do: {vars, private_vars}
+
+  defp split_var_env(vars) when is_map(vars), do: {vars, %{}}
+
   defp var_cycle_error(var_in_progress, name) do
-    chain = Enum.reverse(var_in_progress) ++ [name]
+    chain = Enum.reverse(Enum.map(var_in_progress, &elem(&1, 1))) ++ [name]
     Error.new(message: "circular @{...} reference: #{Enum.join(chain, " -> ")}", stage: :resolve)
   end
 
   # ---- ${...} (eager, always a string on success) ---------------------------
+
+  defp resolve_env(%Cooper.Ref.Env{name: name} = ref, state) when not is_binary(name) do
+    case resolve_ref_name(name, "${...}", state) do
+      {:ok, resolved, state} -> resolve_env(%{ref | name: resolved}, state)
+      {:error, _} = err -> err
+    end
+  end
 
   defp resolve_env(
          %Cooper.Ref.Env{
@@ -238,11 +327,122 @@ defmodule Cooper.Resolver do
     finish_ref(fetch, suffix, filters, "${#{name}}", state)
   end
 
+  # A reference's name may be built by interpolation (CASC.md 7.2) --
+  # `${"TOKEN_@{id}"}`. The name is resolved to a string first, then
+  # looked up exactly as a written-out name would be.
+  #
+  # Two things a *value* may be and a *name* may not. A name that
+  # resolved to something not identifier-shaped is a mistake worth
+  # naming rather than a lookup that quietly misses -- an interpolated
+  # `@{id}` holding "1 2" would otherwise just come back unset. And a
+  # secret must never *become* a name: names appear in error messages
+  # and in `env_names` (which `Cooper.Cache` persists to decide what to
+  # re-poll), neither of which redacts.
+  defp resolve_ref_name(name, label, state) do
+    case resolve_value(name, state) do
+      {:ok, %Cooper.Secret{}, _state} ->
+        {:error,
+         Error.new(message: "#{label} name may not be built from a secret value", stage: :resolve)}
+
+      {:ok, resolved, state} when is_binary(resolved) ->
+        if Regex.match?(@ref_name_pattern, resolved) do
+          {:ok, resolved, state}
+        else
+          {:error,
+           Error.new(
+             message: "#{label} resolved to #{inspect(resolved)}, which is not a valid name",
+             stage: :resolve
+           )}
+        end
+
+      {:ok, resolved, _state} ->
+        {:error,
+         Error.new(
+           message: "#{label} name must resolve to a string, got: #{inspect(resolved)}",
+           stage: :resolve
+         )}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
   defp split_env_list(raw), do: raw |> String.split(~r/[,;]/) |> Enum.map(&String.trim/1)
 
   # ---- %{...} (lazy, memoized, cycle-checked against the final tree) --------
 
-  defp resolve_config(
+  # A path segment may itself be built by interpolation
+  # (`%{tokens."supervisor-@{id}"}`) -- the parser has always produced
+  # one for that form, but nothing resolved it, so the unresolved
+  # struct reached `Enum.join/2` and crashed with a raw
+  # `Protocol.UndefinedError` instead of either working or failing
+  # cleanly. Resolve every segment to a string first, under the same
+  # rules a built `${...}`/`@{...}` name follows.
+  defp resolve_config(%Cooper.Ref.Config{path: path} = ref, state) do
+    case resolve_path_segments(path, state) do
+      {:ok, resolved, state} -> resolve_config_path(%{ref | path: resolved}, state)
+      {:error, _} = err -> err
+    end
+  end
+
+  # A key is not an identifier: `%{tokens."supervisor-1"}` is a
+  # perfectly ordinary quoted key, so the identifier shape a built
+  # `${...}`/`@{...}` *name* must have would reject legitimate paths
+  # here. What a built key may not be is empty (it would silently
+  # address the wrong depth), dotted (it would silently become two
+  # segments rather than one), or a secret (same reason a name may not
+  # be -- it lands in error messages unredacted).
+  defp resolve_key_segment(segment, state) do
+    case resolve_value(segment, state) do
+      {:ok, %Cooper.Secret{}, _state} ->
+        {:error,
+         Error.new(message: "%{...} key may not be built from a secret value", stage: :resolve)}
+
+      {:ok, "", _state} ->
+        {:error, Error.new(message: "%{...} key resolved to an empty string", stage: :resolve)}
+
+      {:ok, resolved, state} when is_binary(resolved) ->
+        if String.contains?(resolved, ".") do
+          {:error,
+           Error.new(
+             message:
+               "%{...} key resolved to #{inspect(resolved)}, which would split into more than one path segment",
+             stage: :resolve
+           )}
+        else
+          {:ok, resolved, state}
+        end
+
+      {:ok, resolved, _state} ->
+        {:error,
+         Error.new(
+           message: "%{...} key must resolve to a string, got: #{inspect(resolved)}",
+           stage: :resolve
+         )}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  defp resolve_path_segments(path, state) do
+    Enum.reduce_while(path, {:ok, [], state}, fn
+      segment, {:ok, acc, state} when is_binary(segment) ->
+        {:cont, {:ok, [segment | acc], state}}
+
+      segment, {:ok, acc, state} ->
+        case resolve_key_segment(segment, state) do
+          {:ok, resolved, state} -> {:cont, {:ok, [resolved | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+    end)
+    |> case do
+      {:ok, acc, state} -> {:ok, Enum.reverse(acc), state}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp resolve_config_path(
          %Cooper.Ref.Config{path: path, index: index, suffix: suffix, filters: filters},
          state
        ) do
@@ -401,6 +601,25 @@ defmodule Cooper.Resolver do
   def tag_upcase(arg), do: {:error, "cannot upcase #{inspect(arg)}: not a string"}
 
   @doc false
+  def tag_module(arg) when is_binary(arg) do
+    name = String.trim(arg)
+
+    cond do
+      byte_size(name) > @max_module_bytes ->
+        {:error,
+         "cannot convert #{inspect(arg)} to a module: longer than #{@max_module_bytes} bytes"}
+
+      not Regex.match?(@module_pattern, name) ->
+        {:error, "cannot convert #{inspect(arg)} to a module: not a dot-separated module name"}
+
+      true ->
+        {:ok, module_atom(name)}
+    end
+  end
+
+  def tag_module(arg), do: {:error, "cannot convert #{inspect(arg)} to a module: not a string"}
+
+  @doc false
   def tag_int(arg) when is_integer(arg), do: {:ok, arg}
 
   def tag_int(arg) when is_binary(arg) do
@@ -512,6 +731,21 @@ defmodule Cooper.Resolver do
   end
 
   defp apply_index(_value, _i), do: :error
+
+  # Builds the atom a module name denotes on this runtime.
+  #
+  # A name beginning with an upper-case letter is an Elixir module, which lives
+  # under the `Elixir.` prefix; anything else is an Erlang module, whose atom is
+  # the name itself. Both are ordinary atoms once built.
+  #
+  # This creates an atom, exactly as a bare atom literal does (CASC.md 6.4), and
+  # carries the same caveat: fine for a fixed, trusted set of configuration
+  # files, not for untrusted input.
+  @spec module_atom(String.t()) :: module()
+  defp module_atom(<<first::utf8, _rest::binary>> = name) when first in ?A..?Z,
+    do: Module.concat([name])
+
+  defp module_atom(name), do: String.to_atom(name)
 
   # ---- Cooper.Interp.Text (string interpolation, CASC.md §7) ----------------
 

@@ -209,7 +209,7 @@ defmodule Cooper.Loop do
           {:op,
            %{
              op
-             | path: resolved_dest ++ op.path,
+             | path: resolved_dest ++ Enum.map(op.path, &resolve_dest_segment(&1, overlay)),
                value: substitute(op.value, overlay),
                secret?: dest_secret? or op.secret?
            }}
@@ -231,17 +231,27 @@ defmodule Cooper.Loop do
       %Cooper.Interp.Text{} ->
         throw(
           {:loop_error,
-           "a for loop's destination path may only reference its own bindings -- found a reference that isn't one of them"}
+           "a for loop's keys may only reference its own bindings -- found a reference that isn't one of them"}
         )
     end
   end
 
-  defp substitute(%Cooper.Ref.Var{name: name} = ref, overlay) do
+  defp substitute(%Cooper.Ref.Var{name: name} = ref, overlay) when is_binary(name) do
     case Map.fetch(overlay, name) do
       {:ok, value} -> value
       :error -> ref
     end
   end
+
+  # A reference whose *name* is itself interpolated (`${"TOKEN_@{id}"}`,
+  # CASC.md 7.2): the binding substitutes into the name, not for the
+  # reference as a whole -- which is the entire point of the form
+  # inside a loop.
+  defp substitute(%Cooper.Ref.Var{name: name} = ref, overlay),
+    do: %{ref | name: substitute(name, overlay)}
+
+  defp substitute(%Cooper.Ref.Env{name: name} = ref, overlay) when not is_binary(name),
+    do: %{ref | name: substitute(name, overlay)}
 
   defp substitute(%Cooper.Interp.Text{segments: segments}, overlay) do
     new_segments =

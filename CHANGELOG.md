@@ -5,6 +5,124 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- An import path may now interpolate `${NAME}` or `${NAME:default}`:
+
+      import "env/${MIX_ENV:dev}.casc"
+
+  which is how one document selects among several without the selection living
+  in the consuming application's code.
+
+  Only `${...}` is permitted. An import is resolved while the document is
+  parsed, so a reference needing the finished tree (`%{...}`) cannot exist yet
+  and remains a load-time error. The environment is available at that point,
+  which is what a `${?NAME}` guard already reads.
+
+  Unset and empty are treated alike, as everywhere else. An unset variable
+  **without** a default is an error rather than an empty segment: a path that
+  silently became `env/.casc` would import the wrong file, or none.
+
+- `!module("Name")`, a built-in tag naming a module of the host language:
+
+      client_module = !module("ASCO.Redis.TestClient")
+      formatter = !module("${LOG_FORMATTER}")
+
+  §6.4's atoms are bare identifiers, so a dotted module name cannot be written
+  as a literal — and a module is often deployment-selected, arriving through
+  `${...}` as a string. There was no way to express either.
+
+  **The tag is the same in every Cooper implementation; the shape it accepts is
+  not.** What counts as a module name belongs to the language an implementation
+  targets, so a document naming a module stays readable across ports even where
+  the convention differs. This implementation accepts dot-separated identifiers,
+  mapping an upper-case initial to an Elixir module (`Foo.Bar` →
+  `Elixir.Foo.Bar`) and anything else to an Erlang module (`crypto` →
+  `:crypto`), and rejects anything longer than 512 bytes.
+
+  Like a bare atom literal, this creates an atom, with the same caveat: fine for
+  a fixed, trusted set of configuration files, not for untrusted input.
+
+- A reference's **name** may now be built by interpolation, given as a
+  double-quoted string:
+
+      @which = "HOST"
+      host = ${"APP_@{which}"}     # reads APP_HOST
+
+  which, with a loop, is how a document follows a deployment convention of one
+  variable per tenant — something it previously could not express at all, since
+  CASC reads named variables and cannot enumerate the environment:
+
+      @supervisor_ids = ["1", "2", "3"]
+
+      for @id in @{supervisor_ids} as tokens {
+        "@{id}" = ${"TOKEN_@{id}"}
+      }
+
+  The same applies to `@{"..."}` and to a `%{...}` path segment. A built
+  `${...}`/`@{...}` name must resolve to an identifier; a `%{...}` key may be
+  any single segment; neither may be built from a secret, since names reach
+  error messages unredacted. Only the bare form may be built — a reference
+  nested inside a larger string keeps a plain name, the same scope trim that
+  position's `:default` grammar already has.
+
+  This is interpolation pointed at the name, not a new expression form. There
+  is still deliberately no concatenation operator.
+
+### Fixed
+
+- An interpolated `%{...}` path segment (`%{tokens."supervisor-@{id}"}`) parsed
+  but never resolved: the unresolved struct reached `Enum.join/2` and raised
+  `Protocol.UndefinedError` instead of either working or failing cleanly. It now
+  resolves.
+
+- A `for` loop's bindings did not substitute into a **body key**, only into
+  values. An interpolated key stayed an unresolved `Cooper.Interp.Text` used as
+  a map key, so every iteration collapsed onto that single struct key and only
+  the last survived:
+
+      for @id in @{ids} as out {
+        "@{id}" = "value-@{id}"     # previously produced one entry, not one per id
+      }
+
+- Private (`@*name`) variables were not file-local. Visibility was applied to
+  the *declaration* environment while `@{...}` references were resolved later,
+  against the single flattened result of the whole import tree — by which point
+  the file a reference had been written in was no longer known. Three
+  consequences, all now fixed:
+
+  - A private variable declared in an importing file was visible inside the
+    files it imported.
+  - A private variable declared in an *imported* file could not be used by that
+    file's own values at all, failing with `undefined reference` — the
+    declaration was filtered out before resolution ever ran.
+  - A private name was therefore global in one direction and unusable in the
+    other, the opposite of what CASC.md §5.2 specifies.
+
+  Every `@{...}` reference is now attributed to the file that wrote it (see
+  `Cooper.Scope`), and each file's private declarations are resolved only for
+  references carrying that file's scope.
+
+  Existing documents that use only public `@name` variables are unaffected.
+  Documents relying on a private variable leaking into an imported file will now
+  see it as undefined, which is the specified behaviour.
+
+### Changed
+
+- CASC.md §5.2 now states the visibility rules in full. Public variables are
+  visible in **both** directions — to a file's importers and to the files it
+  imports — which is what makes an entry document able to declare values its
+  shared includes consume. This is a documentation fix: it is what the
+  implementation has always done for public names, and it was previously
+  described as flowing only towards importers.
+
+- `Cooper.Ref.Var` carries a new `scope` field, and `Cooper.Grammar.run_tree/2`
+  now returns its variable environment as `{public, private_by_scope}`.
+  `Cooper.Resolver` still accepts a plain `%{name => value}` map for `:vars`,
+  so callers resolving a hand-built tree need no change.
+
 ## [0.3.0] - 2026-08-19
 
 ### Added

@@ -1,0 +1,11 @@
+#@version = 1.0
+
+# Private to this file: usable below, invisible to anyone importing it.
+@*local_secret = "shared-private"
+@shared_public = "shared-public"
+
+shared {
+  own_private = "@{local_secret}"
+  from_importer_public = "@{entry_public:MISSING}"
+  from_importer_private = "@{entry_private:MISSING}"
+}

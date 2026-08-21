@@ -1,0 +1,14 @@
+#@version = 1.0
+
+@entry_public = "entry-public"
+@*entry_private = "entry-private"
+
+import "shared.casc"
+import "other.casc"
+
+entry {
+  own_private = "@{entry_private}"
+  own_public = "@{entry_public}"
+  imported_public = "@{shared_public}"
+  imported_private = "@{local_secret:MISSING}"
+}

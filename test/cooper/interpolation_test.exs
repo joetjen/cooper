@@ -11,31 +11,57 @@ defmodule Cooper.InterpolationTest do
 
   describe "variables, bare (CASC.md §7.1)" do
     test "a bare reference" do
-      assert value("@{name}") == %Cooper.Ref.Var{name: "name", index: nil, suffix: nil}
+      assert value("@{name}") == %Cooper.Ref.Var{
+               name: "name",
+               index: nil,
+               suffix: nil,
+               scope: "(source)"
+             }
     end
 
     test "with a default" do
       assert value("@{name:\"fallback\"}") ==
-               %Cooper.Ref.Var{name: "name", index: nil, suffix: {:default, "fallback"}}
+               %Cooper.Ref.Var{
+                 name: "name",
+                 index: nil,
+                 suffix: {:default, "fallback"},
+                 scope: "(source)"
+               }
     end
 
     test "substitute-if-set" do
       assert value("@{name:+alt}") ==
-               %Cooper.Ref.Var{name: "name", index: nil, suffix: {:substitute, :alt}}
+               %Cooper.Ref.Var{
+                 name: "name",
+                 index: nil,
+                 suffix: {:substitute, :alt},
+                 scope: "(source)"
+               }
     end
 
     test "required-or-fail" do
       assert value(~S(@{name:?"missing name"})) ==
-               %Cooper.Ref.Var{name: "name", index: nil, suffix: {:required, "missing name"}}
+               %Cooper.Ref.Var{
+                 name: "name",
+                 index: nil,
+                 suffix: {:required, "missing name"},
+                 scope: "(source)"
+               }
     end
 
     test "indexed" do
-      assert value("@{name[2]}") == %Cooper.Ref.Var{name: "name", index: 2, suffix: nil}
+      assert value("@{name[2]}") == %Cooper.Ref.Var{
+               name: "name",
+               index: 2,
+               suffix: nil,
+               scope: "(source)"
+             }
 
       assert value("@{name[2]:0}") == %Cooper.Ref.Var{
                name: "name",
                index: 2,
-               suffix: {:default, 0}
+               suffix: {:default, 0},
+               scope: "(source)"
              }
     end
   end
@@ -46,9 +72,9 @@ defmodule Cooper.InterpolationTest do
                %Cooper.Interp.Text{
                  segments: [
                    "https://",
-                   %Cooper.Ref.Var{name: "domain", index: nil, suffix: nil},
+                   %Cooper.Ref.Var{name: "domain", index: nil, suffix: nil, scope: "(source)"},
                    ":",
-                   %Cooper.Ref.Var{name: "port", index: nil, suffix: nil}
+                   %Cooper.Ref.Var{name: "port", index: nil, suffix: nil, scope: "(source)"}
                  ]
                }
     end

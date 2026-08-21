@@ -77,16 +77,17 @@ defmodule Cooper.Grammar do
   returns the assembled tree (`Cooper.Merge.assemble/1`'s output, secret
   leaves already wrapped in `Cooper.Secret` but otherwise still possibly
   containing unresolved `Cooper.Ref.*`/`Cooper.Merge.Layered` values)
-  and the file's own resolved variable environment (`name => value`,
-  already public/private-filtered across any imports by
-  `Cooper.Loader`) -- exactly what `Cooper.Resolver.resolve/2` needs.
+  and the load's variable environment as `{public, private_by_scope}` --
+  the public `%{name => value}` shared by every file, plus each file's
+  own private (`@*name`) declarations keyed by scope (see
+  `Cooper.Scope`) -- exactly what `Cooper.Resolver.resolve/2` needs.
   Kept separate from `run/2` (which only merges) rather than folding
   resolution into it, since resolution needs `:env`/`:resolvers`/`:tags`
   options `run/2` doesn't take -- `Cooper.load_string/2` is what finally
   wires the two together end to end.
   """
   @spec run_tree(String.t(), keyword()) ::
-          {:ok, map(), map()} | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
+          {:ok, map(), {map(), map()}} | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
   def run_tree(source_text, opts \\ []) do
     with {:ok, tree, vars, _loaded_files, _env_guard_names} <-
            run_tree_with_files(source_text, opts) do
@@ -105,14 +106,15 @@ defmodule Cooper.Grammar do
   # change.
   @doc false
   @spec run_tree_with_files(String.t(), keyword()) ::
-          {:ok, map(), map(), MapSet.t(), MapSet.t()}
+          {:ok, map(), {map(), map()}, MapSet.t(), MapSet.t()}
           | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
   def run_tree_with_files(source_text, opts \\ []) do
     with {:ok, entries, ctx} <-
            run_with_context(source_text, Cooper.Actions, initial_context(opts)),
          {:ok, tree} <- Cooper.Merge.assemble(entries) do
-      vars = for {name, {value, _public?}} <- ctx.vars, into: %{}, do: {name, value}
-      {:ok, tree, vars, ctx.loaded_files, ctx.env_guard_names}
+      {public, private} = Cooper.Scope.split(ctx.vars)
+      private_vars = Map.put(ctx.private_vars, ctx.scope, private)
+      {:ok, tree, {public, private_vars}, ctx.loaded_files, ctx.env_guard_names}
     end
   end
 
@@ -141,6 +143,11 @@ defmodule Cooper.Grammar do
 
     %{
       vars: %{},
+      # Private (`@*name`) declarations, keyed by the scope of the file
+      # that declared them -- see `Cooper.Scope`. Kept apart from
+      # `vars` (which crosses file boundaries) precisely so it cannot.
+      private_vars: %{},
+      scope: Cooper.Scope.id(Keyword.get(opts, :file)),
       root: Keyword.get(opts, :root, File.cwd!()),
       import_schemes: Keyword.get(opts, :import_schemes, %{}),
       importing: importing,
@@ -189,13 +196,34 @@ defmodule Cooper.Grammar do
   @doc false
   def run_with_context(source_text, actions_module, initial_context) do
     with {:ok, _pos, raw_captures} <- Cooper.NativeGrammar.parse(source_text) do
-      Ichor.Actions.evaluate(
-        :file,
-        raw_captures,
-        actions_module,
-        initial_context,
-        Cooper.NativeGrammar.CaptureShapes.get()
-      )
+      result =
+        Ichor.Actions.evaluate(
+          :file,
+          raw_captures,
+          actions_module,
+          initial_context,
+          Cooper.NativeGrammar.CaptureShapes.get()
+        )
+
+      stamp_scope(result, initial_context)
     end
   end
+
+  # Attribute every `@{name}` this file wrote to this file, the moment
+  # it finishes parsing and before its entries are spliced into anyone
+  # else's (CASC.md 5.2's private `@*name` is file-local, but
+  # `Cooper.Resolver` only ever sees the flattened whole -- see
+  # `Cooper.Scope`). Doing it here rather than at each of the two
+  # `Cooper.Ref.Var` construction sites covers both of them, covers
+  # references nested inside interpolated strings (whose sub-parse gets
+  # no context at all), and needs no plumbing through `Ichor.Actions`.
+  # Imported entries are already stamped by the time they arrive here
+  # -- `Cooper.Loader` runs this same function for the imported file --
+  # and `Cooper.Scope.stamp/2` only fills a `nil` scope, so they keep
+  # their own.
+  defp stamp_scope({:ok, entries, ctx}, initial_context) do
+    {:ok, Cooper.Scope.stamp(entries, Map.fetch!(initial_context, :scope)), ctx}
+  end
+
+  defp stamp_scope(other, _initial_context), do: other
 end
