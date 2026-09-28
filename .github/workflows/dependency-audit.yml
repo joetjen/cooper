@@ -1,0 +1,73 @@
+name: Dependency Audit
+
+# Runs once a month and emails the report. Dependabot (see
+# .github/dependabot.yml) also runs monthly and opens PRs; this job is the
+# push-based summary of what is retired, vulnerable, or out of date.
+
+on:
+  schedule:
+    # 06:36 UTC on the 1st of every month (minute staggered per repo).
+    - cron: "36 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Monthly dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start report
+        run: |
+          {
+            echo "Dependency audit for ${{ github.repository }}"
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "Date: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+          } > "$GITHUB_WORKSPACE/audit.txt"
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28.5.0.5"
+          elixir-version: "1.19.5-otp-28"
+
+      - name: Fetch Elixir dependencies
+        run: mix deps.get
+
+      - name: Install mix_audit
+        run: mix escript.install --force hex mix_audit
+
+      - name: Audit Elixir dependencies
+        run: |
+          {
+            echo "### hex.audit (retired packages)"
+            mix hex.audit 2>&1 || true
+            echo
+            echo "### mix_audit (security advisories)"
+            "$HOME/.mix/escripts/mix_audit" 2>&1 || true
+            echo
+            echo "### hex.outdated"
+            mix hex.outdated 2>&1 || true
+          } >> "$GITHUB_WORKSPACE/audit.txt"
+
+      - name: Print report
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/audit.txt"
+
+      - name: Email report
+        if: always()
+        uses: dawidd6/action-send-mail@v18
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
+          to: oetjenj@gmail.com
+          subject: "[${{ github.repository }}] Monthly dependency audit"
+          body: file://audit.txt
