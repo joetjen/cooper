@@ -8,6 +8,11 @@ defmodule Cooper.ImportInterpolationTest do
   # Only `${...}` works, and deliberately so: imports are resolved while the
   # document is parsed, so anything needing the finished tree cannot exist yet.
   # `ctx.env` can, which is the same thing a `${?NAME}` guard reads.
+  #
+  # The variable is `COOPER_TEST_STAGE` rather than the more natural `MIX_ENV`
+  # because `env:` overrides the real environment rather than replacing it, so
+  # `%{}` cannot make a variable unset. CI exports `MIX_ENV=test`, which made
+  # the "unset" cases resolve to `test` there.
 
   setup context do
     dir = Path.join(System.tmp_dir!(), "cooper_import_#{:erlang.phash2(context.test)}")
@@ -29,21 +34,23 @@ defmodule Cooper.ImportInterpolationTest do
 
   describe "selecting an import by environment" do
     test "the variable selects the file", %{dir: dir} do
-      source = ~s(#@version = 1.0\nimport "env/${MIX_ENV:dev}.casc"\n)
+      source = ~s(#@version = 1.0\nimport "env/${COOPER_TEST_STAGE:dev}.casc"\n)
 
-      assert {:ok, %{"demo" => %{"from" => :test}}} = load(dir, source, %{"MIX_ENV" => "test"})
+      assert {:ok, %{"demo" => %{"from" => :test}}} =
+               load(dir, source, %{"COOPER_TEST_STAGE" => "test"})
     end
 
     test "an unset variable falls back to the default", %{dir: dir} do
-      source = ~s(#@version = 1.0\nimport "env/${MIX_ENV:dev}.casc"\n)
+      source = ~s(#@version = 1.0\nimport "env/${COOPER_TEST_STAGE:dev}.casc"\n)
 
       assert {:ok, %{"demo" => %{"from" => :dev}}} = load(dir, source, %{})
     end
 
     test "an empty variable counts as unset, as everywhere else", %{dir: dir} do
-      source = ~s(#@version = 1.0\nimport "env/${MIX_ENV:dev}.casc"\n)
+      source = ~s(#@version = 1.0\nimport "env/${COOPER_TEST_STAGE:dev}.casc"\n)
 
-      assert {:ok, %{"demo" => %{"from" => :dev}}} = load(dir, source, %{"MIX_ENV" => ""})
+      assert {:ok, %{"demo" => %{"from" => :dev}}} =
+               load(dir, source, %{"COOPER_TEST_STAGE" => ""})
     end
 
     test "a plain literal path still works", %{dir: dir} do
@@ -56,7 +63,7 @@ defmodule Cooper.ImportInterpolationTest do
   describe "refusing what cannot be resolved while parsing" do
     test "an unset variable with no default is an error rather than a wrong path", %{dir: dir} do
       # Without this, the path would silently become "env/.casc".
-      source = ~s(#@version = 1.0\nimport "env/${MIX_ENV}.casc"\n)
+      source = ~s(#@version = 1.0\nimport "env/${COOPER_TEST_STAGE}.casc"\n)
 
       assert {:error, error} = load(dir, source, %{})
       assert error_message(error) =~ "unset and has no default"
@@ -70,9 +77,9 @@ defmodule Cooper.ImportInterpolationTest do
     end
 
     test "a missing selected file still reports a normal import failure", %{dir: dir} do
-      source = ~s(#@version = 1.0\nimport "env/${MIX_ENV:dev}.casc"\n)
+      source = ~s(#@version = 1.0\nimport "env/${COOPER_TEST_STAGE:dev}.casc"\n)
 
-      assert {:error, error} = load(dir, source, %{"MIX_ENV" => "staging"})
+      assert {:error, error} = load(dir, source, %{"COOPER_TEST_STAGE" => "staging"})
       refute error_message(error) =~ "may interpolate only"
     end
   end
