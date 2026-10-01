@@ -88,7 +88,10 @@ defmodule Cooper.ActionsTest do
     test "double-quoted strings containing a reference become an unresolved Cooper.Interp.Text" do
       assert value(~S("hello @{name}")) ==
                %Cooper.Interp.Text{
-                 segments: ["hello ", %Cooper.Ref.Var{name: "name", index: nil, suffix: nil}]
+                 segments: [
+                   "hello ",
+                   %Cooper.Ref.Var{name: "name", index: nil, suffix: nil, scope: "(source)"}
+                 ]
                }
     end
 

@@ -102,15 +102,49 @@ import "vault://secret/base"
 1. **No `scheme://` prefix** — resolves relative to the current file. Brace (`{a,b}`) and glob (`**.casc`) patterns expand against the filesystem; matches load in lexicographic order.
 2. **`scheme://` prefix** — dispatched entirely to the loader registered for that scheme (§9.3); expansion, ordering, and path meaning are that loader's to define. An unregistered scheme is a load-time error naming it (§9.4).
 3. **Merge**: later imports override earlier ones for the same path, per §8.
+4. **A path may interpolate `${NAME}` or `${NAME:default}`** (§7.2), which is how one document selects among several:
+
+   ```casc
+   import "env/${MIX_ENV:dev}.casc"
+   ```
+
+   Only `${...}` works. An import is resolved *while the document is parsed* — the imported file's statements are spliced into the importer — so a reference needing the finished tree (`%{...}`, §7.3) cannot be available yet and is a load-time error. The environment is available, which is the same thing `${?NAME}` reads (§7.2).
+
+   Unset and empty are treated alike, as everywhere else. An unset variable **without** a default is an error rather than an empty segment, since a path that silently became `env/.casc` would import the wrong file or none.
 
 ### 5.2 Variable declarations
 
 ```casc
-@name = "value"      ; public, exported to importers
-@*private = "value"   ; private, file-local
+@name = "value"       # public
+@*private = "value"   # private, file-local
 ```
 
 Operator optional, per §5.3.
+
+**Visibility.** A **public** `@name` belongs to the whole load, not to
+the file that wrote it. It is visible to the files that import that file
+(transitively), *and* to the files that file imports — so an entry
+document can declare a value before its imports and have every imported
+file see it:
+
+```casc
+# app.casc
+@service = "checkout"
+import "inc/telemetry.casc"   # sees @{service}
+
+# inc/telemetry.casc
+telemetry.service_name = "@{service}"
+```
+
+A **private** `@*name` is usable anywhere inside the file that declares
+it and nowhere else. It never reaches an importer, and it is never
+visible to a file it imports. Two files may each declare an unrelated
+`@*name` without colliding, and inside its own file a private
+declaration shadows a public one of the same name.
+
+Because visibility is decided per *file*, and the last file to assign a
+public name wins, prefer `@*name` for anything a file only needs for
+itself — a public name is effectively part of the load's shared surface.
 
 ### 5.3 Assignments
 
@@ -490,6 +524,55 @@ allowed_hosts = ${ALLOWED_HOSTS[]:["localhost"]}
 %{"region" => "eu-west", "max_retries" => 3, "allowed_hosts" => ["localhost"]}
 ```
 
+#### Built names
+
+A reference's **name** may be built by interpolation instead of written
+out, by giving it as a double-quoted string:
+
+```casc
+@which = "HOST"
+host = ${"APP_@{which}"}     # reads APP_HOST
+```
+
+This exists for one thing a document otherwise cannot do at all: follow
+a deployment convention of one variable per tenant. CASC reads *named*
+variables and has no way to enumerate the environment, so without it a
+set like `TOKEN_1`, `TOKEN_2`, … can only be written out one line at a
+time. With a loop (§5.5) it becomes a list of ids:
+
+```casc
+@supervisor_ids = ["1", "2", "3"]
+
+for @id in @{supervisor_ids} as tokens {
+  "@{id}" = ${"TOKEN_@{id}"}
+}
+```
+
+```elixir
+%{"tokens" => %{"1" => "tok-one", "2" => "tok-two", "3" => "tok-three"}}
+```
+
+The same applies to `@{"..."}` and to a `%{...}` path segment
+(`%{tokens."supervisor-@{id}"}`).
+
+This is interpolation — the concatenation the language already has,
+pointed at the name — not a new expression form. There is deliberately
+no concatenation operator, for the same reason the filter set is closed:
+that road ends at an expression language, and this is a config format.
+
+Three rules:
+
+- A built `${...}`/`@{...}` name must resolve to an identifier
+  (`[A-Za-z_][A-Za-z0-9_]*`), so a built name and a written-out one are
+  interchangeable. A `%{...}` key needn't — keys are quoted and may
+  contain anything but a `.`, which would silently split the path.
+- A name or key may not be built from a **secret**. Names appear in
+  error messages, which do not redact.
+- Only the **bare** form may be built. A reference nested inside a
+  larger string keeps a plain name: its token ends at the first `}`, so
+  a nested `@{...}` would truncate it — the same scope trim the reduced
+  `:default` grammar already has in that position.
+
 ### 7.3 Config references
 
 - `%{path}`
@@ -536,7 +619,20 @@ Giving `vault` meaning is entirely the consumer's job. An unregistered resolver 
 
 `!Name(argument)` constructs a value of type `Name` from one argument (typically a string). Parsing only needs to recognize "a tag plus one parenthesized argument" — giving it meaning is the registered handler's job.
 
-Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), and `!trim`, `!downcase`, `!upcase` (normalization). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), `!trim`, `!downcase`, `!upcase` (normalization), and `!module` (below). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+
+**`!module("Name")`** names a module of the host language:
+
+```casc
+client_module = !module("ASCO.Redis.TestClient")
+formatter = !module("${LOG_FORMATTER}")
+```
+
+It exists because §6.4's atoms are bare identifiers, so a dotted module name cannot be written as a literal — and because a module is often deployment-selected, which means it arrives through `${...}` as a string.
+
+**The tag is the same in every implementation; the shape it accepts is not.** What counts as a module name belongs to the language a given implementation targets, so a document that names a module stays readable across ports even where the naming convention differs. This implementation accepts dot-separated identifiers, mapping an upper-case initial to an Elixir module (`Foo.Bar` → `Elixir.Foo.Bar`) and anything else to an Erlang module (`crypto` → `:crypto`).
+
+Like a bare atom literal, this creates an atom, with the same caveat: fine for a fixed, trusted set of configuration files, not for untrusted input.
 
 ---
 

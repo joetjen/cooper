@@ -17,18 +17,18 @@ env:
 
 jobs:
   ci:
-    name: OTP ${{ matrix.otp }} / Elixir 1.19.4
+    name: OTP ${{ matrix.otp }} / Elixir 1.19.5
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - otp: "28"
-            elixir: "1.19.4-otp-28"
+            elixir: "1.19.5-otp-28"
           - otp: "27"
-            elixir: "1.19.4-otp-27"
+            elixir: "1.19.5-otp-27"
           - otp: "26"
-            elixir: "1.19.4-otp-26"
+            elixir: "1.19.5-otp-26"
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +45,7 @@ jobs:
           path: |
             deps
             _build
-          key: mix-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('mix.lock') }}
+          key: mix-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('mix.exs') }}
           restore-keys: |
             mix-${{ runner.os }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-
 

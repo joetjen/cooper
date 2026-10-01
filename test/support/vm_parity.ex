@@ -86,13 +86,24 @@ defmodule Cooper.Test.VMParity do
              initial_context
            ) do
         {:ok, pos, raw_captures} when pos == tuple_size(stream) ->
-          Ichor.Actions.evaluate(
-            g.root,
-            raw_captures,
-            actions_module,
-            initial_context,
-            Grammar.VM.RuleCompiler.capture_shapes(g)
-          )
+          # Mirror `Cooper.Grammar.run_with_context/3`'s own post-pass:
+          # scope stamping happens *after* the actions run and is not a
+          # backend behaviour at all, so without it here the parity test
+          # would report a divergence that only exists because this
+          # harness skipped a step the native path takes.
+          case Ichor.Actions.evaluate(
+                 g.root,
+                 raw_captures,
+                 actions_module,
+                 initial_context,
+                 Grammar.VM.RuleCompiler.capture_shapes(g)
+               ) do
+            {:ok, entries, ctx} ->
+              {:ok, Cooper.Scope.stamp(entries, Map.fetch!(initial_context, :scope)), ctx}
+
+            other ->
+              other
+          end
 
         {:ok, _pos, _raw_captures} ->
           {:error,
