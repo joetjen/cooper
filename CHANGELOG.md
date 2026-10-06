@@ -22,6 +22,10 @@ this implementation's next release is `0.6.0`.
 
 ### Changed
 
+- **`dotenvy` is a required dependency**, not an optional one. `.env`
+  files are read by default, and as an optional dependency that default
+  silently read nothing in any application that had not added it
+  itself. `dotenv: true` can no longer fail for its absence.
 - **Licensed under Apache-2.0 from this release**, replacing MIT --
   Apache 2.0 adds an express patent grant MIT lacks. Releases already
   published stay MIT.

@@ -83,12 +83,10 @@ defmodule Cooper.Dotenv do
 
   `.env` file loading (layers 2-4) is on by default; `dotenv: false`
   disables just those three layers -- `System.get_env/0` and an
-  explicit `:env` still apply either way. If `:dotenvy` isn't
-  installed: the *default*-enabled case silently no-ops (same as if no
-  `.env` files existed), but an explicit `dotenv: true` with the
-  dependency missing is a load-time error naming it -- asking for it by
-  name and not getting it is a real misconfiguration, not something to
-  paper over.
+  explicit `:env` still apply either way. `:dotenvy` is an ordinary
+  dependency of Cooper: it was an optional one, and the default then
+  silently read no `.env` file in any application that had not added it
+  itself.
   """
 
   alias Ichor.Error
@@ -123,10 +121,9 @@ defmodule Cooper.Dotenv do
     overrides = Keyword.get(opts, :env, %{})
 
     result =
-      case enabled(opts) do
-        false -> {:ok, Map.merge(System.get_env(), overrides)}
-        {true, required?} -> load(overrides, opts, required?)
-      end
+      if Keyword.get(opts, :dotenv, true),
+        do: load(overrides, opts),
+        else: {:ok, Map.merge(System.get_env(), overrides)}
 
     with {:ok, env} <- result, do: {:ok, with_cooper_env(env)}
   end
@@ -150,41 +147,16 @@ defmodule Cooper.Dotenv do
 
   defp present?(value), do: is_binary(value) and value != ""
 
-  defp enabled(opts) do
-    case Keyword.fetch(opts, :dotenv) do
-      {:ok, true} -> {true, true}
-      {:ok, false} -> false
-      :error -> {true, false}
+  defp load(overrides, opts) do
+    sources = sources(opts) ++ [overrides]
+
+    case Dotenvy.source(sources, require_files: false) do
+      {:ok, env} ->
+        {:ok, env}
+
+      {:error, reason} ->
+        {:error, Error.new(message: "dotenv loading failed: #{inspect(reason)}", stage: :dotenv)}
     end
-  end
-
-  defp load(overrides, opts, required?) do
-    if Code.ensure_loaded?(Dotenvy) do
-      sources = sources(opts) ++ [overrides]
-
-      case Dotenvy.source(sources, require_files: false) do
-        {:ok, env} ->
-          {:ok, env}
-
-        {:error, reason} ->
-          {:error,
-           Error.new(message: "dotenv loading failed: #{inspect(reason)}", stage: :dotenv)}
-      end
-    else
-      missing_dependency(overrides, required?)
-    end
-  end
-
-  defp missing_dependency(overrides, false), do: {:ok, Map.merge(System.get_env(), overrides)}
-
-  defp missing_dependency(_overrides, true) do
-    {:error,
-     Error.new(
-       message:
-         "dotenv: true requires the optional :dotenvy dependency -- add " <>
-           "{:dotenvy, \"~> 1.1\"} to your own mix.exs deps",
-       stage: :dotenv
-     )}
   end
 
   # Orders the file layers and the real environment, lowest precedence first.

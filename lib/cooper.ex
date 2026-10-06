@@ -34,8 +34,7 @@ defmodule Cooper do
     * `:dotenv` / `:dotenv_env` / `:dotenv_files` / `:dotenv_dir` /
       `:dotenv_override` -- layer `.env` file(s) from `:dotenv_dir`
       (default: the project root) *under*
-      `System.get_env/0`, via the optional `:dotenvy` dependency, on by
-      default. The real environment outranks the files, so a deployment's
+      `System.get_env/0`, on by default. The real environment outranks the files, so a deployment's
       variables are not silently shadowed by one; `dotenv_override: true`
       swaps that. See `Cooper.Dotenv` for the full layering rules,
       environment detection, and how to disable or reconfigure it.

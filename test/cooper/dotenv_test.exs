@@ -106,8 +106,7 @@ defmodule Cooper.DotenvTest do
 
     # The next fallback after live `Mix.env/0` --
     # `Application.compile_env(:cooper, :dotenv_env)` (`compiled_env/0`
-    # in `Cooper.Dotenv`) -- is a deliberate, called-out gap, same
-    # spirit as the missing-`:dotenvy`-dependency gap below.
+    # in `Cooper.Dotenv`) -- is a deliberate, called-out gap.
     # `Application.compile_env/3` is a macro that bakes its value into
     # a module attribute *at Cooper's own compile time*; there is no
     # way to make it return a different value per test case the way an
@@ -264,16 +263,6 @@ defmodule Cooper.DotenvTest do
       end)
     end
   end
-
-  # The "optional :dotenvy dependency isn't installed" branches
-  # (`Cooper.Dotenv`'s `missing_dependency/2`) are a deliberate, called-
-  # out gap: Cooper's own test suite necessarily has `:dotenvy` present
-  # (it's how the tests above exercise real file loading at all), and
-  # there's no safe way to make it look absent mid-suite without
-  # unloading the module out from under any test that runs concurrently
-  # with this one. The logic itself is two literal branches with no
-  # merge/precedence behavior to protect, which is why it's flagged here
-  # rather than contorted into a fake test.
 
   property "precedence always holds: .env < .env.<dotenv_env> < .env.local < System.get_env/0 < :env, for arbitrary key/value layers" do
     check all(

@@ -86,8 +86,8 @@ the library and the CASC syntax it parses, or the
 ## .env files
 
 `${...}` reads pick up `.env`/`.env.<env>`/`.env.local` from the
-project root automatically — on by default, no option needed — via the
-optional [`dotenvy`](https://hex.pm/packages/dotenvy) dependency.
+project root automatically — on by default, no option needed — through
+[`dotenvy`](https://hex.pm/packages/dotenvy), which Cooper depends on.
 
 **The real OS environment outranks those files**, and an explicit `:env`
 option outranks everything (but only for the names it defines — anything
@@ -128,9 +128,6 @@ def deps do
   ]
 end
 ```
-
-Add `{:dotenvy, "~> 1.1"}` too if you want `.env` file support (see
-above) — it's optional, so nothing pulls it in for you.
 
 ## Where to go next
 

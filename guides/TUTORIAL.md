@@ -462,11 +462,8 @@ iex> Cooper.load_string(source, env: %{"REGION" => "eu-west"})
 `dotenv: false` disables just the `.env` file layers (2-4) —
 `System.get_env/0` and `:env` still apply either way. `:dotenv_files`
 fully replaces the default four-file list, for a non-standard layout.
-This runs through the optional `:dotenvy` dependency — add
-`{:dotenvy, "~> 1.1"}` to your own `mix.exs` deps. An explicit `dotenv:
-true` without it installed is a load-time error naming it; the
-*default*-enabled case just no-ops instead (same as no `.env` files
-existing).
+This runs through `:dotenvy`, which Cooper depends on, so nothing needs
+adding to your own `mix.exs`.
 
 ## 12. Caching
 
