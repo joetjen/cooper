@@ -50,13 +50,13 @@ defmodule Cooper.Dotenv do
   absent for every environment but the current one.
 
   All paths are resolved relative to `:dotenv_dir`, which defaults to
-  the current working directory -- deliberately not `:root`
-  (`load_file/2`'s config-file directory): `.env` files live at the
-  project root regardless of where the CASC file being loaded happens
-  to sit. An application started from elsewhere (a release, a test
-  runner, a script) passes `dotenv_dir:` its project root; the config
-  libraries built on Cooper do so by default. An absolute path in
-  `:dotenv_files` is used as it is.
+  the **project root** -- deliberately not `:root` (`load_file/2`'s
+  config-file directory): `.env` files live at the project root
+  regardless of where the CASC file being loaded happens to sit, or
+  where the application was started from. The project root is the
+  directory of the running Mix project's `mix.exs`; in a release, which
+  has no Mix, `RELEASE_ROOT`; else the working directory. An absolute
+  path in `:dotenv_files` is used as it is.
 
   **`:env` is an override layer, not a replacement.** Passing `env:
   %{"FOO" => "bar"}` does not isolate resolution from the real
@@ -208,8 +208,33 @@ defmodule Cooper.Dotenv do
         :error -> [@base_file] ++ env_file(opts) ++ [@local_file]
       end
 
-    dir = Keyword.get(opts, :dotenv_dir, File.cwd!())
+    dir = Keyword.get_lazy(opts, :dotenv_dir, &project_root/0)
     Enum.map(files, &Path.expand(&1, dir))
+  end
+
+  @doc false
+  # Where `.env` files are read from unless `:dotenv_dir` says otherwise:
+  # the running Mix project's directory, else a release's `RELEASE_ROOT`,
+  # else the working directory. Reading them from the working directory
+  # only, as this once did, found none when an application was started
+  # from anywhere but its own root.
+  @spec project_root() :: String.t()
+  def project_root do
+    mix_project_root() || release_root() || File.cwd!()
+  end
+
+  defp mix_project_root do
+    if Code.ensure_loaded?(Mix.Project) and function_exported?(Mix.Project, :get, 0) and
+         Mix.Project.get() != nil do
+      Path.dirname(Mix.Project.project_file())
+    end
+  end
+
+  defp release_root do
+    case System.get_env("RELEASE_ROOT") do
+      root when is_binary(root) and root != "" -> root
+      _ -> nil
+    end
   end
 
   defp env_file(opts) do

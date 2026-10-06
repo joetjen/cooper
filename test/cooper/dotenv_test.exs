@@ -2,14 +2,14 @@ defmodule Cooper.DotenvTest do
   use ExUnit.Case, async: false
   use ExUnitProperties
 
-  # `Cooper.Dotenv` deliberately resolves `.env`/`.env.<env>`/`.env.local`
-  # relative to the current working directory, not a per-call option
-  # (see its moduledoc) -- so exercising the real file-discovery behavior
-  # means actually changing the OS process's cwd for the duration of a
-  # test. `:file.get_cwd/0`/`:file.set_cwd/1` are VM-wide, not scoped to
-  # the calling Elixir process, so this whole module runs `async: false`
-  # and every test restores the original cwd in `on_exit` even on
-  # failure.
+  # These tests change into a directory holding the `.env` files under
+  # test and read them from there through `dotenv_here/1`/`load_here/2`,
+  # which pass that directory as `:dotenv_dir` -- the default is the
+  # project root (see the moduledoc), which is this repository, not the
+  # fixture. `:file.get_cwd/0`/`:file.set_cwd/1` are VM-wide, not scoped
+  # to the calling Elixir process, so this whole module runs
+  # `async: false` and every test restores the original cwd in
+  # `on_exit` even on failure.
   #
   # `System.get_env/0` is part of every result and now outranks the files
   # (see the moduledoc's "Layering" section) -- the real machine's
@@ -19,6 +19,11 @@ defmodule Cooper.DotenvTest do
   # deliberately ignoring whatever else happens to be set on the
   # machine running the suite.
   @fixtures Path.expand(Path.join([__DIR__, "..", "fixtures", "dotenv"]))
+
+  defp dotenv_here(opts), do: Cooper.Dotenv.env(Keyword.put_new(opts, :dotenv_dir, File.cwd!()))
+
+  defp load_here(source, opts \\ []),
+    do: Cooper.load_string(source, Keyword.put_new(opts, :dotenv_dir, File.cwd!()))
 
   defp in_fixture(name, fun) do
     original = File.cwd!()
@@ -55,7 +60,7 @@ defmodule Cooper.DotenvTest do
     test "a real OS env var comes through when nothing else defines it" do
       with_system_env([{"CDT_FLOOR", "from-system"}], fn ->
         in_fixture("empty", fn ->
-          assert {:ok, env} = Cooper.Dotenv.env(env: %{})
+          assert {:ok, env} = dotenv_here(env: %{})
           assert env["CDT_FLOOR"] == "from-system"
         end)
       end)
@@ -66,7 +71,7 @@ defmodule Cooper.DotenvTest do
       # directory must not silently shadow what it set.
       in_own_dotenv(%{"CDT_PRECEDENCE" => "from-file"}, fn ->
         with_system_env([{"CDT_PRECEDENCE", "from-system"}], fn ->
-          assert {:ok, env} = Cooper.Dotenv.env(env: %{})
+          assert {:ok, env} = dotenv_here(env: %{})
           assert env["CDT_PRECEDENCE"] == "from-system"
         end)
       end)
@@ -75,7 +80,7 @@ defmodule Cooper.DotenvTest do
     test "dotenv_override: true puts the files back on top" do
       in_own_dotenv(%{"CDT_PRECEDENCE" => "from-file"}, fn ->
         with_system_env([{"CDT_PRECEDENCE", "from-system"}], fn ->
-          assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_override: true)
+          assert {:ok, env} = dotenv_here(env: %{}, dotenv_override: true)
           assert env["CDT_PRECEDENCE"] == "from-file"
         end)
       end)
@@ -84,7 +89,7 @@ defmodule Cooper.DotenvTest do
     test "an explicit :env still outranks the real environment" do
       in_own_dotenv(%{"CDT_PRECEDENCE" => "from-file"}, fn ->
         with_system_env([{"CDT_PRECEDENCE", "from-system"}], fn ->
-          assert {:ok, env} = Cooper.Dotenv.env(env: %{"CDT_PRECEDENCE" => "from-override"})
+          assert {:ok, env} = dotenv_here(env: %{"CDT_PRECEDENCE" => "from-override"})
           assert env["CDT_PRECEDENCE"] == "from-override"
         end)
       end)
@@ -94,7 +99,7 @@ defmodule Cooper.DotenvTest do
   describe "current-environment auto-detection (no explicit :dotenv_env)" do
     test "falls through to live Mix.env/0 -- .env.test wins during this very suite" do
       in_fixture("auto_env", fn ->
-        assert {:ok, env} = Cooper.Dotenv.env(env: %{})
+        assert {:ok, env} = dotenv_here(env: %{})
         assert env["ONLY_ENV_TEST"] == "from-live-mix-env"
       end)
     end
@@ -125,7 +130,7 @@ defmodule Cooper.DotenvTest do
       with_system_env([{"ONLY_BASE", "from-system"}], fn ->
         in_fixture("layering", fn ->
           assert {:ok, env} =
-                   Cooper.Dotenv.env(env: %{}, dotenv_env: :dev, dotenv_override: true)
+                   dotenv_here(env: %{}, dotenv_env: :dev, dotenv_override: true)
 
           assert env["ONLY_BASE"] == "from-base"
         end)
@@ -140,7 +145,7 @@ defmodule Cooper.DotenvTest do
       # order among themselves exactly as before.
       with_system_env([{"ONLY_BASE", "from-system"}], fn ->
         in_fixture("layering", fn ->
-          assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_env: :dev)
+          assert {:ok, env} = dotenv_here(env: %{}, dotenv_env: :dev)
 
           assert Map.take(env, ~w(ONLY_BASE SHARED DEV_AND_LOCAL ONLY_LOCAL ONLY_DEV)) == %{
                    "ONLY_BASE" => "from-system",
@@ -156,7 +161,7 @@ defmodule Cooper.DotenvTest do
     test "an explicit :env entry always wins, over .env.local included" do
       in_fixture("layering", fn ->
         assert {:ok, env} =
-                 Cooper.Dotenv.env(env: %{"SHARED" => "from-explicit-override"}, dotenv_env: :dev)
+                 dotenv_here(env: %{"SHARED" => "from-explicit-override"}, dotenv_env: :dev)
 
         assert env["SHARED"] == "from-explicit-override"
         # A name *not* given in :env still falls through to the file layers.
@@ -166,7 +171,7 @@ defmodule Cooper.DotenvTest do
 
     test "no per-env file is read when dotenv_env is nil, even with .env/.env.local present" do
       in_fixture("layering", fn ->
-        assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_env: nil)
+        assert {:ok, env} = dotenv_here(env: %{}, dotenv_env: nil)
 
         assert Map.take(env, ~w(SHARED DEV_AND_LOCAL ONLY_LOCAL ONLY_DEV)) == %{
                  "SHARED" => "from-base",
@@ -180,7 +185,7 @@ defmodule Cooper.DotenvTest do
 
     test "an unmatched environment's own file is simply absent, not an error" do
       in_fixture("layering", fn ->
-        assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_env: :prod)
+        assert {:ok, env} = dotenv_here(env: %{}, dotenv_env: :prod)
         refute Map.has_key?(env, "ONLY_DEV")
         assert env["SHARED"] == "from-base"
       end)
@@ -190,7 +195,7 @@ defmodule Cooper.DotenvTest do
   describe "missing files are never a load-time error" do
     test "a directory with none of the four files still resolves the override + real env" do
       in_fixture("empty", fn ->
-        assert {:ok, env} = Cooper.Dotenv.env(env: %{"KEPT" => "1"}, dotenv_env: :dev)
+        assert {:ok, env} = dotenv_here(env: %{"KEPT" => "1"}, dotenv_env: :dev)
         assert env["KEPT"] == "1"
       end)
     end
@@ -200,7 +205,7 @@ defmodule Cooper.DotenvTest do
     test "System.get_env/0 and an explicit :env still apply" do
       with_system_env([{"CDT_FLOOR", "from-system"}], fn ->
         in_fixture("layering", fn ->
-          assert {:ok, env} = Cooper.Dotenv.env(dotenv: false, env: %{"OVERRIDE" => "value"})
+          assert {:ok, env} = dotenv_here(dotenv: false, env: %{"OVERRIDE" => "value"})
 
           assert env["CDT_FLOOR"] == "from-system"
           assert env["OVERRIDE"] == "value"
@@ -214,7 +219,7 @@ defmodule Cooper.DotenvTest do
   describe ":dotenv_files fully replaces the default file list" do
     test "only the listed files are consulted, in the given order" do
       in_fixture("layering", fn ->
-        assert {:ok, env} = Cooper.Dotenv.env(env: %{}, dotenv_files: [".env.local"])
+        assert {:ok, env} = dotenv_here(env: %{}, dotenv_files: [".env.local"])
 
         assert Map.take(env, ~w(DEV_AND_LOCAL ONLY_LOCAL ONLY_BASE)) == %{
                  "DEV_AND_LOCAL" => "from-local",
@@ -228,7 +233,7 @@ defmodule Cooper.DotenvTest do
     test "is a load-time error naming the failure, tagged :dotenv" do
       in_fixture("malformed", fn ->
         assert {:error, %Ichor.Error{stage: :dotenv, message: message}} =
-                 Cooper.Dotenv.env(env: %{})
+                 dotenv_here(env: %{})
 
         assert message =~ "dotenv loading failed"
       end)
@@ -243,7 +248,7 @@ defmodule Cooper.DotenvTest do
         shared = ${SHARED}
         """
 
-        assert Cooper.load_string(source, dotenv_env: :dev) == {:ok, %{"shared" => "from-dev"}}
+        assert load_here(source, dotenv_env: :dev) == {:ok, %{"shared" => "from-dev"}}
       end)
     end
 
@@ -254,7 +259,7 @@ defmodule Cooper.DotenvTest do
         shared = ${SHARED}
         """
 
-        assert Cooper.load_string(source, env: %{"SHARED" => "explicit"}, dotenv_env: :dev) ==
+        assert load_here(source, env: %{"SHARED" => "explicit"}, dotenv_env: :dev) ==
                  {:ok, %{"shared" => "explicit"}}
       end)
     end
@@ -300,7 +305,7 @@ defmodule Cooper.DotenvTest do
 
         for {name, value} <- system, do: System.put_env(name, value)
 
-        assert {:ok, actual} = Cooper.Dotenv.env(env: override, dotenv_env: :proptest)
+        assert {:ok, actual} = dotenv_here(env: override, dotenv_env: :proptest)
         assert Map.take(actual, ~w(CDT_A CDT_B CDT_C CDT_D CDT_E CDT_F)) == expected
       after
         for {name, _value} <- system, do: System.delete_env(name)
@@ -374,6 +379,16 @@ defmodule Cooper.DotenvTest do
                  dotenv_dir: dir,
                  dotenv_files: ["custom.env"]
                )
+    end
+  end
+
+  describe "the default .env directory" do
+    test "is the running Mix project's root, wherever the load was started from" do
+      assert Cooper.Dotenv.project_root() == Path.dirname(Mix.Project.project_file())
+
+      File.cd!(System.tmp_dir!(), fn ->
+        assert Cooper.Dotenv.project_root() == Path.dirname(Mix.Project.project_file())
+      end)
     end
   end
 end

@@ -294,13 +294,12 @@ defmodule Cooper.CacheTest do
 
       attach_telemetry([[:cooper, :cache, :env_changed]])
 
-      original = File.cwd!()
-      File.cd!(dir)
-      on_exit(fn -> File.cd!(original) end)
+      # Through `:dotenv_dir`, which the poll must keep: it re-reads the
+      # environment from the same directory the load did.
+      assert {:ok, %{"value" => "default"}} =
+               Cooper.load_file(path, watch_env: true, dotenv_dir: dir)
 
-      assert {:ok, %{"value" => "default"}} = Cooper.load_file(path, watch_env: true)
-
-      File.write!(".env", "COOPER_TELEM_DOTENV_VAR=from-dotenv\n")
+      File.write!(Path.join(dir, ".env"), "COOPER_TELEM_DOTENV_VAR=from-dotenv\n")
 
       assert_receive {:telemetry, [:cooper, :cache, :env_changed], _, metadata}, 2000
       assert metadata.changed_names == ["COOPER_TELEM_DOTENV_VAR"]
