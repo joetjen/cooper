@@ -158,7 +158,10 @@ defmodule Cooper.Cache do
   would go undetected: the "before" snapshot would already reflect the
   "after" value. Later polls re-derive the current values from
   `Cooper.Dotenv.env/1`, computed from `opts` (only the dotenv-relevant
-  keys are kept: `:env`/`:dotenv`/`:dotenv_env`/`:dotenv_files`).
+  keys are kept: `:env`/`:dotenv`/`:dotenv_env`/`:dotenv_files`/
+  `:dotenv_dir`/`:dotenv_override`). Keeping fewer, as this once did,
+  made the poll read a different environment than the load had --
+  another directory's `.env`, or the files in the other order.
 
   A no-op if `names` is empty (nothing to watch) or the `{path, root}`
   entry doesn't currently exist (e.g. a concurrent `invalidate/1` raced
@@ -177,7 +180,16 @@ defmodule Cooper.Cache do
   @spec watch_env(String.t(), String.t(), MapSet.t(), map(), keyword()) :: :ok
   def watch_env(path, root, names, values, opts) do
     if MapSet.size(names) > 0 do
-      dotenv_opts = Keyword.take(opts, [:env, :dotenv, :dotenv_env, :dotenv_files])
+      dotenv_opts =
+        Keyword.take(opts, [
+          :env,
+          :dotenv,
+          :dotenv_env,
+          :dotenv_files,
+          :dotenv_dir,
+          :dotenv_override
+        ])
+
       GenServer.cast(__MODULE__, {:watch_env, path, root, names, values, dotenv_opts})
     end
 

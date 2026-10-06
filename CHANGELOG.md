@@ -13,6 +13,10 @@ this implementation's next release is `0.6.0`.
 
 ### Added
 
+- **`:dotenv_dir`** -- the directory `.env` files are read from
+  (default: the working directory, as before), and the base of a
+  relative `:dotenv_files` entry. The config libraries built on Cooper
+  set it to the project root.
 - **`${COOPER_ENV}` is always set**: the one name a document reads the
   current environment by in every Cooper implementation (CASC.md §7.2).
   A real `COOPER_ENV` wins; unset or empty it falls back to `MIX_ENV`,
@@ -120,6 +124,8 @@ itself:
   as 2^63) while a compound duration was exact, and an amount too large
   for a float crashed the load. Both are now exact integer arithmetic,
   a fraction rounded half away from zero.
+- **The cache's environment poll ignored `:dotenv_override`**, so it
+  compared against the files in the other order than the load had.
 - **The cache missed a file added where a glob import looks**: it
   fingerprinted only the files a load read, so an edited or deleted one
   was noticed and a new match was not. Each import's expansion is now

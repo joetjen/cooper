@@ -355,4 +355,25 @@ defmodule Cooper.DotenvTest do
                "Production"
     end
   end
+
+  describe ":dotenv_dir" do
+    @describetag :tmp_dir
+
+    test "the .env files are read from it instead of the working directory", %{tmp_dir: dir} do
+      File.write!(Path.join(dir, ".env"), "COOPER_DIR_PROBE=from-dir\n")
+
+      assert {:ok, %{"v" => "from-dir"}} =
+               Cooper.load_string("#@version = 1.0\nv = ${COOPER_DIR_PROBE}\n", dotenv_dir: dir)
+    end
+
+    test "a relative :dotenv_files entry is resolved against it", %{tmp_dir: dir} do
+      File.write!(Path.join(dir, "custom.env"), "COOPER_DIR_PROBE=custom\n")
+
+      assert {:ok, %{"v" => "custom"}} =
+               Cooper.load_string("#@version = 1.0\nv = ${COOPER_DIR_PROBE}\n",
+                 dotenv_dir: dir,
+                 dotenv_files: ["custom.env"]
+               )
+    end
+  end
 end

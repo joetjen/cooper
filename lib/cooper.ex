@@ -31,8 +31,9 @@ defmodule Cooper do
       resolution from the real environment -- give every name a test
       needs a deterministic value under `:env` explicitly, rather than
       relying on it being otherwise unset.
-    * `:dotenv` / `:dotenv_env` / `:dotenv_files` / `:dotenv_override` --
-      layer `.env` file(s) from the project root *under*
+    * `:dotenv` / `:dotenv_env` / `:dotenv_files` / `:dotenv_dir` /
+      `:dotenv_override` -- layer `.env` file(s) from `:dotenv_dir`
+      (default: the working directory) *under*
       `System.get_env/0`, via the optional `:dotenvy` dependency, on by
       default. The real environment outranks the files, so a deployment's
       variables are not silently shadowed by one; `dotenv_override: true`
@@ -100,6 +101,7 @@ defmodule Cooper do
           dotenv: boolean(),
           dotenv_env: atom() | nil,
           dotenv_files: [String.t()],
+          dotenv_dir: String.t(),
           dotenv_override: boolean(),
           cache: boolean(),
           watch_env: boolean(),

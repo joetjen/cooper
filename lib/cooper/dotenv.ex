@@ -49,10 +49,14 @@ defmodule Cooper.Dotenv do
   a load-time error. `.env.<env>` in particular is *expected* to be
   absent for every environment but the current one.
 
-  All paths are resolved relative to the current working directory,
-  deliberately not `:root` (`load_file/2`'s config-file directory) --
-  `.env` files live at the project root regardless of where the CASC
-  file being loaded happens to sit.
+  All paths are resolved relative to `:dotenv_dir`, which defaults to
+  the current working directory -- deliberately not `:root`
+  (`load_file/2`'s config-file directory): `.env` files live at the
+  project root regardless of where the CASC file being loaded happens
+  to sit. An application started from elsewhere (a release, a test
+  runner, a script) passes `dotenv_dir:` its project root; the config
+  libraries built on Cooper do so by default. An absolute path in
+  `:dotenv_files` is used as it is.
 
   **`:env` is an override layer, not a replacement.** Passing `env:
   %{"FOO" => "bar"}` does not isolate resolution from the real
@@ -101,6 +105,7 @@ defmodule Cooper.Dotenv do
           dotenv: boolean(),
           dotenv_env: atom() | nil,
           dotenv_files: [String.t()],
+          dotenv_dir: String.t(),
           dotenv_override: boolean()
         ]
 
@@ -197,10 +202,14 @@ defmodule Cooper.Dotenv do
   end
 
   defp files(opts) do
-    case Keyword.fetch(opts, :dotenv_files) do
-      {:ok, files} -> files
-      :error -> [@base_file] ++ env_file(opts) ++ [@local_file]
-    end
+    files =
+      case Keyword.fetch(opts, :dotenv_files) do
+        {:ok, files} -> files
+        :error -> [@base_file] ++ env_file(opts) ++ [@local_file]
+      end
+
+    dir = Keyword.get(opts, :dotenv_dir, File.cwd!())
+    Enum.map(files, &Path.expand(&1, dir))
   end
 
   defp env_file(opts) do
