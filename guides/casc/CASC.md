@@ -107,7 +107,7 @@ import "vault://secret/base"
 4. **A path may interpolate `${NAME}` or `${NAME:default}`** (§7.2), which is how one document selects among several:
 
    ```casc
-   import "env/${MIX_ENV:dev}.casc"
+   import "env/${COOPER_ENV}.casc"
    ```
 
    Only `${...}` works. An import is resolved *while the document is parsed* — the imported file's statements are spliced into the importer — so a reference needing the finished tree (`%{...}`, §7.3) cannot be available yet and is a load-time error. The environment is available, which is the same thing `${?NAME}` reads (§7.2).
