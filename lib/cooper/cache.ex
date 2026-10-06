@@ -239,7 +239,33 @@ defmodule Cooper.Cache do
   def handle_cast({:watch_env, path, root, names, values, dotenv_opts}, state) do
     case raw_lookup(path, root) do
       {:ok, entry} ->
-        watch = %{names: names, values: values, opts: dotenv_opts}
+        # The baseline is the one the entry was first watched with: a name
+        # already watched keeps the value it had then, and only a newly
+        # read name takes the value it has now. Re-baselining on every
+        # load, as this once did, meant a change landing between two
+        # loads was never seen -- and a `${?NAME}` decision baked into the
+        # cached tree stayed stale until a file changed.
+        watch =
+          case entry.env_watch do
+            %{names: old_names, values: old_values} ->
+              all_names = MapSet.union(old_names, names)
+
+              # An unset name is absent from a baseline, never `nil` -- the
+              # poll compares whole maps -- so each name takes its value
+              # (or its absence) from the baseline it belongs to.
+              baseline =
+                for name <- all_names,
+                    source = if(MapSet.member?(old_names, name), do: old_values, else: values),
+                    Map.has_key?(source, name),
+                    into: %{},
+                    do: {name, Map.fetch!(source, name)}
+
+              %{names: all_names, values: baseline, opts: dotenv_opts}
+
+            nil ->
+              %{names: names, values: values, opts: dotenv_opts}
+          end
+
         :ets.insert(@table, {{path, root}, %{entry | env_watch: watch}})
         {:noreply, ensure_polling(state)}
 

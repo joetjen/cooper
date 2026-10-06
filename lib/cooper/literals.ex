@@ -36,8 +36,14 @@ defmodule Cooper.Literals do
   @doc "Parses a duration literal's text into total nanoseconds."
   @spec parse_duration(String.t()) :: {:ok, integer()} | {:error, String.t()}
   def parse_duration(text) do
+    # Each component's digits may carry `_` separators (CASC.md §6.8), the
+    # same shape the DURATION token accepts: a digit first, then digits or
+    # `_`. They are dropped from the amounts once the text is known to be
+    # nothing but components.
     components =
-      Regex.scan(~r/(\d+(?:\.\d+)?)(ns|us|µs|ms|d|h|m|s)/, text, capture: :all_but_first)
+      Regex.scan(~r/(\d[\d_]*(?:\.\d[\d_]*)?)(ns|us|µs|ms|d|h|m|s)/u, text,
+        capture: :all_but_first
+      )
 
     # `Regex.scan/3` alone doesn't guarantee full coverage -- it happily
     # returns matches for "5msXYZ9s" too, skipping the garbage between
@@ -48,7 +54,9 @@ defmodule Cooper.Literals do
     if Enum.map_join(components, &Enum.join(&1)) != text do
       {:error, "invalid duration literal #{inspect(text)}"}
     else
-      validate_duration(components, text)
+      components
+      |> Enum.map(fn [amount, unit] -> [String.replace(amount, "_", ""), unit] end)
+      |> validate_duration(text)
     end
   end
 

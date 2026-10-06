@@ -60,6 +60,49 @@ to PHP (`php-cooper`):
   interpolated key; the docs that still called `${...}` in an import
   path unsupported are corrected.
 
+Places the copies (`node-cooper`, `php-cooper`) and a shared corpus of
+conformance cases showed this implementation contradicting CASC.md, or
+itself:
+
+- **A comment before `#@version` failed the load.** Comments are
+  trivia everywhere (§3.2); the header now follows any leading ones.
+- **`1_000ms` failed to parse.** A duration takes `_` the way an
+  integer does (§6.3, §6.8).
+- **`${PORT:+1}` was a default of `+1`.** `:+` always introduces a
+  substitute; a signed number after `:` is a default only when it is
+  negative (`${PORT:-1}`).
+- **One private variable could not read another** (`@*b = "v@{a}"` over
+  `@*a`), and **a private variable did not shadow an imported public
+  one** of the same name. Private variables now resolve first.
+- **`+key = @{list}` appended the reference itself** when the operand
+  was declared later in the file, and `+`/`-` in a `for ... from` body
+  edited a list it could not see yet. Both are now deferred until the
+  values resolve.
+- **`+key = nil` appended nothing** (`List.wrap/1` reads `nil` as no
+  elements); it now appends `nil`, as every other scalar is appended,
+  and `-key = nil` removes it.
+- **A loop value lost its filters**: `@{x | upcase}` in a body gave `x`
+  unfiltered. It now keeps an index, a suffix, and filters.
+- **A key built from a loop binding skipped the interpolated-key
+  rules**: `out."@{x}"` over `"a.b"` or `""` built a key the same text
+  is refused for outside a loop. Both are now `:resolve` errors.
+- **A loop iterable could build its variable's name**; it must name it.
+- **A secret could not be filtered** (`%{pw | trim}` failed as "not a
+  string"). The value is filtered and stays a secret.
+- **The message of `:?"..."` crashed the load when it interpolated**;
+  it now resolves like any double-quoted string.
+- **`inf` in a string read `infinity`**; it now reads `inf`/`-inf`.
+- **A scheme import that imported itself recursed** instead of
+  reporting the cycle a file import reports.
+- **`Cooper.Cache` re-baselined the environment on every load**, so a
+  change landing between two loads was never seen. The baseline is now
+  the one the entry was first watched with.
+
+CASC.md now states what this implementation already did: `:nil`,
+`:true`, `:false` are the values `nil`, `true`, `false` (§6.4); how a
+value reads inside a string (§7); and that a `+`/`-` operand that is
+not a list is one element, compared strictly (§8.4).
+
 ## [0.4.0] - 2026-10-01
 
 ### Added

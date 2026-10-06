@@ -206,4 +206,16 @@ defmodule Cooper.GrammarTest do
                Cooper.Grammar.run("#@version = 1.0\n#bad = 999.999.999.999\nv = 1")
     end
   end
+
+  describe "where the copies showed this implementation contradicting CASC.md" do
+    test "a comment before the version header is trivia, as it is everywhere else (§3.2)" do
+      assert {:ok, %{"key" => 1}} =
+               Cooper.Grammar.run("# leading comment\n\n#@version = 1.0\nkey = 1\n")
+    end
+
+    test "a duration takes `_` between digits, as every other number does (§6.3, §6.8)" do
+      assert {:ok, %{"t" => {:duration, 1_000_000_000}}} =
+               Cooper.Grammar.run("#@version = 1.0\nt = 1_000ms\n")
+    end
+  end
 end

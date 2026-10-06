@@ -66,6 +66,8 @@ defmodule Cooper.Loop do
 
       {:ok, List.flatten(entries)}
     end
+  catch
+    {:loop_key, %Error{} = error} -> {:error, error}
   end
 
   defp validate_bindings(bindings) do
@@ -110,12 +112,20 @@ defmodule Cooper.Loop do
 
   defp resolve_iterable(list, _outer_vars) when is_list(list), do: {:ok, list}
 
+  defp resolve_iterable(%Cooper.Ref.Var{name: name}, _outer_vars) when not is_binary(name) do
+    {:error,
+     Error.new(
+       message: "a loop iterable must name its variable directly, not build the name",
+       stage: :loop
+     )}
+  end
+
   defp resolve_iterable(%Cooper.Ref.Var{name: name}, outer_vars) do
-    case Map.fetch(outer_vars, name) do
-      {:ok, {list, _public?}} when is_list(list) ->
+    case Cooper.Scope.lookup(outer_vars, name) do
+      {:ok, list} when is_list(list) ->
         {:ok, list}
 
-      {:ok, {_other, _public?}} ->
+      {:ok, _other} ->
         {:error, Error.new(message: "loop iterable \"@{#{name}}\" is not a list", stage: :loop)}
 
       :error ->
@@ -221,12 +231,58 @@ defmodule Cooper.Loop do
   # a `Cooper.Interp.Text` -- `Cooper.Merge` resolves it against the
   # load's variables and environment like any other interpolated key,
   # rather than this being the error it once was.
-  defp substitute_path(path, overlay), do: Enum.map(path, &substitute(&1, overlay))
+  defp substitute_path(path, overlay), do: Enum.map(path, &substitute_key(&1, overlay))
 
-  defp substitute(%Cooper.Ref.Var{name: name} = ref, overlay) when is_binary(name) do
+  # An interpolated segment the bindings turned into text follows the
+  # rules every interpolated key does (CASC.md §7.2): non-empty, and no
+  # `.`, which would split it. Taking the text as it came, as this once
+  # did, let `out."@{x}"` over `"a.b"` build a key the same text outside
+  # a loop is refused for. The error is thrown to `expand/6`, the one
+  # place that can return it.
+  defp substitute_key(%Cooper.Interp.Text{} = segment, overlay) do
+    case substitute(segment, overlay) do
+      "" ->
+        throw(
+          {:loop_key,
+           Error.new(message: "interpolated key resolved to an empty string", stage: :resolve)}
+        )
+
+      text when is_binary(text) ->
+        if String.contains?(text, ".") do
+          throw(
+            {:loop_key,
+             Error.new(
+               message:
+                 "interpolated key resolved to #{inspect(text)}, which would split into more than one path segment",
+               stage: :resolve
+             )}
+          )
+        else
+          text
+        end
+
+      text ->
+        text
+    end
+  end
+
+  defp substitute_key(segment, overlay), do: substitute(segment, overlay)
+
+  # A bare `@{x}` becomes the iteration's value. One carrying an index, a
+  # suffix, or filters (`@{x | upcase}`, `@{x[0]}`, `@{x:default}`) keeps
+  # them: the value is bound onto the reference, which then resolves
+  # normally. Replacing it with the bare value, as this once did, silently
+  # dropped the filter, the index, or the suffix.
+  defp substitute(%Cooper.Ref.Var{name: name, bound: nil} = ref, overlay) when is_binary(name) do
     case Map.fetch(overlay, name) do
-      {:ok, value} -> value
-      :error -> substitute_parts(ref, overlay)
+      {:ok, value} when ref.index == nil and ref.suffix == nil and ref.filters == [] ->
+        value
+
+      {:ok, value} ->
+        %{substitute_parts(ref, overlay) | bound: {:ok, value}}
+
+      :error ->
+        substitute_parts(ref, overlay)
     end
   end
 

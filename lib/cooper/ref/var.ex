@@ -14,16 +14,23 @@ defmodule Cooper.Ref.Var do
   `@{name}` came from -- which is exactly what deciding whether it may
   see a private `@*name` requires. See `Cooper.Scope`'s own moduledoc
   for the full visibility model.
+
+  `bound` is `{:ok, value}` for a reference to a `for` loop binding that
+  also carries an index, a suffix, or filters (`@{x | upcase}`): the
+  iteration's value is attached to the reference, which then resolves
+  like any other -- rather than being replaced by the bare value, which
+  dropped what it carried. See `Cooper.Loop`.
   """
 
   @enforce_keys [:name]
-  defstruct name: nil, index: nil, suffix: nil, filters: [], scope: nil
+  defstruct name: nil, index: nil, suffix: nil, filters: [], scope: nil, bound: nil
 
   @type t :: %__MODULE__{
           name: String.t(),
           index: non_neg_integer() | nil,
           suffix: Cooper.Ref.Env.suffix(),
           filters: [term()],
-          scope: String.t() | nil
+          scope: String.t() | nil,
+          bound: {:ok, term()} | nil
         }
 end

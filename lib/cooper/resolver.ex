@@ -167,7 +167,8 @@ defmodule Cooper.Resolver do
               Cooper.Ref.Config,
               Cooper.Ref.Resolver,
               Cooper.Ref.Tagged,
-              Cooper.Merge.Layered
+              Cooper.Merge.Layered,
+              Cooper.Merge.ListEdit
             ] do
     {:error,
      Error.new(
@@ -188,6 +189,8 @@ defmodule Cooper.Resolver do
 
   defp resolve_value(%Cooper.Merge.Layered{} = layered, state),
     do: resolve_layered(layered, state)
+
+  defp resolve_value(%Cooper.Merge.ListEdit{} = edit, state), do: resolve_list_edit(edit, state)
 
   # A `Cooper.Merge`-wrapped secret's own inner value may still be
   # unresolved (`*password = ${DB_PASSWORD}`, an unresolved
@@ -257,6 +260,20 @@ defmodule Cooper.Resolver do
     case resolve_ref_name(name, "@{...}", state) do
       {:ok, resolved, state} -> resolve_var(%{ref | name: resolved}, state)
       {:error, _} = err -> err
+    end
+  end
+
+  # A loop binding's value attached to the reference (see `Cooper.Loop`):
+  # resolved, then indexed, defaulted, and filtered like any other value.
+  defp resolve_var(%Cooper.Ref.Var{bound: {:ok, value}} = ref, state) do
+    with {:ok, resolved, state} <- resolve_value(value, state) do
+      finish_ref(
+        apply_index(resolved, ref.index),
+        ref.suffix,
+        ref.filters,
+        "@{#{ref.name}}",
+        state
+      )
     end
   end
 
@@ -571,12 +588,89 @@ defmodule Cooper.Resolver do
     end
   end
 
-  defp deep_merge(%{} = base, %{} = overrides)
-       when not is_struct(base) and not is_struct(overrides) do
-    Map.merge(base, overrides, fn _k, base_v, override_v -> deep_merge(base_v, override_v) end)
+  # The overrides on top of a template's copy. A key marked
+  # `Cooper.Merge.Absent` (`-key` in the loop body) is removed from the
+  # copy; one with no base to apply to keeps its overrides, with any
+  # `Absent` inside them dropped.
+  defp deep_merge(base, %{} = overrides) when not is_struct(overrides) do
+    from = if is_map(base) and not is_struct(base), do: base, else: %{}
+
+    Enum.reduce(overrides, from, fn
+      {key, %Cooper.Merge.Absent{}}, acc ->
+        Map.delete(acc, key)
+
+      {key, value}, acc ->
+        merged =
+          if Map.has_key?(from, key), do: deep_merge(from[key], value), else: strip_absent(value)
+
+        Map.put(acc, key, merged)
+    end)
   end
 
   defp deep_merge(_base, override), do: override
+
+  defp strip_absent(%{} = value) when not is_struct(value), do: deep_merge(%{}, value)
+  defp strip_absent(value), do: value
+
+  # ---- Cooper.Merge.ListEdit (a `+key`/`-key` applied once it resolves) ------
+
+  defp resolve_list_edit(%Cooper.Merge.ListEdit{} = edit, state) do
+    mark = if edit.op == :append, do: "+", else: "-"
+    label = "\"#{mark}#{Enum.join(edit.path, ".")}\""
+
+    with {:ok, base, state} <- resolve_value(edit.base, state) do
+      case base do
+        # A template without this key: `+key` is a plain assignment,
+        # `-key` leaves it absent.
+        %Cooper.Merge.Absent{} when edit.op == :append ->
+          resolve_value(edit.operand, state)
+
+        %Cooper.Merge.Absent{} ->
+          {:ok, base, state}
+
+        _ ->
+          {secret?, base} = unwrap_secret(base)
+          apply_resolved_edit(edit, base, secret?, label, state)
+      end
+    end
+  end
+
+  defp apply_resolved_edit(_edit, base, _secret?, label, _state) when is_tuple(base) do
+    {:error,
+     Error.new(
+       message:
+         "#{label} targets a tuple -- tuples are never merged, only replaced wholesale (CASC.md §8.3)",
+       stage: :resolve
+     )}
+  end
+
+  defp apply_resolved_edit(_edit, base, _secret?, label, _state) when not is_list(base) do
+    {:error,
+     Error.new(
+       message: "#{label} needs a list at that path, found #{inspect(base)}",
+       stage: :resolve
+     )}
+  end
+
+  defp apply_resolved_edit(edit, base, secret?, _label, state) do
+    with {:ok, operand, state} <- resolve_value(edit.operand, state) do
+      {operand_secret?, operand} = unwrap_secret(operand)
+      items = Cooper.Merge.items(operand)
+
+      result =
+        case edit.op do
+          :append -> base ++ items
+          :remove -> Enum.reject(base, &(&1 in items))
+        end
+
+      if secret? or operand_secret?,
+        do: {:ok, %Cooper.Secret{value: result}, state},
+        else: {:ok, result, state}
+    end
+  end
+
+  defp unwrap_secret(%Cooper.Secret{value: value}), do: {true, value}
+  defp unwrap_secret(value), do: {false, value}
 
   # ---- !{resolver:payload} dispatch (CASC.md §7.4/§9.2) ---------------------
 
@@ -735,9 +829,22 @@ defmodule Cooper.Resolver do
   # Filters run *after* the suffix has settled what the value is, so a
   # `${NAME:default | trim}` filters whichever of the two it ended up with.
   # Filtering before that would mean transforming a value you might not have.
+  #
+  # A secret is filtered through: the real string is filtered and the
+  # result is a secret again (CASC.md §4.3 -- the stored value is
+  # unaffected by being secret), the same way `!trim(%{pw})` already
+  # behaved. Refusing it as "not a string", as this once did, made a
+  # secret unfilterable.
   defp finish_ref(fetch, suffix, filters, label, state) do
     with {:ok, value, state} <- finish_ref(fetch, suffix, label, state) do
-      case Cooper.RefCommon.apply_filters(value, filters) do
+      {secret?, inner} =
+        case value do
+          %Cooper.Secret{value: inner} when filters != [] -> {true, inner}
+          other -> {false, other}
+        end
+
+      case Cooper.RefCommon.apply_filters(inner, filters) do
+        {:ok, filtered} when secret? -> {:ok, %Cooper.Secret{value: filtered}, state}
         {:ok, filtered} -> {:ok, filtered, state}
         {:error, message} -> {:error, Error.new(message: "#{label}: #{message}", stage: :resolve)}
       end
@@ -755,8 +862,18 @@ defmodule Cooper.Resolver do
     case suffix do
       {:default, default} -> resolve_value(default, state)
       {:substitute, _alt} -> {:ok, "", state}
-      {:required, message} -> {:error, Error.new(message: message, stage: :resolve)}
+      {:required, message} -> required(message, state)
       nil -> {:error, Error.new(message: "undefined reference #{label}", stage: :resolve)}
+    end
+  end
+
+  # The message of `:?"..."` is a double-quoted string like any other, so
+  # it interpolates: `@{n:?"need @{m}"}` reports `need M`. Handing the
+  # unresolved string to the error, as this once did, put a struct where
+  # the message belongs. A secret in it shows redacted.
+  defp required(message, state) do
+    with {:ok, text, _state} <- resolve_value(message, state) do
+      {:error, Error.new(message: Kernel.to_string(text), stage: :resolve)}
     end
   end
 

@@ -27,7 +27,7 @@ out of scope (per the spec itself, not a Cooper gap).
 | 6.1 | Nil | ✅ | `actions_test.exs` |
 | 6.2 | Booleans | ✅ | `actions_test.exs` |
 | 6.3 | Numbers | ✅ | `actions_test.exs` (int/hex/oct/bin/float/exponent/digit separators/infinity) |
-| 6.4 | Atoms | ✅ | `actions_test.exs` (reserved-word precedence, bare, `:`-sigiled, reaching a reserved-word-named atom) |
+| 6.4 | Atoms | ✅ | `actions_test.exs` (reserved-word precedence, bare, `:`-sigiled, `:nil`/`:true`/`:false` as the values, `:inf` as an atom) |
 | 6.5 | Strings | ⚠️ | `actions_test.exs` (double/single-quoted); `values_test.exs` (triple-quoted dedent); `spec_coverage_test.exs` (triple-quoted does *not* interpolate). **Gap:** backslash-continued strings are not implemented (see bottom of this file). |
 | 6.6 | Dates and times | ✅ | `values_test.exs` -- all 4 forms (offset datetime, local datetime, local date, local time); an impossible date/time is a load-time error |
 | 6.7 | IP addresses | ✅ | `values_test.exs` -- IPv4, IPv4/CIDR, IPv6, IPv6/CIDR, out-of-range octet and CIDR prefix are load-time errors; `ipv4_test.exs`/`ipv6_test.exs` -- validation, `String.Chars`, CIDR containment and network math (`network/1`, `broadcast/1`, `netmask/1`, `first_host/1`, `last_host/1`), including `/31`-`/32` and `/127`-`/128` edge cases |
@@ -41,7 +41,7 @@ out of scope (per the spec itself, not a Cooper gap).
 | 7.4 | Extensible resolution (`!{}`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (dispatch, unregistered-name error, payload nesting braces past the old single-level bound -- `Cooper.Native.ResolverRef`, confirms the payload is genuinely "brace-balanced" as this section itself says, not the fixed-depth approximation the combinator-based token had before) |
 | 7.5 | Tagged values (`!Name()`) | ✅ | `interpolation_test.exs`; `resolver_test.exs` (the 5 converting built-ins, nested with `${}`, consumer-registered tag, unregistered-name error); `filters_test.exs` (the 3 normalizing built-ins `!trim`/`!downcase`/`!upcase`, non-string error); `module_tag_test.exs` (`!module` -- Elixir and Erlang forms, from a `${}` reference, inside a list, and every rejection: bad characters, empty, non-string, over-length) |
 | 8.1 | Blocks and maps (deep-merge) | ✅ | `merge_test.exs` |
-| 8.2 | Lists (replace wholesale) | ✅ | `merge_test.exs` |
+| 8.2 | Lists (replace wholesale) | ✅ | `merge_test.exs` (and `+`/`-` operands: `nil` as one element, strict removal, a later-declared reference, a tuple refused) |
 | 8.3 | Tuples (never merge) | ✅ | `merge_test.exs` -- plain replace works; `~`/`+`/`-` against a tuple all raise |
 | 8.4 | Overriding the default (sigils) | ✅ | `merge_test.exs` ("§8.4's own worked example, end to end" -- exact documented result); `sigils_test.exs` (op-level) |
 | 8.5 | Deferred: merge-by-key | N/A | Explicitly out of scope for this version per the spec itself. |
@@ -61,6 +61,8 @@ out of scope (per the spec itself, not a Cooper gap).
 | 4 | `-key = [...]` element removal: value or identity equality? | Value/structural equality | `merge_test.exs` / `sigils_test.exs` (`-tags = ["b"]` removes by value) |
 | 5 | Secret-flag merge when a later plain write overwrites a secret path? | Later op's flag wins | `cooper_test.exs` ("a later plain write over a secret path is no longer secret"); `merge_test.exs` (both directions) |
 | 6 | What base unit for durations? | Nanoseconds | `spec_coverage_test.exs` ("duration unit table") |
+| 7 | What does a value read as inside a string? | As CASC writes it: `nil`, `inf`, `500ns`, `2048B`, shortest float (now stated in CASC.md §7) | `resolver_test.exs` |
+| 8 | Do loop-built keys follow the interpolated-key rules? | Yes (now stated in CASC.md §4.2) | `loop_test.exs` |
 
 ## Known gap
 

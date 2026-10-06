@@ -158,4 +158,20 @@ defmodule Cooper.FiltersTest do
       assert error.message =~ "not a string"
     end
   end
+
+  describe "a secret (§4.3)" do
+    test "is filtered as its value, and stays a secret" do
+      assert {:ok, %{"trimmed" => %Cooper.Secret{value: "hunter2"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n*pw = \"  hunter2  \"\ntrimmed = %{pw | trim}\n"
+               )
+    end
+
+    test "is filtered through a chain" do
+      assert {:ok, %{"v" => %Cooper.Secret{value: "abc"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n*pw = \"  AbC  \"\nv = %{pw | trim | downcase}\n"
+               )
+    end
+  end
 end

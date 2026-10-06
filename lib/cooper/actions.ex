@@ -132,7 +132,21 @@ defmodule Cooper.Actions do
       # @*name values never leave their declaring file" when it
       # propagates an imported file's vars back into the importer's own
       # `ctx.vars`.
-      ctx = put_in(ctx, [:vars, name], {value, not private?})
+      #
+      # A private declaration is kept under its own `{:private, name}` key
+      # rather than `name`, so it cannot overwrite a public variable of the
+      # same name an import brought in (CASC.md §5.2: inside its own file a
+      # private declaration *shadows* a public one -- it does not remove it
+      # for the file that declared it). Overwriting it, as this once did,
+      # left the imported file's own `@{name}` undefined.
+      #
+      # The value is stamped with this file's scope as it is stored: the
+      # variable environment is built from `ctx.vars`, not from the entries
+      # `Cooper.Grammar` stamps, so a reference inside a declaration's own
+      # value (`@*b = "v@{a}"`, `a` private too) would otherwise carry no
+      # file at all and never see this file's private declarations.
+      key = if private?, do: {:private, name}, else: name
+      ctx = put_in(ctx, [:vars, key], {Cooper.Scope.stamp(value, ctx.scope), not private?})
       {:ok, [{:var, decl}], ctx}
     end
   end
@@ -343,6 +357,17 @@ defmodule Cooper.Actions do
     with {:ok, name, ctx} <- Map.fetch!(captures, :name).eval.(ctx),
          {:ok, arg, ctx} <- Map.fetch!(captures, :arg).eval.(ctx) do
       {:ok, %Cooper.Ref.Tagged{name: name, arg: arg}, ctx}
+    end
+  end
+
+  # The number's own spelling travels with its value, so `ref_suffix`
+  # can tell `:+5` (substitute) from `:5`/`:-5` (default).
+  def handle_rule(:signed_number, captures, ctx) do
+    [{_name, cap}] = Map.to_list(captures)
+    {:token, _name, text} = cap.node
+
+    with {:ok, value, ctx} <- cap.eval.(ctx) do
+      {:ok, {text, value}, ctx}
     end
   end
 

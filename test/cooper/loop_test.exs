@@ -192,4 +192,63 @@ defmodule Cooper.LoopTest do
                Cooper.Grammar.run(source)
     end
   end
+
+  describe "where the copies showed loops contradicting CASC.md" do
+    test "a bound value keeps the reference's filters" do
+      assert {:ok, %{"out" => %{"a" => %{"up" => "A"}, "b" => %{"up" => "B"}}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a\", \"b\"] as out.\"@{x}\" { up = @{x | upcase} }\n"
+               )
+    end
+
+    test "`+` and `-` in the body edit the `from` template's copy, not the template" do
+      source = """
+      #@version = 1.0
+      t { list = [1], a = 1, b = 2 }
+      for @x in ["p", "q"] from t as out."@{x}" {
+        +list = [@{x}]
+        -a
+      }
+      """
+
+      assert {:ok, result} = Cooper.load_string(source)
+      assert result["t"] == %{"list" => [1], "a" => 1, "b" => 2}
+      assert result["out"]["p"] == %{"list" => [1, "p"], "b" => 2}
+      assert result["out"]["q"] == %{"list" => [1, "q"], "b" => 2}
+    end
+
+    test "a binding reaches a filter argument" do
+      assert {:ok, %{"out" => %{"s" => "HTTPS"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"://\"] as out { s = ${SCHEME | trim_suffix: \"@{x}\"} }\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+
+    test "a destination key built from a binding may not hold a `.`, as no interpolated key may" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a.b\"] as out.\"@{x}\" { v = 1 }\n"
+               )
+    end
+
+    test "a body key built from a binding may not hold a `.`" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a\"] as out { \"k-@{x}.z\" = 1 }\n"
+               )
+    end
+
+    test "a key built from a binding may not be empty" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string("#@version = 1.0\nfor @x in [\"\"] as out.\"@{x}\" { v = 1 }\n")
+    end
+
+    test "a loop iterable must name its variable, not build the name" do
+      assert {:error, %Ichor.Error{stage: :loop}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@n = \"l\"\n@l = [1]\nfor @x in @{\"@{n}\"} as out { v = @{x} }\n"
+               )
+    end
+  end
 end

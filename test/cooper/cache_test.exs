@@ -429,4 +429,27 @@ defmodule Cooper.CacheTest do
       end)
     end
   end
+
+  describe "the env baseline" do
+    setup do
+      on_exit(fn -> Cooper.Cache.clear() end)
+      :ok
+    end
+
+    test "a change landing between two loads is still seen, since a reload never re-baselines" do
+      path = scratch_path("env_baseline")
+      write(path, 9900, "#@version = 1.0\nvalue = ${COOPER_BASELINE_VAR:\"default\"}\n")
+      System.delete_env("COOPER_BASELINE_VAR")
+      on_exit(fn -> System.delete_env("COOPER_BASELINE_VAR") end)
+
+      attach_telemetry([[:cooper, :cache, :env_changed]])
+
+      {:ok, %{"value" => "default"}} = Cooper.load_file(path, watch_env: true)
+      System.put_env("COOPER_BASELINE_VAR", "live")
+      {:ok, _} = Cooper.load_file(path, watch_env: true)
+
+      assert_receive {:telemetry, [:cooper, :cache, :env_changed], _, metadata}, 2000
+      assert metadata.changed_names == ["COOPER_BASELINE_VAR"]
+    end
+  end
 end

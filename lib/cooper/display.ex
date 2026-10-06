@@ -32,6 +32,10 @@ defmodule Cooper.Display do
   def to_string(v) when is_integer(v) or is_float(v), do: Kernel.to_string(v)
   def to_string(true), do: "true"
   def to_string(false), do: "false"
+  # CASC's own spelling (§6.3), which reads back as the same value -- not
+  # the atom names `infinity`/`neg_infinity` it is held as here.
+  def to_string(:infinity), do: "inf"
+  def to_string(:neg_infinity), do: "-inf"
   def to_string(v) when is_atom(v), do: Atom.to_string(v)
   # A bare tagged tuple (unlike %Cooper.IPv4{}/%Cooper.IPv6{}, which
   # already implement String.Chars and fall through to the last clause

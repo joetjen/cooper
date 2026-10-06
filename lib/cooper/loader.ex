@@ -135,6 +135,21 @@ defmodule Cooper.Loader do
   end
 
   defp load_scheme(scheme, rest, ctx) do
+    label = "#{scheme}://#{rest}"
+
+    # A scheme source is put on the in-progress set under this label (see
+    # `load_source/3`), so one that imports itself again -- directly or
+    # through others -- is a cycle like any file's, rather than the
+    # unbounded recursion it once was.
+    if MapSet.member?(ctx.importing, label) do
+      chain = ctx.importing |> MapSet.to_list() |> Enum.sort() |> Enum.join(" -> ")
+      {:error, Error.new(message: "import cycle detected: #{chain} -> #{label}", stage: :import)}
+    else
+      load_registered_scheme(scheme, rest, ctx)
+    end
+  end
+
+  defp load_registered_scheme(scheme, rest, ctx) do
     case Map.fetch(ctx.import_schemes, scheme) do
       {:ok, loader} when is_function(loader, 1) ->
         case loader.(rest) do

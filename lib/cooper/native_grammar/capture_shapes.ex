@@ -43,6 +43,7 @@ defmodule Cooper.NativeGrammar.CaptureShapes do
         rhs: MapSet.new([]),
         seg: MapSet.new([]),
         sigil_kv_statement: MapSet.new([]),
+        signed_number: MapSet.new([]),
         statement: MapSet.new([]),
         tagged_ref: MapSet.new([]),
         tuple: MapSet.new([:value]),

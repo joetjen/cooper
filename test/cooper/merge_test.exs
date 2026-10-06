@@ -185,4 +185,30 @@ defmodule Cooper.MergeTest do
       assert config =~ "may only reference @{...} and ${...}"
     end
   end
+
+  describe "`+`/`-` operands (§8.2, §8.4)" do
+    test "a nil operand is one element, appended as itself" do
+      assert run!("a = [1]\n+a = nil\n") == %{"a" => [1, nil]}
+    end
+
+    test "a nil operand removes the nil elements" do
+      assert run!("a = [1, nil, 2]\n-a = nil\n") == %{"a" => [1, 2]}
+    end
+
+    test "an operand that is a reference is appended once it resolves, wherever it was declared" do
+      assert {:ok, %{"tags" => ["a", "b", "c"]}} =
+               Cooper.load_string(
+                 "#@version = 1.0\ntags = [\"a\"]\n+tags = @{more}\n@more = [\"b\", \"c\"]\n"
+               )
+    end
+
+    test "removing compares strictly: an integer is not the float of the same value" do
+      assert run!("a = [1, 2.0, \"x\"]\n-a = [1.0, 2]\n") == %{"a" => [1, 2.0, "x"]}
+    end
+
+    test "appending to a tuple is an error" do
+      assert {:error, %Ichor.Error{}} =
+               Cooper.load_string("#@version = 1.0\nt = (1, 2)\n+t = [3]\n")
+    end
+  end
 end

@@ -67,7 +67,11 @@ IPV6 := (HEX_GROUP (":" HEX_GROUP){7} | (HEX_GROUP (":" HEX_GROUP)*)? "::" (HEX_
 ; matches at all, so "ms" must be tried before "m" or "s" alone would
 ; ever get the chance to steal one character of it.
 DURATION_UNIT := "ns" | "us" | "µs" | "ms" | "d" | "h" | "m" | "s"
-DURATION := DIGIT+ ("." DIGIT+)? DURATION_UNIT (DIGIT+ DURATION_UNIT)*
+; `_` digit separators are allowed in every component (CASC.md §6.8:
+; "Digit separators (`_`) are allowed per §6.3"), so `1_000ms` is a
+; duration rather than INTEGER("1_000") followed by a stray `ms`.
+DURATION := DIGIT (DIGIT | "_")* ("." DIGIT (DIGIT | "_")*)? DURATION_UNIT
+            (DIGIT (DIGIT | "_")* DURATION_UNIT)*
 
 ; -- Byte sizes (CASC.md §6.9) ----------------------------------------------
 ; Case-insensitive per the spec (each unit literal carries the `i`
@@ -146,7 +150,11 @@ RESOLVER_REF_RAW := @native("Cooper.Native.ResolverRef", "scan")
 ; nothing following it for splicing to trigger on, would otherwise be
 ; left unconsumed and fail `Grammar.VM`'s whole-input match. The trailing
 ; `TRIVIA?` mops that up explicitly.
-file := version_header statement* TRIVIA?
+; The leading `TRIVIA?` is CASC.md §2's "first non-blank, non-comment
+; statement": a comment or blank lines may come before the header.
+; `@skip` splices trivia before a sequence's later elements only, so
+; without it a file opening with `# comment` failed to parse at all.
+file := TRIVIA? version_header statement* TRIVIA?
 
 ; `kw` is deliberately an IDENT, not a literal "version" token -- CASC.md
 ; §4.1 only reserves `for`/`in`/`from`/`as` as *contextual* keywords, and
@@ -358,7 +366,16 @@ env_bracket := "[" INTEGER? "]"
 ; would otherwise shadow the ":+alt" form -- CASC.md gives no textual way
 ; to disambiguate that case, so ordered-choice-first-wins is the
 ; resolution, same call as the version-header/number grammar makes.
-ref_suffix := (":" "?" msg:DQ_STRING) | (":" "+" alt:value) | (":" default:value)
+ref_suffix := (":" "?" msg:DQ_STRING) | (":" "+" alt:value)
+            | (":" signed_alt:signed_number) | (":" default:value)
+
+; The lexer folds `:+5` into ":" INTEGER("+5") -- a signed number
+; out-munches the "+" literal -- which the plain `:default` form above
+; would read as a *default* of 5: the opposite of what `:+alt` means,
+; and not what the same reference inside a string means. So a number
+; (or `inf`) directly after ":" is checked for its sign: `+` makes it
+; the substitute form, anything else stays a default.
+signed_number := INTEGER | FLOAT | INF_KW
 
 ; Filters run left to right on whatever the reference resolved to, *after*
 ; any `ref_suffix` above has already supplied a default or alternate --

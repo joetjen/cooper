@@ -81,6 +81,8 @@ foo."bar baz".dronf = "fnord"
 
 Double-quoted key segments support interpolation and escapes, same as double-quoted strings (§6.5). Single-quoted key segments are literal, same as single-quoted strings. Bare identifier keys cannot be interpolated (§4.1's rule has no room for `@{}`), so an interpolated key must be double-quoted.
 
+An interpolated segment must resolve to a non-empty string with no `.` in it (a written-out `"a.b"` is one segment; a `.` that arrives through interpolation would silently be read as two), and may not be built from a secret (§7.2). The rule is the same inside a `for` loop (§5.5), where the segment is built from a binding, as outside one.
+
 ### 4.3 Secret keys
 
 Any key segment may be prefixed `*` to mark it **secret**: `*password = "..."`, `db.*password = "..."`, `*db.password = "..."`. The stored value is unaffected; consumers should redact secret values on display (e.g. `"[~~REDACTED~~]"`).
@@ -338,9 +340,10 @@ remove = yes
 
 ```casc
 level = :info    ; identical to `level = info`
-enabled = :true   ; the atom :true -- NOT the boolean
-enabled = true    ; the boolean -- NOT an atom
+mode = :inf       ; the atom inf -- NOT infinity
 ```
+
+**`:nil`, `:true` and `:false` are the values `nil`, `true` and `false`.** On the reference implementations' runtime those three atoms *are* the three values, so there is no separate atom for a document to reach; an implementation on a runtime that tells them apart produces the value too, so that a document means one thing everywhere. `:inf` is an ordinary atom.
 
 `:` has no other meaning in CASC — not an assignment operator (§5.3), and appears nowhere else in the grammar.
 
@@ -451,6 +454,8 @@ Comma, newline, or whitespace separate elements, same as lists. `;` and `|` are 
 
 Three brace-delimited sigils, plus two extensibility mechanisms sharing the same shape (§9).
 
+**A value interpolated into a string reads as CASC writes it:** `nil`, `true`, `false`, `inf`, `-inf`; an atom as its name; a duration in nanoseconds (`500000000ns`) and a byte size in bytes (`2048B`); an IP address or network as written in canonical form; a float as the shortest digits that read back as the same float, written as a plain decimal or with an exponent, whichever is shorter (the decimal on a tie), and always with a fraction (`1.0`, `52.52`, `100.0`, `0.0001`, `1.0e3`, `1.0e-5`). A list, a tuple or a map has no string form, and interpolating one is a load error.
+
 ### 7.1 Variables
 
 `@name = value` (§5.2) or a loop binding (§5.5) **defines** a variable; **referencing** one — standalone, in a string, or inside another sigil — always uses `@{name}`. There is no bare `@name` reference form.
@@ -486,6 +491,8 @@ debug = !bool(${DEBUG:false})
 This is deliberate, not an oversight: guessing a type from what a string looks like is exactly the kind of implicit behavior that produces surprises, so CASC never does it silently.
 
 **Note:** real bash uses `${NAME:-default}` (with a dash); CASC drops it so the suffix grammar (`:default`, `:+alt`, `:?"msg"`) is identical across `@{...}`, `${...}`, and `%{...}` — one rule, not three near-identical ones.
+
+`:+` always introduces a substitute, so `${PORT:+1}` substitutes `1`; a default of minus one is `${PORT:-1}`. The message of `:?"..."` is a double-quoted string like any other and interpolates: `@{n:?"need @{m}"}` fails with `need` followed by `@{m}`'s value.
 
 #### Filters
 
@@ -659,6 +666,8 @@ Merge operates on the fully-desugared tree (§5.4). Imports behave like "early w
 - `~key { ... }` — replace instead of merge.
 - `+key = [...]` — append instead of replace (plain assignment if `key` doesn't exist yet).
 - `-key = [...]` — remove matching elements instead of replace.
+
+A list operand stands for its elements; anything else, `nil` included, is one element (`+tags = "d"` appends `"d"`, `+tags = nil` appends `nil`). Removal compares values strictly: `1` and `1.0` are different elements.
 - `-key.path` (bare) — delete the path entirely, any type.
 
 Ordering with `#`/`*` is fixed (§5.7).

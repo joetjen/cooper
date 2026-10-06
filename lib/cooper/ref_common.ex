@@ -146,6 +146,14 @@ defmodule Cooper.RefCommon do
 
       [{:default, cap}] ->
         with {:ok, default, ctx} <- cap.eval.(ctx), do: {:ok, {:default, default}, ctx}
+
+      # `:+5` -- see `signed_number` in casc.aether: a `+`-signed number
+      # right after ":" is the substitute form, with the sign dropped.
+      [{:signed_alt, cap}] ->
+        with {:ok, {text, value}, ctx} <- cap.eval.(ctx) do
+          kind = if String.starts_with?(text, "+"), do: :substitute, else: :default
+          {:ok, {kind, value}, ctx}
+        end
     end
   end
 
