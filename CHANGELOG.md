@@ -11,6 +11,13 @@ Planned as `0.6.0`: the version line is shared with the Praxis port
 (`praxis/libs_prx/cooper`), which released `0.5.0` and recorded that
 this implementation's next release is `0.6.0`.
 
+### Added
+
+- **`${COOPER_ENV}` is always set**: the one name a document reads the
+  current environment by in every Cooper implementation (CASC.md §7.2).
+  A real `COOPER_ENV` wins; unset or empty it falls back to `MIX_ENV`,
+  then the live `Mix.env/0`, then `"dev"`.
+
 ### Changed
 
 - **`!module("Name")` takes one written form in every implementation**

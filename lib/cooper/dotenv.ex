@@ -64,6 +64,17 @@ defmodule Cooper.Dotenv do
   guaranteed-deterministic value should give that name an explicit
   entry in `:env` rather than relying on it being otherwise unset.
 
+  ## `COOPER_ENV`
+
+  The one name a document reads the current environment by, in every
+  Cooper implementation (CASC.md §7.2): `import "env/${COOPER_ENV}.casc"`.
+  Every layer above is consulted first, so a real `COOPER_ENV` -- in the
+  environment, a `.env` file, or `:env` -- always wins. Unset or empty,
+  it falls back to this host's own name for the same thing: `MIX_ENV`
+  from those same layers, else the live `Mix.env/0` (Mix does not export
+  `MIX_ENV` to the OS environment), else `"dev"`. The value is passed
+  through as is.
+
   ## Enabling
 
   `.env` file loading (layers 2-4) is on by default; `dotenv: false`
@@ -106,11 +117,33 @@ defmodule Cooper.Dotenv do
   def env(opts) do
     overrides = Keyword.get(opts, :env, %{})
 
-    case enabled(opts) do
-      false -> {:ok, Map.merge(System.get_env(), overrides)}
-      {true, required?} -> load(overrides, opts, required?)
+    result =
+      case enabled(opts) do
+        false -> {:ok, Map.merge(System.get_env(), overrides)}
+        {true, required?} -> load(overrides, opts, required?)
+      end
+
+    with {:ok, env} <- result, do: {:ok, with_cooper_env(env)}
+  end
+
+  @doc false
+  # See "`COOPER_ENV`" in the moduledoc.
+  @spec with_cooper_env(%{String.t() => String.t()}) :: %{String.t() => String.t()}
+  def with_cooper_env(env) do
+    if present?(env["COOPER_ENV"]),
+      do: env,
+      else: Map.put(env, "COOPER_ENV", host_env(env))
+  end
+
+  defp host_env(env) do
+    cond do
+      present?(env["MIX_ENV"]) -> env["MIX_ENV"]
+      env = mix_env() -> Atom.to_string(env)
+      true -> "dev"
     end
   end
+
+  defp present?(value), do: is_binary(value) and value != ""
 
   defp enabled(opts) do
     case Keyword.fetch(opts, :dotenv) do

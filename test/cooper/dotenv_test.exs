@@ -327,4 +327,32 @@ defmodule Cooper.DotenvTest do
     contents = Enum.map_join(map, "\n", fn {k, v} -> "#{k}=#{v}" end)
     File.write!(name, contents <> "\n")
   end
+
+  describe "COOPER_ENV" do
+    test "a set COOPER_ENV is kept as it is" do
+      assert {:ok, %{"v" => "staging"}} =
+               Cooper.load_string("#@version = 1.0\nv = ${COOPER_ENV}\n",
+                 dotenv: false,
+                 env: %{"COOPER_ENV" => "staging", "MIX_ENV" => "prod"}
+               )
+    end
+
+    test "unset, it falls back to MIX_ENV" do
+      assert {:ok, %{"v" => "prod"}} =
+               Cooper.load_string("#@version = 1.0\nv = ${COOPER_ENV}\n",
+                 dotenv: false,
+                 env: %{"COOPER_ENV" => "", "MIX_ENV" => "prod"}
+               )
+    end
+
+    test "with neither, it falls back to the live Mix environment" do
+      env = Cooper.Dotenv.with_cooper_env(%{})
+      assert env["COOPER_ENV"] == Atom.to_string(Mix.env())
+    end
+
+    test "is passed through unchanged, never translated" do
+      assert Cooper.Dotenv.with_cooper_env(%{"MIX_ENV" => "Production"})["COOPER_ENV"] ==
+               "Production"
+    end
+  end
 end
