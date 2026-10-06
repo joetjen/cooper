@@ -67,10 +67,15 @@ defmodule Cooper.ActionsTest do
     end
 
     test "a colon is required to reach a reserved-word-named atom" do
-      assert value(":true") == true
-      assert value(":false") == false
-      assert value(":nil") == nil
+      assert value(":true") == %Cooper.Atom{name: "true"}
+      assert value(":false") == %Cooper.Atom{name: "false"}
+      assert value(":nil") == %Cooper.Atom{name: "nil"}
       assert value(":inf") == :inf
+    end
+
+    test "the atom `:true` is not the boolean `true`" do
+      refute value(":true") == value("true")
+      refute value(":nil") == value("nil")
     end
   end
 

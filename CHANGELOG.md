@@ -102,10 +102,14 @@ itself:
   change landing between two loads was never seen. The baseline is now
   the one the entry was first watched with.
 
-CASC.md now states what this implementation already did: `:nil`,
-`:true`, `:false` are the values `nil`, `true`, `false` (§6.4); how a
-value reads inside a string (§7); and that a `+`/`-` operand that is
-not a list is one element, compared strictly (§8.4).
+- **`:true`, `:false` and `:nil` loaded as the values** `true`, `false`
+  and `nil`, which CASC.md §6.4 says they are not: on the BEAM those
+  atoms *are* the values. They now load as `%Cooper.Atom{name: "true"}`
+  and so on; every other atom stays a native atom.
+
+CASC.md now states how a value reads inside a string (§7), and that a
+`+`/`-` operand that is not a list is one element, compared strictly
+(§8.4).
 
 ## [0.4.0] - 2026-10-01
 

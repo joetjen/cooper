@@ -399,11 +399,12 @@ defmodule Cooper.Actions do
   # `atom_word` reaches an atom named after a reserved word (`:true`,
   # `:nil`, ...) -- it needs the raw *text* of whichever token matched,
   # not that token's normal semantic value (NIL_KW's own handle_token
-  # returns the value `nil`, not the text "nil").
+  # returns the value `nil`, not the text "nil"). `Cooper.Atom.new/1`
+  # keeps `:true`/`:false`/`:nil` apart from the values (§6.4).
   def handle_rule(:atom_word, captures, ctx) do
     [{_name, cap}] = Map.to_list(captures)
     {:token, _name, text} = cap.node
-    {:ok, String.to_atom(text), ctx}
+    {:ok, Cooper.Atom.new(text), ctx}
   end
 
   # `:statement`, `:real_statement`, `:rhs`, `:seg` -- every rule whose
