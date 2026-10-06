@@ -452,4 +452,55 @@ defmodule Cooper.CacheTest do
       assert metadata.changed_names == ["COOPER_BASELINE_VAR"]
     end
   end
+
+  describe "a glob import" do
+    setup do
+      dir = Path.join(@scratch_dir, "glob_#{unique()}")
+      File.mkdir_p!(Path.join(dir, "parts"))
+      path = Path.join(dir, "app.casc")
+      write(path, 9500, "#@version = 1.0\nimport \"parts/*.casc\"\n")
+      write(Path.join(dir, "parts/a.casc"), 9500, "#@version = 1.0\na = 1\n")
+      %{dir: dir, path: path}
+    end
+
+    test "a file added where it looks is read on the next load", %{dir: dir, path: path} do
+      assert {:ok, %{"a" => 1}} = Cooper.load_file(path, watch_env: false)
+
+      write(Path.join(dir, "parts/b.casc"), 9500, "#@version = 1.0\nb = 2\n")
+
+      assert {:ok, %{"a" => 1, "b" => 2}} = Cooper.load_file(path, watch_env: false)
+    end
+
+    test "a file deleted from where it looks is gone on the next load", %{dir: dir, path: path} do
+      write(Path.join(dir, "parts/b.casc"), 9500, "#@version = 1.0\nb = 2\n")
+      assert {:ok, %{"a" => 1, "b" => 2}} = Cooper.load_file(path, watch_env: false)
+
+      File.rm!(Path.join(dir, "parts/b.casc"))
+
+      assert {:ok, result} = Cooper.load_file(path, watch_env: false)
+      assert result == %{"a" => 1}
+    end
+
+    test "a file the pattern does not match leaves the entry cached", %{dir: dir, path: path} do
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+      attach_telemetry([[:cooper, :cache, :file_changed]])
+
+      write(Path.join(dir, "parts/notes.txt"), 9500, "not casc")
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+
+      refute_receive {:telemetry, [:cooper, :cache, :file_changed], _, _}, 200
+    end
+
+    test "the change names the file added", %{dir: dir, path: path} do
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+      attach_telemetry([[:cooper, :cache, :file_changed]])
+
+      added = Path.join(dir, "parts/b.casc")
+      write(added, 9500, "#@version = 1.0\nb = 2\n")
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+
+      assert_receive {:telemetry, [:cooper, :cache, :file_changed], _, metadata}, 1000
+      assert metadata.changed_files == [Path.expand(added)]
+    end
+  end
 end

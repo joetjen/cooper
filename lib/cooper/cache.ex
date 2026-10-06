@@ -84,7 +84,9 @@ defmodule Cooper.Cache do
   @default_poll_interval 5_000
 
   @type entry :: %{
-          fingerprint: [{String.t(), integer() | nil}],
+          fingerprint: [
+            {String.t(), integer() | nil} | {{:glob, String.t(), String.t()}, [String.t()]}
+          ],
           tree: term(),
           vars: map(),
           env_watch: nil | %{names: MapSet.t(), values: map(), opts: keyword()},
@@ -320,7 +322,12 @@ defmodule Cooper.Cache do
     new_map = Map.new(new_fingerprint)
     all_files = MapSet.union(mapset_keys(old_map), mapset_keys(new_map))
 
-    for file <- all_files, Map.get(old_map, file) != Map.get(new_map, file), do: file
+    # An import's expansion is not itself a file: a file it gained or lost
+    # is already a key here, appearing or disappearing.
+    for file <- all_files,
+        not match?({:glob, _, _}, file),
+        Map.get(old_map, file) != Map.get(new_map, file),
+        do: file
   end
 
   defp mapset_keys(map), do: map |> Map.keys() |> MapSet.new()
@@ -396,13 +403,26 @@ defmodule Cooper.Cache do
     end
   end
 
+  # A fingerprint holds each file read with its mtime, and each import's
+  # expansion (`{:glob, root, pattern}`) with the files it matched. Both
+  # are compared against disk now: a file edited or deleted changes its
+  # mtime, and a file added where an import looks -- or removed from
+  # there -- changes what the pattern expands to.
   defp fingerprint_valid?(fingerprint) do
-    Enum.all?(fingerprint, fn {file, mtime} -> current_mtime(file) == mtime end)
+    Enum.all?(fingerprint, fn {key, seen} -> current(key) == seen end)
   end
 
   defp build_fingerprint(loaded_files) do
-    for file <- MapSet.to_list(loaded_files), do: {file, current_mtime(file)}
+    for entry <- MapSet.to_list(loaded_files) do
+      case entry do
+        {:glob, root, pattern, files} -> {{:glob, root, pattern}, files}
+        file -> {file, current_mtime(file)}
+      end
+    end
   end
+
+  defp current({:glob, root, pattern}), do: Cooper.Loader.expand_import(pattern, root)
+  defp current(file), do: current_mtime(file)
 
   defp current_mtime(file) do
     case File.stat(file, time: :posix) do

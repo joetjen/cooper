@@ -170,8 +170,15 @@ defmodule Cooper.Loader do
     end
   end
 
+  # The expansion itself is recorded beside the files it found, as
+  # `{:glob, root, pattern, files}`, so `Cooper.Cache` can expand the
+  # pattern again and see a file that now matches -- or no longer does.
+  # Fingerprinting only the files read, as this once did, noticed one
+  # edited or deleted, never one added where a glob looks.
   defp load_filesystem(pattern, ctx) do
     with {:ok, files} <- resolve_filesystem_paths(pattern, ctx.root) do
+      ctx = %{ctx | loaded_files: MapSet.put(ctx.loaded_files, {:glob, ctx.root, pattern, files})}
+
       Enum.reduce_while(files, {:ok, [], ctx}, fn file, {:ok, acc, ctx} ->
         case load_file(file, ctx) do
           {:ok, entries, ctx} -> {:cont, {:ok, acc ++ entries, ctx}}
@@ -181,16 +188,22 @@ defmodule Cooper.Loader do
     end
   end
 
-  defp resolve_filesystem_paths(pattern, root) do
-    files =
-      pattern
-      |> expand_braces()
-      |> Enum.flat_map(&Path.wildcard(Path.join(root, &1)))
-      |> Enum.map(&Path.expand/1)
-      |> Enum.uniq()
-      |> Enum.sort()
+  @doc false
+  # Every file `pattern` (braces and wildcards, CASC.md §5.1) matches under
+  # `root`, absolute and sorted -- shared with `Cooper.Cache`, which
+  # expands a recorded import again to tell whether its matches changed.
+  @spec expand_import(String.t(), String.t()) :: [String.t()]
+  def expand_import(pattern, root) do
+    pattern
+    |> expand_braces()
+    |> Enum.flat_map(&Path.wildcard(Path.join(root, &1)))
+    |> Enum.map(&Path.expand/1)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
-    case files do
+  defp resolve_filesystem_paths(pattern, root) do
+    case expand_import(pattern, root) do
       [] ->
         {:error,
          Error.new(

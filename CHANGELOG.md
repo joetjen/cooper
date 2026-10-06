@@ -120,6 +120,11 @@ itself:
   as 2^63) while a compound duration was exact, and an amount too large
   for a float crashed the load. Both are now exact integer arithmetic,
   a fraction rounded half away from zero.
+- **The cache missed a file added where a glob import looks**: it
+  fingerprinted only the files a load read, so an edited or deleted one
+  was noticed and a new match was not. Each import's expansion is now
+  part of the fingerprint and is expanded again on every cache hit; the
+  file it gained or lost is named in `[:cooper, :cache, :file_changed]`.
 - **A scheme import that imported itself recursed** instead of
   reporting the cycle a file import reports.
 - **`Cooper.Cache` re-baselined the environment on every load**, so a
