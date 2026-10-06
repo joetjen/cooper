@@ -22,7 +22,7 @@ defmodule Cooper.DotenvTest do
 
   defp dotenv_here(opts), do: Cooper.Dotenv.env(Keyword.put_new(opts, :dotenv_dir, File.cwd!()))
 
-  defp load_here(source, opts \\ []),
+  defp load_here(source, opts),
     do: Cooper.load_string(source, Keyword.put_new(opts, :dotenv_dir, File.cwd!()))
 
   defp in_fixture(name, fun) do
@@ -393,6 +393,67 @@ defmodule Cooper.DotenvTest do
       File.cd!(System.tmp_dir!(), fn ->
         assert Cooper.Dotenv.project_root() == Path.dirname(Mix.Project.project_file())
       end)
+    end
+  end
+
+  describe "which .env.<env> file is read" do
+    @describetag :tmp_dir
+
+    defp env_files(dir, files) do
+      for {name, body} <- files, do: File.write!(Path.join(dir, name), body)
+    end
+
+    test "is named by COOPER_ENV", %{tmp_dir: dir} do
+      env_files(dir, [{".env.staging", "CDT_PICKED=staging\n"}])
+
+      assert {:ok, env} =
+               Cooper.Dotenv.env(dotenv_dir: dir, env: %{"COOPER_ENV" => "staging"})
+
+      assert env["CDT_PICKED"] == "staging"
+    end
+
+    test "by its shared name when it falls back to the host's variable", %{tmp_dir: dir} do
+      env_files(dir, [
+        {".env.prod", "CDT_PICKED=prod\n"},
+        {".env.production", "CDT_PICKED=production\n"}
+      ])
+
+      assert {:ok, env} =
+               Cooper.Dotenv.env(
+                 dotenv_dir: dir,
+                 env: %{"COOPER_ENV" => "", "MIX_ENV" => "production"}
+               )
+
+      assert env["CDT_PICKED"] == "prod"
+    end
+
+    test "a COOPER_ENV set in the base .env file names it too", %{tmp_dir: dir} do
+      env_files(dir, [{".env", "COOPER_ENV=staging\n"}, {".env.staging", "CDT_PICKED=staging\n"}])
+
+      assert {:ok, env} = Cooper.Dotenv.env(dotenv_dir: dir)
+      assert env["CDT_PICKED"] == "staging"
+    end
+
+    test "an explicit :dotenv_env still wins", %{tmp_dir: dir} do
+      env_files(dir, [{".env.qa", "CDT_PICKED=qa\n"}])
+
+      assert {:ok, env} =
+               Cooper.Dotenv.env(dotenv_dir: dir, dotenv_env: :qa, env: %{"COOPER_ENV" => "prod"})
+
+      assert env["CDT_PICKED"] == "qa"
+    end
+  end
+
+  describe "in a release, with no Mix" do
+    test "COOPER_ENV falls back to the compiled :dotenv_env, by its shared name" do
+      assert Cooper.Dotenv.release_env(:prod) == "prod"
+      assert Cooper.Dotenv.release_env(:production) == "prod"
+      assert Cooper.Dotenv.release_env("staging") == "staging"
+    end
+
+    test "and to dev when the host app set none" do
+      assert Cooper.Dotenv.release_env(nil) == "dev"
+      assert Cooper.Dotenv.release_env("") == "dev"
     end
   end
 end

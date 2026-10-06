@@ -422,13 +422,12 @@ iex> Cooper.load_file("config.casc")
 ```
 
 1. `.env`
-2. `.env.<env>` — `<env>`, in order: an explicit `:dotenv_env`; else
-   live `Mix.env/0` when Mix is loaded (`mix run`/`mix test`/`iex -S
-   mix`); else `Application.compile_env(:cooper, :dotenv_env)`, if a
-   compiled release's own `config/config.exs` set `config :cooper,
-   dotenv_env: config_env()` — the only way left to auto-detect an
-   environment once Mix itself isn't around. Pass `dotenv_env:`
-   explicitly instead if you'd rather not add that config
+2. `.env.<env>` — `<env>` is an explicit `:dotenv_env`, else
+   `COOPER_ENV` as the real environment, `:env` and `.env` set it
+   (falling back to `MIX_ENV`, the live `Mix.env/0`, or a release's
+   `config :cooper, dotenv_env: config_env()`, mapped onto `dev`,
+   `staging`, `test`, `prod`). So the files are `.env.dev`,
+   `.env.staging`, `.env.test` and `.env.prod`, in every Cooper.
 3. `.env.local` — a personal, usually-gitignored override
 4. `System.get_env/0` — the real environment, outranking every file
 5. `:env`, if passed — always the final, highest-precedence override

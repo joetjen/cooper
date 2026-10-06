@@ -28,7 +28,7 @@ one on.
 |---|---|---|---|
 | `:env` | `%{String.t() => String.t()}` | `%{}` | **Override**, not replacement, for `${...}` resolution — always wins for a name it defines, but a name it doesn't define still falls through to `.env`/the real environment (see [.env files](#env-files)). |
 | `:dotenv` | `boolean()` | `true` | Layer `.env` file(s) *under* `System.get_env/0` (see [.env files](#env-files)). `false` disables just this layer. |
-| `:dotenv_env` | `atom() \| nil` | live `Mix.env/0` if Mix is loaded, else `Application.compile_env(:cooper, :dotenv_env)`, else `nil` | Which `.env.<env>` file to read. |
+| `:dotenv_env` | `atom() \| nil` | `COOPER_ENV` (`dev`, `staging`, `test`, `prod`) | Which `.env.<env>` file to read. |
 | `:dotenv_files` | `[String.t()]` | `[".env", ".env.<dotenv_env>", ".env.local"]` | Fully replaces the default `.env` file list. |
 | `:dotenv_override` | `boolean()` | `false` | Put the `.env` files *above* `System.get_env/0` instead, restoring the pre-inversion order. |
 | `:root` | `String.t()` | `path`'s directory (`load_file/2`) / `File.cwd!/0` (`load_string/2`) | Where a bare `import "..."` resolves relative to. |

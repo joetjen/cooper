@@ -15,19 +15,13 @@ defmodule Cooper.Dotenv do
   Five layers, later winning, `Dotenvy.source/2`'s own convention:
 
     1. `.env`
-    2. `.env.<env>` -- `<env>`, in order: the explicit `:dotenv_env`
-       option; else live `Mix.env/0` when Mix is loaded (true for
-       `mix run`/`mix test`/`iex -S mix`, false for a compiled OTP
-       release); else `Application.compile_env(:cooper, :dotenv_env)`
-       -- baked in at *the host application's own* compile time, the
-       only way left to auto-detect an environment in a release. That
-       last one only fires if the host app opts in with `config
-       :cooper, dotenv_env: config_env()` in its own
-       `config/config.exs` -- deliberately not something Cooper can
-       default on its own (see `compiled_env/0`'s own comment for why
-       naively reading `Mix.env/0` from inside Cooper's own source
-       could never work here). No match at all leaves `<env>` (and
-       this whole layer) absent.
+    2. `.env.<env>` -- `<env>` is the explicit `:dotenv_env` option, else
+       `COOPER_ENV` (see below) as the real environment, `:env` and the
+       base `.env` file set it -- so `.env.dev`, `.env.staging`,
+       `.env.test` and `.env.prod` in every Cooper, matching
+       `env/${COOPER_ENV}.casc`. Picking it by the host's own name, as
+       this once did, read `.env.development` beside documents that
+       read `dev`.
     3. `.env.local`
     4. `System.get_env/0` -- the real environment outranks every file.
     5. the `:env` option, if the caller passed one -- always the final,
@@ -76,7 +70,9 @@ defmodule Cooper.Dotenv do
   environment, a `.env` file, or `:env` -- always wins. Unset or empty,
   it falls back to this host's own name for the same thing: `MIX_ENV`
   from those same layers, else the live `Mix.env/0` (Mix does not export
-  `MIX_ENV` to the OS environment), else `"dev"`. A fallback value is
+  `MIX_ENV` to the OS environment), else -- in a release, which has no
+  Mix -- `Application.compile_env(:cooper, :dotenv_env)` if the host app
+  set `config :cooper, dotenv_env: config_env()`, else `"dev"`. A fallback value is
   mapped onto the names every Cooper uses -- `development` and `local`
   become `dev`, `testing` becomes `test`, `production` becomes `prod`,
   anything else is kept -- so a document selects `env/prod.casc` the same
@@ -145,7 +141,7 @@ defmodule Cooper.Dotenv do
     cond do
       present?(env["MIX_ENV"]) -> unified(env["MIX_ENV"])
       env = mix_env() -> unified(Atom.to_string(env))
-      true -> "dev"
+      true -> release_env(compiled_env())
     end
   end
 
@@ -236,10 +232,34 @@ defmodule Cooper.Dotenv do
 
   defp current_env(opts) do
     case Keyword.get(opts, :dotenv_env, :auto) do
-      :auto -> mix_env() || compiled_env()
+      :auto -> name_env(opts)
       env -> env
     end
   end
+
+  # `COOPER_ENV` as it stands before `.env.<env>` is read -- from the real
+  # environment, `:env`, and the base `.env` file, in the order the
+  # layering puts them -- which names the file to read next.
+  defp name_env(opts) do
+    base =
+      case Dotenvy.source([base_file_path(opts)], require_files: false) do
+        {:ok, env} -> env
+        {:error, _} -> %{}
+      end
+
+    layered =
+      if Keyword.get(opts, :dotenv_override, false),
+        do: Map.merge(System.get_env(), base),
+        else: Map.merge(base, System.get_env())
+
+    layered
+    |> Map.merge(Keyword.get(opts, :env, %{}))
+    |> with_cooper_env()
+    |> Map.fetch!("COOPER_ENV")
+  end
+
+  defp base_file_path(opts),
+    do: Path.expand(@base_file, Keyword.get_lazy(opts, :dotenv_dir, &project_root/0))
 
   defp mix_env do
     if Code.ensure_loaded?(Mix) and function_exported?(Mix, :env, 0) do
@@ -266,4 +286,20 @@ defmodule Cooper.Dotenv do
   # the two ever disagree) -- neither of which a bare
   # `Application.get_env/3` would provide.
   defp compiled_env, do: @compiled_dotenv_env
+
+  @doc false
+  # A release's environment: the host app's compiled `:dotenv_env`, if it
+  # set one, else `"dev"`. Takes the compiled value as an argument, since
+  # it is a constant wherever it is read -- `nil` for this project -- and
+  # the compiler and Dialyzer then call every other branch dead, which is
+  # true here and not in an application that sets it. It also lets the
+  # release path be tested at all.
+  @spec release_env(term()) :: String.t()
+  def release_env(compiled) do
+    case compiled do
+      env when is_atom(env) and not is_nil(env) -> unified(Atom.to_string(env))
+      env when is_binary(env) and env != "" -> unified(env)
+      _ -> "dev"
+    end
+  end
 end

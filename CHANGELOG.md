@@ -24,6 +24,11 @@ this implementation's next release is `0.6.0`.
 
 ### Changed
 
+- **`.env.<env>` is named by `COOPER_ENV`**, as the real environment,
+  `:env` and the base `.env` set it -- `.env.dev`, `.env.staging`,
+  `.env.test`, `.env.prod` in every Cooper. It was named by `Mix.env/0`
+  or the compiled `:dotenv_env`, which now feed `COOPER_ENV`'s own
+  fallback instead. An explicit `:dotenv_env` still wins.
 - **`dotenvy` is a required dependency**, not an optional one. `.env`
   files are read by default, and as an optional dependency that default
   silently read nothing in any application that had not added it
