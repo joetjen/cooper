@@ -354,4 +354,23 @@ defmodule Cooper.ResolverTest do
       assert result["v"] == "hello world"
     end
   end
+
+  describe "a list, map, or tuple has no string form" do
+    test "interpolating one is an error, not raw bytes or a crash" do
+      assert {:error, %Ichor.Error{stage: :resolve, message: list}} =
+               load(~s(@x = [1, 2]\nv = "@{x}"))
+
+      assert list =~ "cannot interpolate [1, 2]"
+
+      assert {:error, %Ichor.Error{stage: :resolve, message: tuple}} =
+               load(~s[@x = (1, 2)\nv = "a@{x}"])
+
+      assert tuple =~ "cannot interpolate {1, 2}"
+    end
+
+    test "a secret one does not show its value in the message" do
+      assert {:error, %Ichor.Error{message: message}} = load(~s(*x = [1]\nv = "a%{x}"))
+      refute message =~ "1"
+    end
+  end
 end

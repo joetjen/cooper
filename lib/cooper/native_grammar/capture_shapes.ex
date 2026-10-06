@@ -27,6 +27,7 @@ defmodule Cooper.NativeGrammar.CaptureShapes do
         filter: MapSet.new([]),
         filter_arg: MapSet.new([]),
         filters: MapSet.new([:filter]),
+        followed_delete: MapSet.new([]),
         for_statement: MapSet.new([:binding]),
         idx_suffix: MapSet.new([]),
         import_path: MapSet.new([]),

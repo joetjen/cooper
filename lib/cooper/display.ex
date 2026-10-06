@@ -5,7 +5,26 @@ defmodule Cooper.Display do
   an interpolated destination path or body string) and `Cooper.Resolver`
   (an ordinary `@{}`/`${}`/`%{}`/`!{}`/`!Name()` result embedded the same
   way, CASC.md §7).
+
+  A list, map, or tuple has no string form and is refused (`display/1`
+  returns `{:error, message}`): without that, `Kernel.to_string/1` read a
+  list as iodata -- `"@{ports}"` over `[8443, 8444]` became raw bytes --
+  and crashed outright on a tuple or a map.
   """
+
+  @doc false
+  @spec display(term()) :: {:ok, String.t()} | {:error, String.t()}
+  def display({tag, n} = v) when tag in [:duration, :bytes] and is_integer(n),
+    do: {:ok, __MODULE__.to_string(v)}
+
+  def display(v) when is_list(v) or is_tuple(v) or (is_map(v) and not is_struct(v)),
+    do: {:error, "cannot interpolate #{inspect(v)} into a string"}
+
+  def display(v), do: {:ok, __MODULE__.to_string(v)}
+
+  @doc false
+  @spec displayable?(term()) :: boolean()
+  def displayable?(v), do: match?({:ok, _}, display(v))
 
   @doc false
   @spec to_string(term()) :: String.t()

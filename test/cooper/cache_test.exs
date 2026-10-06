@@ -354,6 +354,30 @@ defmodule Cooper.CacheTest do
       refute_receive {:telemetry, [:cooper, :cache, :env_changed], _, _}, 500
     end
 
+    test "watches a name an import path is chosen by, and reloads the other file" do
+      # Which file an import reads shapes the cached tree exactly as a
+      # guard does; it was once never watched, so a cached tree kept
+      # importing the file the *old* value selected.
+      dir = Path.join(@scratch_dir, "telem_import_env_#{unique()}")
+      File.mkdir_p!(dir)
+      write(Path.join(dir, "dev.casc"), 9700, "#@version = 1.0\nwhich = \"dev\"\n")
+      write(Path.join(dir, "prod.casc"), 9700, "#@version = 1.0\nwhich = \"prod\"\n")
+      path = Path.join(dir, "main.casc")
+      write(path, 9700, "#@version = 1.0\nimport \"${COOPER_TELEM_STAGE:dev}.casc\"\n")
+
+      System.delete_env("COOPER_TELEM_STAGE")
+      on_exit(fn -> System.delete_env("COOPER_TELEM_STAGE") end)
+
+      attach_telemetry([[:cooper, :cache, :env_changed]])
+
+      assert {:ok, %{"which" => "dev"}} = Cooper.load_file(path, dotenv: false)
+      System.put_env("COOPER_TELEM_STAGE", "prod")
+
+      assert_receive {:telemetry, [:cooper, :cache, :env_changed], _, metadata}, 2000
+      assert metadata.changed_names == ["COOPER_TELEM_STAGE"]
+      assert {:ok, %{"which" => "prod"}} = Cooper.load_file(path, dotenv: false)
+    end
+
     test "watches a guard-only name -- never read as an ordinary ${...} value anywhere in the file" do
       path = scratch_path("telem_env_guard_only")
       # `COOPER_TELEM_GUARD_ONLY_VAR` appears *only* in the guard, never

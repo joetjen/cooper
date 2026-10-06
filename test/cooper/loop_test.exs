@@ -154,4 +154,42 @@ defmodule Cooper.LoopTest do
       assert {:error, %Ichor.Error{stage: :loop}} = Cooper.Grammar.run(source)
     end
   end
+
+  describe "bindings reach every part of the body" do
+    test "a %{...} path segment" do
+      # CASC.md §7.2's own `%{tokens."supervisor-@{id}"}` form; the binding
+      # was once left unsubstituted and failed as an undefined variable.
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\n@l = ["a"]\nfor @i in @{l} as out."@{i}" { v = %{t."@{i}"} }\nt.a = 5),
+               dotenv: false
+             ) == {:ok, %{"out" => %{"a" => %{"v" => 5}}, "t" => %{"a" => 5}}}
+    end
+
+    test "a reference's default" do
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\nfor @i in ["a"] as out."@{i}" { v = @{missing:"fallback-@{i}"} }),
+               dotenv: false
+             ) == {:ok, %{"out" => %{"a" => %{"v" => "fallback-a"}}}}
+    end
+
+    test "a key may mix bindings with ordinary variables" do
+      # Once "a for loop's keys may only reference its own bindings".
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\n@stage = "prod"\nfor @i in ["a"] as out."@{stage}-@{i}" { v = 1 }),
+               dotenv: false
+             ) == {:ok, %{"out" => %{"prod-a" => %{"v" => 1}}}}
+    end
+
+    test "a ~key { } in the body clears under the destination, not at the top level" do
+      source = """
+      #@version = 1.0
+      server.x = 1
+      @l = [1]
+      for @i in @{l} as out { ~server { a = 1 } }
+      """
+
+      assert {:ok, %{"server" => %{"x" => 1}, "out" => %{"server" => %{"a" => 1}}}} =
+               Cooper.Grammar.run(source)
+    end
+  end
 end

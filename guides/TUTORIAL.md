@@ -506,10 +506,10 @@ runs — so it only refreshes when the entry itself invalidates (a
 fingerprinted file changes, or an explicit `invalidate/1`/`clear/0`),
 not on every access the way an ordinary value read is. See
 `Cooper.Cache`'s own moduledoc for the full reasoning, and §13 below
-for guards specifically. (A `${...}` inside an `import "..."` path is
-a different matter — CASC.md §5.1 doesn't support it at all, so it's
-always an unconditional load-time error, never something that gets
-cached and goes stale.)
+for guards specifically. The same goes for a `${NAME}` that picks which
+file an `import "..."` reads (CASC.md §5.1) or builds an interpolated
+key (§4.2): both shape the cached tree, and both are watched like a
+guard.
 
 ### Getting notified of changes
 

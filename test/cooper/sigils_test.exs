@@ -82,4 +82,23 @@ defmodule Cooper.SigilsTest do
              ] = ops_list
     end
   end
+
+  describe "a sigil inside a block keeps its meaning" do
+    test "an inner +/- is not overwritten by the block's own (lack of a) sigil" do
+      assert {:ok,
+              [
+                {:op, %Cooper.Op{path: ["a", "tags"], sigil: :append, value: [2]}},
+                {:op, %Cooper.Op{path: ["a", "b"], sigil: :delete}}
+              ]} = ops("a {\n  +tags = [2]\n  -b\n}")
+    end
+
+    test "a plain inner op still takes the block's sigil" do
+      assert {:ok,
+              [
+                {:clear, ["s"]},
+                {:op, %Cooper.Op{path: ["s", "x"], sigil: :replace}},
+                {:op, %Cooper.Op{path: ["s", "l"], sigil: :append}}
+              ]} = ops("~s { x = 1, +l = [1] }")
+    end
+  end
 end

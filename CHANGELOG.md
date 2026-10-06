@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Planned as `0.6.0`: the version line is shared with the Praxis port
+(`praxis/libs_prx/cooper`), which released `0.5.0` and recorded that
+this implementation's next release is `0.6.0`.
+
+### Fixed
+
+Places this implementation contradicted CASC.md, found while porting it
+to PHP (`php-cooper`):
+
+- **`key "value"` -- an assignment without `=` to a string, CASC.md
+  §5.3's own example -- failed with `expected "import", got "key"`.**
+  `import_statement` matches any identifier followed by a quoted string;
+  a non-`import` keyword there is now built as that assignment.
+- **A `#`-disabled statement (§5.6) took effect.** It was evaluated and
+  only its entries dropped, so `#@name = ...` still defined the
+  variable, `#import "..."` still loaded the file (failing the load if
+  it was missing), and a bad literal inside one still raised. It is now
+  never evaluated.
+- **A merge sigil inside a block lost its meaning.** Every inner op took
+  the enclosing statement's sigil, so `a { +tags = ["d"] }` replaced the
+  list and `a { -b }` set `b = nil`. An inner `+`/`-`/`~` now wins; only a
+  plain inner op takes the block's.
+- **`-key.path` followed by another statement failed to parse.** The
+  grammar is newline-insensitive, so the next line's key became the
+  remove value (`-a.b = c`, then a stray `= 1`). A bare delete followed
+  by a complete statement is now a delete -- the rule is added to
+  CASC.md §5.7.
+- **`+info`/`-info` failed to parse**: `+inf` out-munched `+`, leaving
+  `o`. A signed `inf` no longer matches when an identifier character
+  follows.
+- **An interpolated key outside a `for` loop (§4.2) became the map key
+  unresolved** -- the `Cooper.Interp.Text` struct itself. Keys are now
+  resolved before merging, from `@{...}` and `${...}` (a `%{...}`,
+  resolver, or tag in a key is an error naming why), under the same
+  rules as a built `%{...}` key.
+- **`for` loops:** a `~key { }` in the body cleared the *top-level*
+  `key`, once per iteration, instead of the one under the generated
+  destination; a binding was never substituted into a `%{...}` path
+  segment (§7.2's own `%{tokens."supervisor-@{id}"}`), a default, or a
+  filter argument, so it failed as an undefined variable; and a key
+  mixing a binding with an ordinary variable was refused. All three now
+  work.
+- **Interpolating a list produced raw bytes** (`[1, 2]` read as iodata)
+  **and a tuple or map crashed**; each is now a `:resolve` error.
+- **An impossible date or time literal (`2023-02-30`) crashed** the
+  load through `Date.from_iso8601!/1`; it is now an `:action` error
+  naming the literal.
+- **A `${NAME}` in an import path was never watched by the cache**, so a
+  cached tree kept importing the file the old value selected. It is now
+  tracked and polled like a `${?NAME}` guard, as is a `${NAME}` in an
+  interpolated key; the docs that still called `${...}` in an import
+  path unsupported are corrected.
+
 ## [0.4.0] - 2026-10-01
 
 ### Added

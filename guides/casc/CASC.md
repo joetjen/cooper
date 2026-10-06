@@ -289,6 +289,8 @@ Blocks/maps deep-merge and lists replace by default (§8 has full rationale). Th
 - **`-key = [...]`** — **remove** matching elements from an existing list.
 - **`-key.path`** (bare, no value) — **delete** the path entirely, any type.
 
+A bare `-key.path` followed by another complete statement is always the delete — `-feature.legacy_mode` on one line and `c = 1` on the next is a delete and an assignment, never the remove `-feature.legacy_mode = c` (statements are not newline-terminated, so without this rule the operator being optional, §5.3, would make the next line's key the remove value). Write the remove form with its `=` (`-tags = b`) where its value is itself a bare word that could start a statement.
+
 `+`/`-` (list form) apply only to lists — using either against a tuple is a load-time error (§8.3), since it would silently change the tuple's fixed arity.
 
 **Sigil ordering** — `#`, then merge-control (`~`/`+`/`-`), then `*`, directly before the key, no separators:

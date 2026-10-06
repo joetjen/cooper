@@ -21,7 +21,14 @@ TRIVIA  := (SPACE | COMMENT)*
 NIL_KW   := "nil"
 TRUE_KW  := "true"
 FALSE_KW := "false"
-INF_KW   := ("+" | "-")? "inf"
+; The trailing negative lookahead keeps a signed `inf` from stealing the
+; front of an identifier: without it `+info` lexes as INF_KW("+inf")
+; followed by IDENT("o") -- `+inf` (4 chars) out-munches the `+` literal
+; (1 char), and IDENT can never start with a sign to win the race back --
+; so `+info = [...]` (an append to `info`, CASC.md §5.7) and `-info` (a
+; delete) failed to parse at all. An unsigned `info` was never affected:
+; IDENT already wins that one on length.
+INF_KW   := ("+" | "-")? "inf" !(ALNUM | "_" | "+" | "-" | "?" | "!")
 
 ; -- Identifiers (CASC.md §4.1) --------------------------------------------
 IDENT := ALPHA (ALNUM | "_" | "+" | "-")* ("?" | "!")?
@@ -180,7 +187,23 @@ env_guard              := "${?" name:IDENT "}"
 ; `delete_statement`'s bare `-key.path` form. Trying them in the other
 ; order would let `delete_statement` greedily match just the path and
 ; leave a trailing `= [...]` as unparseable garbage.
-real_statement := var_decl | for_statement | import_statement | sigil_kv_statement | delete_statement
+real_statement := var_decl | for_statement | import_statement | followed_delete
+                | sigil_kv_statement | delete_statement
+
+; A bare `-key.path` delete immediately followed by another complete
+; statement. This grammar is newline-insensitive (`@skip TRIVIA` splices
+; newlines like any other whitespace), so without this alternative
+; `sigil_kv_statement`'s optional "=" lets the *next line's* key become
+; the remove value: `-a.b` then `c = 1` parsed as `-a.b = c` (remove the
+; atom `c`) and then failed on the stray `= 1`. Tried first, so a delete
+; wins whenever what follows it is itself a whole statement; anything
+; else (`-tags = [...]`, `-tags ["b"]`, a trailing `-a.b` before `}` or
+; end of input) falls through exactly as before.
+;
+; One case stays genuinely ambiguous without newlines, and resolves as a
+; delete: `-tags b` followed by `c = 1` reads as `-tags`, then `b c`.
+; Write the remove with its `=` -- `-tags = b` -- to say otherwise.
+followed_delete := delete_statement &statement
 
 ; Public `@name = value` / private `@*name = value` (CASC.md §5.2).
 var_decl := "@" private:"*"? name:IDENT "="? value

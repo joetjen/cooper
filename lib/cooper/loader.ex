@@ -50,6 +50,14 @@ defmodule Cooper.Loader do
   end
 
   def load_import(%Cooper.Interp.Text{segments: segments}, ctx) do
+    # Which file an import reads is decided by these names, so -- like a
+    # `${?NAME}` guard -- they shape the cached tree and have to be
+    # watched (`Cooper.Cache`). Recorded before interpolating, so a name
+    # that turns out unset is watched too: setting it is what changes the
+    # outcome.
+    path_names = for %Cooper.Ref.Env{name: name} when is_binary(name) <- segments, do: name
+    ctx = update_in(ctx, [:env_guard_names], &MapSet.union(&1, MapSet.new(path_names)))
+
     case interpolate_path(segments, ctx, []) do
       {:ok, path} -> load_import(path, ctx)
       {:error, error} -> {:error, error}

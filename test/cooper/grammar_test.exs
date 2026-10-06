@@ -131,4 +131,79 @@ defmodule Cooper.GrammarTest do
                Cooper.Grammar.run(source)
     end
   end
+
+  describe "statements CASC.md specifies that once failed to parse" do
+    test "an assignment without `=` to a string value is not an import (§5.3)" do
+      # `import_statement` matches any identifier followed by a string, so
+      # this once failed with `expected "import", got "foo"`.
+      assert Cooper.load_string(~s(#@version = 1.0\n@n = 1\nfoo "bar"\ninterp "x-@{n}"),
+               dotenv: false
+             ) == {:ok, %{"foo" => "bar", "interp" => "x-1"}}
+    end
+
+    test "a real import is still an import" do
+      source = ~s(#@version = 1.0\nimport "mem://x"\n)
+      schemes = %{"mem" => fn _ -> {:ok, "#@version = 1.0\nfrom_import = 1\n"} end}
+
+      assert {:ok, %{"from_import" => 1}} = Cooper.Grammar.run(source, import_schemes: schemes)
+    end
+
+    test "a bare delete followed by another statement (§5.7)" do
+      # Without the `followed_delete` alternative the next line's key was
+      # read as the remove value: `-a.b = c`, then a stray `= 1`.
+      source = """
+      #@version = 1.0
+      a.b = 1
+      a.x = 2
+      -a.b
+      c = 1
+      -a.x
+      d { e = 1 }
+      """
+
+      assert {:ok, %{"a" => %{}, "c" => 1, "d" => %{"e" => 1}}} = Cooper.Grammar.run(source)
+    end
+
+    test "a remove still takes its value, with or without `=`" do
+      source = """
+      #@version = 1.0
+      tags = ["a", "b", "c"]
+      -tags = ["a"]
+      -tags ["b"]
+      """
+
+      assert {:ok, %{"tags" => ["c"]}} = Cooper.Grammar.run(source)
+    end
+
+    test "+info and -info reach a key starting with `inf` (§5.7)" do
+      # `+inf` once out-munched `+`, leaving `o` behind.
+      source = """
+      #@version = 1.0
+      info = [1]
+      +info = [2]
+      infra = 1
+      -infra
+      neg = -inf
+      """
+
+      assert {:ok, %{"info" => [1, 2], "neg" => :neg_infinity}} = Cooper.Grammar.run(source)
+    end
+  end
+
+  describe "disabled statements are never evaluated (§5.6)" do
+    test "a disabled variable declaration defines nothing" do
+      assert Cooper.load_string(~s(#@version = 1.0\n#@x = 1\nv = @{x:"fallback"}), dotenv: false) ==
+               {:ok, %{"v" => "fallback"}}
+    end
+
+    test "a disabled import is not loaded" do
+      assert {:ok, %{"v" => 1}} =
+               Cooper.Grammar.run(~s(#@version = 1.0\n#import "nonexistent.casc"\nv = 1))
+    end
+
+    test "a bad literal inside a disabled statement does not fail the load" do
+      assert {:ok, %{"v" => 1}} =
+               Cooper.Grammar.run("#@version = 1.0\n#bad = 999.999.999.999\nv = 1")
+    end
+  end
 end

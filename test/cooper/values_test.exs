@@ -142,4 +142,16 @@ defmodule Cooper.ValuesTest do
       assert is_tuple(result)
     end
   end
+
+  describe "an impossible date or time is a load-time error, not a crash" do
+    test "dates, times, and date-times" do
+      for literal <- ["2023-02-30", "25:00:00", "2023-02-30T07:32:00", "2023-02-30T07:32:00Z"] do
+        assert {:error, %Ichor.Error{stage: :action, message: message}} =
+                 Cooper.Grammar.run("#@version = 1.0\nv = #{literal}")
+
+        assert message =~ "invalid"
+        assert message =~ literal
+      end
+    end
+  end
 end

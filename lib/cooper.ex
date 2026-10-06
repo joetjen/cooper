@@ -133,10 +133,10 @@ defmodule Cooper do
   or an explicit `Cooper.Cache.invalidate/1`/`clear/0`. See
   `Cooper.Cache`'s moduledoc for why that's a deliberate scope
   boundary. `cache: false` sidesteps it entirely, at the cost of a full
-  reparse on every call. (`${...}` inside an `import "..."` path is a
-  different matter entirely -- CASC.md §5.1 doesn't support it, so it's
-  always an unconditional load-time error, never something to keep
-  fresh.)
+  reparse on every call. The same holds for every other `${NAME}` that
+  shapes the tree rather than a value in it -- one in an `import "..."`
+  path (CASC.md §5.1, which file gets read) or in an interpolated key
+  (§4.2) -- and `watch_env` watches those names alongside the guards.
 
   `watch_env` polls every `${NAME}` this call reads for changes -- an
   ordinary value, a guard, or both -- and defaults to `true` for a file

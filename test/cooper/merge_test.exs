@@ -147,4 +147,42 @@ defmodule Cooper.MergeTest do
              } = tree["replicas"]["b"]
     end
   end
+
+  describe "inner sigils, end to end" do
+    test "append and delete inside a block" do
+      # Once a replace and `b = nil`.
+      assert run!("""
+             a.tags = [1]
+             a.b = 1
+             a.c = 2
+             a {
+               +tags = [2]
+               -b
+             }
+             """) == %{"a" => %{"tags" => [1, 2], "c" => 2}}
+    end
+  end
+
+  describe "interpolated keys outside a for loop (CASC.md §4.2)" do
+    test "resolve from variables and the environment" do
+      # Once the unresolved `Cooper.Interp.Text` itself became the key.
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\n@region = "eu"\n"region-@{region}".k = 1\nsvc."${STAGE}-x" = true),
+               env: %{"STAGE" => "prod"},
+               dotenv: false
+             ) == {:ok, %{"region-eu" => %{"k" => 1}, "svc" => %{"prod-x" => true}}}
+    end
+
+    test "follow the built-key rules" do
+      assert {:error, %Ichor.Error{message: dotted}} =
+               Cooper.Grammar.run(~s(#@version = 1.0\n@k = "a.b"\n"@{k}" = 1))
+
+      assert dotted =~ "more than one path segment"
+
+      assert {:error, %Ichor.Error{message: config}} =
+               Cooper.Grammar.run(~s(#@version = 1.0\na = "k"\n"%{a}" = 1))
+
+      assert config =~ "may only reference @{...} and ${...}"
+    end
+  end
 end

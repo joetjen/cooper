@@ -49,7 +49,11 @@ defmodule Cooper.Resolver do
       # `Cooper.Cache`'s own env-change watching (`:watch_env`) uses
       # this to know which specific names a given load depends on,
       # rather than diffing the whole environment on every poll tick.
-      env_names: MapSet.new()
+      env_names: MapSet.new(),
+      # Resolving an interpolated *key* (`resolve_key/2`) rather than a
+      # value: only `@{...}`/`${...}` can be answered then, since keys are
+      # resolved before the tree they belong to exists.
+      keys_only: false
     ]
   end
 
@@ -125,7 +129,53 @@ defmodule Cooper.Resolver do
     end
   end
 
+  @doc false
+  # Resolves one interpolated key segment (`"region-@{name}" = ...`,
+  # CASC.md §4.2) to the string it names, for `Cooper.Grammar` to apply
+  # before merging -- keys decide the tree's shape, so they cannot wait
+  # for the tree. That is also why only `@{...}` and `${...}` may appear
+  # in one: a `%{...}` needs the finished tree, and a resolver or tag
+  # would run before anything else in the load does. Follows the rules a
+  # built `%{...}` key does (a string, non-empty, no `.`, never from a
+  # secret). Returns every `${NAME}` it read, since that name now shapes
+  # the tree and `Cooper.Cache` has to watch it like a guard.
+  @spec resolve_key(Cooper.Interp.Text.t(), keyword()) ::
+          {:ok, String.t(), MapSet.t()} | {:error, Error.t()}
+  def resolve_key(%Cooper.Interp.Text{} = segment, opts) do
+    {vars, private_vars} = split_var_env(Keyword.get(opts, :vars, %{}))
+
+    state = %State{
+      tree: %{},
+      vars: vars,
+      private_vars: private_vars,
+      env: Keyword.get(opts, :env, System.get_env()),
+      resolvers: %{},
+      tags: %{},
+      keys_only: true
+    }
+
+    case resolve_key_segment(segment, state, "interpolated key") do
+      {:ok, key, state} -> {:ok, key, state.env_names}
+      {:error, _} = err -> err
+    end
+  end
+
   # ---- generic value walker ------------------------------------------------
+
+  defp resolve_value(%module{}, %State{keys_only: true})
+       when module in [
+              Cooper.Ref.Config,
+              Cooper.Ref.Resolver,
+              Cooper.Ref.Tagged,
+              Cooper.Merge.Layered
+            ] do
+    {:error,
+     Error.new(
+       message:
+         "an interpolated key may only reference @{...} and ${...} -- it is resolved before the tree, resolvers, and tags it would need",
+       stage: :resolve
+     )}
+  end
 
   defp resolve_value(%Cooper.Ref.Var{} = ref, state), do: resolve_var(ref, state)
   defp resolve_value(%Cooper.Ref.Env{} = ref, state), do: resolve_env(ref, state)
@@ -392,21 +442,21 @@ defmodule Cooper.Resolver do
   # address the wrong depth), dotted (it would silently become two
   # segments rather than one), or a secret (same reason a name may not
   # be -- it lands in error messages unredacted).
-  defp resolve_key_segment(segment, state) do
+  defp resolve_key_segment(segment, state, label \\ "%{...} key") do
     case resolve_value(segment, state) do
       {:ok, %Cooper.Secret{}, _state} ->
         {:error,
-         Error.new(message: "%{...} key may not be built from a secret value", stage: :resolve)}
+         Error.new(message: "#{label} may not be built from a secret value", stage: :resolve)}
 
       {:ok, "", _state} ->
-        {:error, Error.new(message: "%{...} key resolved to an empty string", stage: :resolve)}
+        {:error, Error.new(message: "#{label} resolved to an empty string", stage: :resolve)}
 
       {:ok, resolved, state} when is_binary(resolved) ->
         if String.contains?(resolved, ".") do
           {:error,
            Error.new(
              message:
-               "%{...} key resolved to #{inspect(resolved)}, which would split into more than one path segment",
+               "#{label} resolved to #{inspect(resolved)}, which would split into more than one path segment",
              stage: :resolve
            )}
         else
@@ -416,7 +466,7 @@ defmodule Cooper.Resolver do
       {:ok, resolved, _state} ->
         {:error,
          Error.new(
-           message: "%{...} key must resolve to a string, got: #{inspect(resolved)}",
+           message: "#{label} must resolve to a string, got: #{inspect(resolved)}",
            stage: :resolve
          )}
 
@@ -765,12 +815,28 @@ defmodule Cooper.Resolver do
         seg, {:ok, acc, secret_seen?, state} ->
           case resolve_value(seg, state) do
             {:ok, %Cooper.Secret{value: v, redacted: r}, state} ->
-              pair = {Display.to_string(v), r || "[~~REDACTED~~]"}
-              {:cont, {:ok, [pair | acc], true, state}}
+              case Display.display(v) do
+                {:ok, text} ->
+                  {:cont, {:ok, [{text, r || "[~~REDACTED~~]"} | acc], true, state}}
+
+                {:error, _} ->
+                  # Named without the value itself: it is a secret.
+                  {:halt,
+                   {:error,
+                    Error.new(
+                      message: "cannot interpolate a secret list, map or tuple into a string",
+                      stage: :resolve
+                    )}}
+              end
 
             {:ok, resolved, state} ->
-              text = Display.to_string(resolved)
-              {:cont, {:ok, [{text, text} | acc], secret_seen?, state}}
+              case Display.display(resolved) do
+                {:ok, text} ->
+                  {:cont, {:ok, [{text, text} | acc], secret_seen?, state}}
+
+                {:error, message} ->
+                  {:halt, {:error, Error.new(message: message, stage: :resolve)}}
+              end
 
             {:error, _} = err ->
               {:halt, err}

@@ -28,10 +28,10 @@ defmodule Cooper.Cache do
   making it genuinely per-access-fresh (with no cache involved at all)
   would mean not knowing a file's own shape (which statements exist)
   until every single read, which is a fundamentally bigger feature than
-  a read-through cache. (`${...}` inside an `import "..."` path is a
-  separate, unconditional load-time error, not something this cache
-  ever has to keep fresh -- CASC.md §5.1 doesn't support it, so it
-  never reaches this cache in the first place.)
+  a read-through cache. A `${NAME}` in an `import "..."` path (CASC.md
+  §5.1) or an interpolated key (§4.2) shapes the tree the same way a
+  guard does, and is tracked and watched alongside the guard names
+  (`env_guard_names`).
 
   `Cooper.load_file/2` defaults `watch_env` to `true` automatically for
   any file that reads `${...}` at all -- an ordinary value, a guard, or
