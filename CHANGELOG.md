@@ -11,6 +11,18 @@ Planned as `0.6.0`: the version line is shared with the Praxis port
 (`praxis/libs_prx/cooper`), which released `0.5.0` and recorded that
 this implementation's next release is `0.6.0`.
 
+### Changed
+
+- **`!module("Name")` takes one written form in every implementation**
+  (CASC.md §7.5): dot-separated PascalCase segments. A lower-case name
+  (`crypto`), a lower-case segment, an underscore or anything else is
+  now a load error -- **breaking** for documents naming an Erlang module
+  directly. Each implementation translates the name into its own
+  convention; here `Acme.Payments` is `Elixir.Acme.Payments` as before.
+- **New `:modules` load option**, a map from the name exactly as
+  written to the module it means, consulted before the convention. It
+  is how an Erlang module is reached now: `%{"Crypto" => :crypto}`.
+
 ### Fixed
 
 Places this implementation contradicted CASC.md, found while porting it

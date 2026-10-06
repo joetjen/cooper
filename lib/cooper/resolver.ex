@@ -65,16 +65,15 @@ defmodule Cooper.Resolver do
     "bytes" => &__MODULE__.tag_bytes/1,
     "trim" => &__MODULE__.tag_trim/1,
     "downcase" => &__MODULE__.tag_downcase/1,
-    "upcase" => &__MODULE__.tag_upcase/1,
-    "module" => &__MODULE__.tag_module/1
+    "upcase" => &__MODULE__.tag_upcase/1
   }
 
-  # A module name this implementation accepts: dot-separated segments, each an
-  # identifier. `!module` is deliberately the same tag in every Cooper
-  # implementation while the shape it accepts is that implementation's own --
-  # a port targeting another language defines its own pattern here and leaves
-  # documents that name modules readable in both.
-  @module_pattern ~r/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
+  # A module name as CASC writes it (§7.5): dot-separated PascalCase
+  # segments, the same in every Cooper implementation. Each translates it
+  # into its own host's convention, so one document names one module
+  # everywhere. Accepting the host's own shape, as this once did, made a
+  # document naming a module readable by one implementation only.
+  @module_pattern ~r/^[A-Z][A-Za-z0-9]*(\.[A-Z][A-Za-z0-9]*)*$/
   # What a built reference name is allowed to resolve to: the same
   # shape `casc.aether`'s own IDENT token accepts, so a built name and
   # a written-out one are interchangeable and nothing becomes reachable
@@ -120,7 +119,10 @@ defmodule Cooper.Resolver do
       private_vars: private_vars,
       env: Keyword.get(opts, :env, System.get_env()),
       resolvers: Keyword.get(opts, :resolvers, %{}),
-      tags: Map.merge(@built_in_tags, Keyword.get(opts, :tags, %{}))
+      tags:
+        @built_in_tags
+        |> Map.put("module", &tag_module(&1, Keyword.get(opts, :modules, %{})))
+        |> Map.merge(Keyword.get(opts, :tags, %{}))
     }
 
     case resolve_value(tree, state) do
@@ -745,7 +747,14 @@ defmodule Cooper.Resolver do
   def tag_upcase(arg), do: {:error, "cannot upcase #{inspect(arg)}: not a string"}
 
   @doc false
-  def tag_module(arg) when is_binary(arg) do
+  # `!module("Name")` (§7.5). The application's `:modules` mapping is asked
+  # first, by the name exactly as written; only a name it does not hold is
+  # translated by convention (`Acme.Payments` -> `Elixir.Acme.Payments`).
+  # The mapping is how a module outside the convention is reached -- an
+  # Erlang module (`"Crypto" => :crypto`), or one spelled differently.
+  def tag_module(arg, modules \\ %{})
+
+  def tag_module(arg, modules) when is_binary(arg) do
     name = String.trim(arg)
 
     cond do
@@ -754,14 +763,19 @@ defmodule Cooper.Resolver do
          "cannot convert #{inspect(arg)} to a module: longer than #{@max_module_bytes} bytes"}
 
       not Regex.match?(@module_pattern, name) ->
-        {:error, "cannot convert #{inspect(arg)} to a module: not a dot-separated module name"}
+        {:error,
+         "cannot convert #{inspect(arg)} to a module: not a dot-separated PascalCase module name"}
+
+      Map.has_key?(modules, name) ->
+        {:ok, Map.fetch!(modules, name)}
 
       true ->
-        {:ok, module_atom(name)}
+        {:ok, Module.concat([name])}
     end
   end
 
-  def tag_module(arg), do: {:error, "cannot convert #{inspect(arg)} to a module: not a string"}
+  def tag_module(arg, _modules),
+    do: {:error, "cannot convert #{inspect(arg)} to a module: not a string"}
 
   @doc false
   def tag_int(arg) when is_integer(arg), do: {:ok, arg}
@@ -928,21 +942,6 @@ defmodule Cooper.Resolver do
   end
 
   defp apply_index(_value, _i), do: :error
-
-  # Builds the atom a module name denotes on this runtime.
-  #
-  # A name beginning with an upper-case letter is an Elixir module, which lives
-  # under the `Elixir.` prefix; anything else is an Erlang module, whose atom is
-  # the name itself. Both are ordinary atoms once built.
-  #
-  # This creates an atom, exactly as a bare atom literal does (CASC.md 6.4), and
-  # carries the same caveat: fine for a fixed, trusted set of configuration
-  # files, not for untrusted input.
-  @spec module_atom(String.t()) :: module()
-  defp module_atom(<<first::utf8, _rest::binary>> = name) when first in ?A..?Z,
-    do: Module.concat([name])
-
-  defp module_atom(name), do: String.to_atom(name)
 
   # ---- Cooper.Interp.Text (string interpolation, CASC.md §7) ----------------
 

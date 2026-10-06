@@ -641,9 +641,24 @@ formatter = !module("${LOG_FORMATTER}")
 
 It exists because §6.4's atoms are bare identifiers, so a dotted module name cannot be written as a literal — and because a module is often deployment-selected, which means it arrives through `${...}` as a string.
 
-**The tag is the same in every implementation; the shape it accepts is not.** What counts as a module name belongs to the language a given implementation targets, so a document that names a module stays readable across ports even where the naming convention differs. This implementation accepts dot-separated identifiers, mapping an upper-case initial to an Elixir module (`Foo.Bar` → `Elixir.Foo.Bar`) and anything else to an Erlang module (`crypto` → `:crypto`).
+**A module name is written the same way for every implementation**: dot-separated segments, each in PascalCase (`[A-Z][A-Za-z0-9]*`). Anything else — `crypto`, `Foo.bar`, `stripe_client`, `./x.js` — is a load error, so a document that names a module means one module everywhere.
 
-Like a bare atom literal, this creates an atom, with the same caveat: fine for a fixed, trusted set of configuration files, not for untrusted input.
+Each implementation resolves the name in two steps:
+
+1. **The application's mapping**, a `modules` load option from written name to host module, consulted by the name *exactly* as written. It is how a module outside the convention is reached: an Erlang module from Elixir (`"Crypto" => :crypto`), a module whose own spelling differs, or any Node module.
+2. **The host's convention**, for a name the mapping does not hold:
+
+| Written | Elixir | Praxis | PHP | Node |
+|---|---|---|---|---|
+| `Acme.Payments.StripeClient` | `Acme.Payments.StripeClient` | `acme.payments.stripe-client` | `Acme\Payments\StripeClient` | mapping required |
+| `Cooper.Resolver` | `Cooper.Resolver` | `cooper.resolver` | `Cooper\Resolver` | mapping required |
+| `ASCO.HTTPClient` | `ASCO.HTTPClient` | `asco.http-client` | `ASCO\HTTPClient` | mapping required |
+
+Praxis splits a segment into words before an upper-case letter that follows a lower-case letter or a digit, and before the last capital of a run of capitals followed by a lower-case letter (`HTTPClient` → `http`, `client`), then joins them lower-case with `-`. Node has no convention to translate into — a Node module is a location, not a name — so there a name the mapping does not hold is a load error naming the `modules` option.
+
+No implementation checks at load that the module exists; the name is resolved, never loaded.
+
+On the BEAM, like a bare atom literal, this creates an atom, with the same caveat: fine for a fixed, trusted set of configuration files, not for untrusted input.
 
 ---
 

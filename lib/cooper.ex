@@ -49,6 +49,11 @@ defmodule Cooper do
     * `:tags` -- same shape, for `!Name(arg)` beyond the five built-ins
       (`int`/`float`/`bool`/`duration`/`bytes`, §7.5/§9.1). Unregistered
       use is a load-time error naming it, same as `:resolvers`.
+    * `:modules` -- `%{String.t() => module()}`, what a `!module("Name")`
+      (§7.5) means, by the name exactly as written. A name not in it is
+      the Elixir module of that name (`Acme.Payments` ->
+      `Elixir.Acme.Payments`); the map is for the rest, e.g. an Erlang
+      module: `%{"Crypto" => :crypto}`.
     * `:import_schemes` -- `%{String.t() => (rest :: String.t() ->
       {:ok, String.t()} | {:error, term()})}`, one loader per
       `import "scheme://..."` scheme your application registers
@@ -195,7 +200,7 @@ defmodule Cooper do
   end
 
   defp resolve_cached(tree, vars, env, absolute, root, opts, env_guard_names) do
-    resolver_opts = [vars: vars, env: env] ++ Keyword.take(opts, [:resolvers, :tags])
+    resolver_opts = [vars: vars, env: env] ++ Keyword.take(opts, [:resolvers, :tags, :modules])
 
     with {:ok, resolved, env_names} <- Cooper.Resolver.resolve_with_env_names(tree, resolver_opts) do
       # Every name this load depends on any way at all: an ordinary
@@ -262,7 +267,7 @@ defmodule Cooper do
       grammar_opts = Keyword.take(opts, [:root, :file, :import_schemes, :env])
 
       with {:ok, tree, vars} <- Cooper.Grammar.run_tree(source, grammar_opts),
-           resolver_opts = [vars: vars] ++ Keyword.take(opts, [:env, :resolvers, :tags]) do
+           resolver_opts = [vars: vars] ++ Keyword.take(opts, [:env, :resolvers, :tags, :modules]) do
         Cooper.Resolver.resolve(tree, resolver_opts)
       end
     end
