@@ -336,6 +336,30 @@ defmodule Cooper.Loop do
   defp substitute(%Cooper.Ref.Tagged{arg: arg} = ref, overlay),
     do: %{ref | arg: substitute(arg, overlay)}
 
+  # A block written as a list element (CASC.md §6.10): the bindings reach
+  # its keys -- under the same key rules as any other -- and its values.
+  defp substitute(%Cooper.Block{ops: ops} = block, overlay) do
+    %{
+      block
+      | ops:
+          Enum.map(ops, fn
+            {:op, op} ->
+              {:op,
+               %{
+                 op
+                 | path: substitute_path(op.path, overlay),
+                   value: substitute(op.value, overlay)
+               }}
+
+            {:clear, path} ->
+              {:clear, substitute_path(path, overlay)}
+
+            other ->
+              other
+          end)
+    }
+  end
+
   defp substitute(list, overlay) when is_list(list), do: Enum.map(list, &substitute(&1, overlay))
 
   defp substitute(tuple, overlay) when is_tuple(tuple) do

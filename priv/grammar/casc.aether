@@ -405,8 +405,13 @@ filter_arg := DQ_STRING | SQ_STRING
 ; §6.10-6.11); the trailing `","?` after each element makes the comma
 ; optional rather than required, and `@skip`'s default splicing already
 ; tolerates newline/whitespace-only separation for free.
-list  := "[" (value ","?)* "]"
-tuple := "(" (value ","?)* ")"
+list  := "[" (element ","?)* "]"
+tuple := "(" (element ","?)* ")"
+
+; A list or tuple element is a value, or a block -- a map (CASC.md §6.10).
+; Only a value once was, so a list of maps (`[{ path = "^/admin" }]`,
+; the shape framework configuration is full of) could not be written.
+element := block | value
 
 ; A bare identifier value (`level = info`) or an explicit `:`-sigiled one
 ; (`level = :info`, or `:true`/`:false`/`:nil`/`:inf` to *reach* an atom

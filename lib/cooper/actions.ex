@@ -218,6 +218,14 @@ defmodule Cooper.Actions do
       sigil = sigil_for(sigil_text)
 
       case rhs do
+        # An empty block is an empty map (CASC.md §5.4): it writes one,
+        # which leaves a map already there as it is. Emitting nothing, as
+        # this once did, made `w {}` and `w = {}` no key at all.
+        %Cooper.Block{ops: []} ->
+          op = %Cooper.Op{path: segments, sigil: sigil, value: %{}, secret?: secret?}
+          prefix = if sigil == :replace, do: [{:clear, segments}], else: []
+          {:ok, prefix ++ [{:op, op}], ctx}
+
         %Cooper.Block{ops: nested} ->
           # An inner op keeps its own merge-control sigil when it has one
           # (`a { +tags = ["d"] }` appends, `a { -b }` deletes); only a
@@ -299,12 +307,15 @@ defmodule Cooper.Actions do
 
   # ---- lists and tuples (CASC.md §6.10-6.11) -------------------------------
 
+  # An element may be a block (`[{ path = "^/admin" }]`, CASC.md §6.10):
+  # it stays a `Cooper.Block` here and becomes a map in `Cooper.Resolver`,
+  # once its keys -- which may interpolate -- can be resolved.
   def handle_rule(:list, captures, ctx) do
-    eval_each(Map.get(captures, :value, []), ctx)
+    eval_each(Map.get(captures, :element, []), ctx)
   end
 
   def handle_rule(:tuple, captures, ctx) do
-    with {:ok, values, ctx} <- eval_each(Map.get(captures, :value, []), ctx) do
+    with {:ok, values, ctx} <- eval_each(Map.get(captures, :element, []), ctx) do
       {:ok, List.to_tuple(values), ctx}
     end
   end

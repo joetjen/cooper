@@ -193,6 +193,8 @@ Allowing three equivalent forms — rather than picking one, as TOML does — is
 
 **Block keys may be identifier-shaped (§4.1) or quoted strings (§4.2)** — so a block with quoted keys already covers what a separate "map" type would. **There is no separate map syntax in CASC; a block in value position is a map, however its keys are written.**
 
+**An empty block is an empty map**: `logger {}` and `logger = {}` both make `logger` a map with nothing in it. Like any block it merges, so written over a map that already exists it adds nothing and leaves that map as it is; `~logger {}` empties it.
+
 ### 5.5 Loops
 
 ```casc
@@ -431,6 +433,17 @@ list2 = [
 ```
 
 Comma, newline, or whitespace all separate elements.
+
+**An element may be a block** — a map, written exactly as a block is anywhere else (§5.4), keys interpolating and statements merging inside it:
+
+```casc
+access_control = [
+  { path = "^/admin", roles = ["ROLE_ADMIN"] }
+  { path = "^/api",   roles = ["ROLE_API"] }
+]
+```
+
+The same holds for a tuple's elements (§6.11). A list of maps is still a list: it replaces wholesale (§8.2), and `+`/`-` append or remove whole maps, compared by value (§8.4).
 
 ### 6.11 Tuples
 

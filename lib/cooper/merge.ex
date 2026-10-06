@@ -98,6 +98,18 @@ defmodule Cooper.Merge do
     end
   end
 
+  # An empty block (`w {}`, CASC.md §5.4) is an empty map, and blocks
+  # deep-merge: written over a map already there it adds nothing, so the
+  # map stays as it is. Only where there is none -- or something that is
+  # not a map -- does it become `%{}`.
+  defp apply_entry({:op, %Cooper.Op{sigil: :merge, value: empty} = op}, tree, secrets)
+       when empty == %{} do
+    case get_at(tree, op.path) do
+      {:ok, %{} = existing} when not is_struct(existing) -> {:ok, tree, track_secret(secrets, op)}
+      _ -> {:ok, put_at(tree, op.path, %{}), track_secret(secrets, op)}
+    end
+  end
+
   defp apply_entry({:op, %Cooper.Op{sigil: :merge} = op}, tree, secrets) do
     {:ok, put_at(tree, op.path, op.value), track_secret(secrets, op)}
   end
@@ -202,7 +214,8 @@ defmodule Cooper.Merge do
     Cooper.Ref.Tagged,
     Cooper.Interp.Text,
     Cooper.Merge.Layered,
-    Cooper.Merge.ListEdit
+    Cooper.Merge.ListEdit,
+    Cooper.Block
   ]
 
   defp unresolved?(%module{}) when module in @unresolved, do: true
@@ -213,6 +226,9 @@ defmodule Cooper.Merge do
 
   defp contains_unresolved?(value) when is_tuple(value),
     do: value |> Tuple.to_list() |> Enum.any?(&contains_unresolved?/1)
+
+  defp contains_unresolved?(value) when is_map(value) and not is_struct(value),
+    do: value |> Map.values() |> Enum.any?(&contains_unresolved?/1)
 
   defp contains_unresolved?(value), do: unresolved?(value)
 

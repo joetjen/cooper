@@ -13,6 +13,10 @@ this implementation's next release is `0.6.0`.
 
 ### Added
 
+- **A list or tuple element may be a block -- a map** (CASC.md §6.10):
+  `access_control = [{ path = "^/admin" }]`. Its keys interpolate, a
+  loop binding reaches it, and `+`/`-` append or remove whole maps,
+  compared by value. A list of maps could not be written before.
 - **`:dotenv_dir`** -- the directory `.env` files are read from, and the
   base of a relative `:dotenv_files` entry.
 - **`${COOPER_ENV}` is always set**: the one name a document reads the
@@ -48,6 +52,9 @@ this implementation's next release is `0.6.0`.
 
 ### Fixed
 
+- **An empty block was no key at all**: `w {}` and `w = {}` left `w`
+  out of the tree. It is an empty map now (CASC.md §5.4); written over a
+  map that already exists it leaves that map as it is.
 Places this implementation contradicted CASC.md, found while porting it
 to PHP (`php-cooper`):
 

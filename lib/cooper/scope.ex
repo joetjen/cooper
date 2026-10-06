@@ -71,6 +71,20 @@ defmodule Cooper.Scope do
   # `Cooper.IPv4`, `DateTime`, ...) is a leaf: walking its fields would
   # rebuild it field-by-field for nothing, and `Cooper.Secret` in
   # particular must not be taken apart here.
+  # A block written as a list element (CASC.md §6.10) keeps its statements
+  # until it is resolved, so its keys and values are stamped where they sit.
+  def stamp(%Cooper.Block{ops: ops} = block, scope) do
+    %{
+      block
+      | ops:
+          Enum.map(ops, fn
+            {:op, op} -> {:op, %{stamp(op, scope) | path: stamp(op.path, scope)}}
+            {:clear, path} -> {:clear, stamp(path, scope)}
+            other -> other
+          end)
+    }
+  end
+
   def stamp(%_{} = struct, _scope), do: struct
 
   def stamp(list, scope) when is_list(list), do: Enum.map(list, &stamp(&1, scope))

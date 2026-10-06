@@ -170,7 +170,8 @@ defmodule Cooper.Resolver do
               Cooper.Ref.Resolver,
               Cooper.Ref.Tagged,
               Cooper.Merge.Layered,
-              Cooper.Merge.ListEdit
+              Cooper.Merge.ListEdit,
+              Cooper.Block
             ] do
     {:error,
      Error.new(
@@ -193,6 +194,17 @@ defmodule Cooper.Resolver do
     do: resolve_layered(layered, state)
 
   defp resolve_value(%Cooper.Merge.ListEdit{} = edit, state), do: resolve_list_edit(edit, state)
+
+  # A block written as a list or tuple element (`[{ path = "^/admin" }]`,
+  # CASC.md §6.10): its keys are resolved -- they may interpolate, which
+  # is why it waited until now -- its statements merged into a map the
+  # way a document's are, and that map resolved like any other.
+  defp resolve_value(%Cooper.Block{ops: ops}, state) do
+    with {:ok, entries, state} <- block_keys(ops, state),
+         {:ok, tree} <- Cooper.Merge.assemble(entries) do
+      resolve_value(tree, state)
+    end
+  end
 
   # A `Cooper.Merge`-wrapped secret's own inner value may still be
   # unresolved (`*password = ${DB_PASSWORD}`, an unresolved
@@ -613,6 +625,46 @@ defmodule Cooper.Resolver do
 
   defp strip_absent(%{} = value) when not is_struct(value), do: deep_merge(%{}, value)
   defp strip_absent(value), do: value
+
+  defp block_keys(ops, state) do
+    Enum.reduce_while(ops, {:ok, [], state}, fn
+      {:op, op}, {:ok, acc, state} ->
+        case block_path(op.path, state) do
+          {:ok, path, state} -> {:cont, {:ok, [{:op, %{op | path: path}} | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+
+      {:clear, path}, {:ok, acc, state} ->
+        case block_path(path, state) do
+          {:ok, path, state} -> {:cont, {:ok, [{:clear, path} | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+
+      other, {:ok, acc, state} ->
+        {:cont, {:ok, [other | acc], state}}
+    end)
+    |> case do
+      {:ok, acc, state} -> {:ok, Enum.reverse(acc), state}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp block_path(path, state) do
+    Enum.reduce_while(path, {:ok, [], state}, fn
+      segment, {:ok, acc, state} when is_binary(segment) ->
+        {:cont, {:ok, [segment | acc], state}}
+
+      segment, {:ok, acc, state} ->
+        case resolve_key_segment(segment, state, "interpolated key") do
+          {:ok, key, state} -> {:cont, {:ok, [key | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+    end)
+    |> case do
+      {:ok, acc, state} -> {:ok, Enum.reverse(acc), state}
+      {:error, _} = err -> err
+    end
+  end
 
   # ---- Cooper.Merge.ListEdit (a `+key`/`-key` applied once it resolves) ------
 

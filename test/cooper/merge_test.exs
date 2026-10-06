@@ -211,4 +211,65 @@ defmodule Cooper.MergeTest do
                Cooper.load_string("#@version = 1.0\nt = (1, 2)\n+t = [3]\n")
     end
   end
+
+  # Through the whole pipeline, since an element block becomes a map only
+  # when it is resolved.
+  defp loaded!(source) do
+    {:ok, result} = Cooper.load_string("#@version = 1.0\n" <> source)
+    result
+  end
+
+  describe "maps inside lists (CASC.md §6.10)" do
+    test "a list element may be a block, which is a map" do
+      assert loaded!("l = [{ a = 1 }, { b { c = 2 } }]\n") == %{
+               "l" => [%{"a" => 1}, %{"b" => %{"c" => 2}}]
+             }
+    end
+
+    test "so may a tuple element" do
+      assert loaded!("t = ({ x = 1 }, 2)\n") == %{"t" => {%{"x" => 1}, 2}}
+    end
+
+    test "+ and - append and remove whole maps, compared by value" do
+      assert loaded!("l = [{ a = 1 }, { a = 2 }]\n+l = [{ a = 3 }]\n-l = [{ a = 1 }]\n") ==
+               %{"l" => [%{"a" => 2}, %{"a" => 3}]}
+    end
+
+    test "an element block's keys interpolate, and see the file's private variables" do
+      assert {:ok, %{"l" => [%{"k-x" => 7}]}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@*n = \"k\"\n@*v = 7\nl = [{ \"@{n}-x\" = @{v} }]\n"
+               )
+    end
+
+    test "a loop binding reaches an element block" do
+      assert {:ok, %{"o" => %{"l" => [%{"k-a" => "a"}]}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a\"] as o { l = [{ \"k-@{x}\" = @{x} }] }\n"
+               )
+    end
+
+    test "a secret inside an element block stays secret" do
+      assert {:ok, %{"l" => [%{"pw" => %Cooper.Secret{value: "s"}}]}} =
+               Cooper.load_string("#@version = 1.0\nl = [{ *pw = \"s\" }]\n")
+    end
+  end
+
+  describe "an empty block (CASC.md §5.4)" do
+    test "is an empty map" do
+      assert loaded!("a {}\nb = {}\nc = [{}]\n") == %{"a" => %{}, "b" => %{}, "c" => [%{}]}
+    end
+
+    test "written over a map, leaves it as it is" do
+      assert loaded!("w.x = 1\nw {}\n") == %{"w" => %{"x" => 1}}
+    end
+
+    test "written over anything else, replaces it" do
+      assert loaded!("w = 1\nw {}\n") == %{"w" => %{}}
+    end
+
+    test "~ empties a map" do
+      assert loaded!("w.x = 1\n~w {}\n") == %{"w" => %{}}
+    end
+  end
 end
