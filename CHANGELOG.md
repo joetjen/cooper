@@ -22,6 +22,9 @@ this implementation's next release is `0.6.0`.
 
 ### Changed
 
+- **Licensed under Apache-2.0 from this release**, replacing MIT --
+  Apache 2.0 adds an express patent grant MIT lacks. Releases already
+  published stay MIT.
 - **`!module("Name")` takes one written form in every implementation**
   (CASC.md §7.5): dot-separated PascalCase segments. A lower-case name
   (`crypto`), a lower-case segment, an underscore or anything else is

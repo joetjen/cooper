@@ -138,7 +138,7 @@ defmodule Cooper.MixProject do
 
   defp package do
     [
-      licenses: ["MIT"],
+      licenses: ["Apache-2.0"],
       links: %{
         "GitHub" => "https://github.com/joetjen/cooper",
         "Docs" => "https://joetjen.github.io/cooper"
