@@ -483,7 +483,14 @@ Deliberately bash-like. Names match `/^[a-zA-Z_][a-zA-Z0-9_]*$/`.
 - `${NAME[]:[...]}` — parse as a list (split on `,`/`;`), with a default
 - `${NAME[i]:default}` — index into the split list
 
-**`${COOPER_ENV}` names the current environment** (`dev`, `test`, `prod`, ...) in every implementation, so one document selects per-environment files the same way everywhere: `import "env/${COOPER_ENV}.casc"`. A real `COOPER_ENV` always wins; unset or empty, each implementation falls back to its host's own name for it (`MIX_ENV`, `PRX_ENV`, `APP_ENV`, `NODE_ENV`), else `dev`. The value is passed through unchanged.
+**`${COOPER_ENV}` names the current environment** in every implementation, so one document selects per-environment files the same way everywhere: `import "env/${COOPER_ENV}.casc"`. The names are `dev`, `staging`, `test` and `prod`. A real `COOPER_ENV` always wins and is used exactly as written; unset or empty, each implementation falls back to its host's own variable (`MIX_ENV`, `PRX_ENV`, `APP_ENV`, `NODE_ENV`), else `dev`, and maps that value onto the shared names through one table:
+
+| Host value | `COOPER_ENV` |
+|---|---|
+| `development`, `local` | `dev` |
+| `testing` | `test` |
+| `production` | `prod` |
+| anything else (`dev`, `staging`, `test`, `prod`, ...) | unchanged |
 
 **`${...}` always resolves to a string.** For a number or boolean, wrap it in the matching tagged value (§7.5) rather than relying on CASC to guess:
 

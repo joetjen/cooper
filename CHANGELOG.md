@@ -17,8 +17,10 @@ this implementation's next release is `0.6.0`.
   base of a relative `:dotenv_files` entry.
 - **`${COOPER_ENV}` is always set**: the one name a document reads the
   current environment by in every Cooper implementation (CASC.md §7.2).
-  A real `COOPER_ENV` wins; unset or empty it falls back to `MIX_ENV`,
-  then the live `Mix.env/0`, then `"dev"`.
+  A real `COOPER_ENV` wins, as written; unset or empty it falls back to
+  `MIX_ENV`, then the live `Mix.env/0`, then `"dev"`, mapped onto the
+  names every Cooper uses (`development`/`local` → `dev`, `testing` →
+  `test`, `production` → `prod`).
 
 ### Changed
 

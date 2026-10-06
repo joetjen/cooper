@@ -76,8 +76,12 @@ defmodule Cooper.Dotenv do
   environment, a `.env` file, or `:env` -- always wins. Unset or empty,
   it falls back to this host's own name for the same thing: `MIX_ENV`
   from those same layers, else the live `Mix.env/0` (Mix does not export
-  `MIX_ENV` to the OS environment), else `"dev"`. The value is passed
-  through as is.
+  `MIX_ENV` to the OS environment), else `"dev"`. A fallback value is
+  mapped onto the names every Cooper uses -- `development` and `local`
+  become `dev`, `testing` becomes `test`, `production` becomes `prod`,
+  anything else is kept -- so a document selects `env/prod.casc` the same
+  way whichever host's convention set the variable. A real `COOPER_ENV`
+  is used exactly as written.
 
   ## Enabling
 
@@ -139,11 +143,25 @@ defmodule Cooper.Dotenv do
 
   defp host_env(env) do
     cond do
-      present?(env["MIX_ENV"]) -> env["MIX_ENV"]
-      env = mix_env() -> Atom.to_string(env)
+      present?(env["MIX_ENV"]) -> unified(env["MIX_ENV"])
+      env = mix_env() -> unified(Atom.to_string(env))
       true -> "dev"
     end
   end
+
+  # The environment names every Cooper uses (CASC.md §7.2): `dev`,
+  # `staging`, `test`, `prod`. The same table in every implementation, so
+  # one document means one environment whichever host set the variable.
+  @unified %{
+    "development" => "dev",
+    "local" => "dev",
+    "testing" => "test",
+    "production" => "prod"
+  }
+
+  @doc false
+  @spec unified(String.t()) :: String.t()
+  def unified(name), do: Map.get(@unified, name, name)
 
   defp present?(value), do: is_binary(value) and value != ""
 

@@ -344,9 +344,24 @@ defmodule Cooper.DotenvTest do
       assert env["COOPER_ENV"] == Atom.to_string(Mix.env())
     end
 
-    test "is passed through unchanged, never translated" do
-      assert Cooper.Dotenv.with_cooper_env(%{"MIX_ENV" => "Production"})["COOPER_ENV"] ==
-               "Production"
+    test "a fallback value is mapped onto the shared environment names" do
+      for {host, shared} <- [
+            {"development", "dev"},
+            {"local", "dev"},
+            {"testing", "test"},
+            {"production", "prod"},
+            {"staging", "staging"},
+            {"dev", "dev"},
+            {"qa", "qa"},
+            {"Production", "Production"}
+          ] do
+        assert Cooper.Dotenv.with_cooper_env(%{"MIX_ENV" => host})["COOPER_ENV"] == shared, host
+      end
+    end
+
+    test "a real COOPER_ENV is used exactly as written" do
+      assert Cooper.Dotenv.with_cooper_env(%{"COOPER_ENV" => "production"})["COOPER_ENV"] ==
+               "production"
     end
   end
 
