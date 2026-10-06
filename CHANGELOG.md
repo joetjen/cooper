@@ -96,6 +96,11 @@ itself:
   unresolved. It is now resolved first; one with no string form is a
   `:resolve` error, and one read from a secret makes the result secret.
 - **`inf` in a string read `infinity`**; it now reads `inf`/`-inf`.
+- **A single-unit duration or a byte size was computed through a
+  float**: above 2^53 it lost precision (`9223372036854775807ns` loaded
+  as 2^63) while a compound duration was exact, and an amount too large
+  for a float crashed the load. Both are now exact integer arithmetic,
+  a fraction rounded half away from zero.
 - **A scheme import that imported itself recursed** instead of
   reporting the cycle a file import reports.
 - **`Cooper.Cache` re-baselined the environment on every load**, so a

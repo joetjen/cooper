@@ -61,14 +61,7 @@ defmodule Cooper.Literals do
   end
 
   defp validate_duration([[amount, unit]], _text) do
-    factor = Map.fetch!(@duration_unit_ns, unit)
-
-    value =
-      if String.contains?(amount, "."),
-        do: String.to_float(amount),
-        else: String.to_integer(amount) * 1.0
-
-    {:ok, round(value * factor)}
+    {:ok, scaled(amount, Map.fetch!(@duration_unit_ns, unit))}
   end
 
   defp validate_duration(components, text) when length(components) > 1 do
@@ -98,6 +91,23 @@ defmodule Cooper.Literals do
     {:error, "invalid duration literal #{inspect(text)}"}
   end
 
+  # `amount` (digits, maybe a fraction) times `factor`, exactly, rounded
+  # half away from zero to a whole number. Computing it through a float,
+  # as this once did, lost precision above 2^53 -- `9223372036854775807ns`
+  # became 2^63, though a compound duration was summed exactly -- and an
+  # amount too large for a float crashed the load outright.
+  defp scaled(amount, factor) do
+    {whole, fraction} =
+      case String.split(amount, ".") do
+        [whole, fraction] -> {whole, fraction}
+        [whole] -> {whole, ""}
+      end
+
+    numerator = String.to_integer(whole <> fraction) * factor
+    denominator = Integer.pow(10, String.length(fraction))
+    div(2 * numerator + denominator, 2 * denominator)
+  end
+
   @byte_unit_multiplier %{
     "b" => 1,
     "kb" => 1_000,
@@ -119,12 +129,7 @@ defmodule Cooper.Literals do
       [_, amount, unit] ->
         case Map.fetch(@byte_unit_multiplier, String.downcase(unit)) do
           {:ok, multiplier} ->
-            value =
-              if String.contains?(amount, "."),
-                do: String.to_float(amount),
-                else: String.to_integer(amount) * 1.0
-
-            {:ok, round(value * multiplier)}
+            {:ok, scaled(amount, multiplier)}
 
           :error ->
             {:error, "invalid byte-size unit in #{inspect(text)}"}
