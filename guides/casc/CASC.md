@@ -492,7 +492,7 @@ This is deliberate, not an oversight: guessing a type from what a string looks l
 
 **Note:** real bash uses `${NAME:-default}` (with a dash); CASC drops it so the suffix grammar (`:default`, `:+alt`, `:?"msg"`) is identical across `@{...}`, `${...}`, and `%{...}` — one rule, not three near-identical ones.
 
-`:+` always introduces a substitute, so `${PORT:+1}` substitutes `1`; a default of minus one is `${PORT:-1}`. The message of `:?"..."` is a double-quoted string like any other and interpolates: `@{n:?"need @{m}"}` fails with `need` followed by `@{m}`'s value.
+`:+` always introduces a substitute, so `${PORT:+1}` substitutes `1` and `${PORT:+inf}` substitutes infinity; a default of minus one is `${PORT:-1}`, and of minus infinity `${PORT:-inf}`. The message of `:?"..."` is a double-quoted string like any other and interpolates: `@{n:?"need @{m}"}` fails with `need` followed by `@{m}`'s value.
 
 #### Filters
 
@@ -666,9 +666,9 @@ Merge operates on the fully-desugared tree (§5.4). Imports behave like "early w
 - `~key { ... }` — replace instead of merge.
 - `+key = [...]` — append instead of replace (plain assignment if `key` doesn't exist yet).
 - `-key = [...]` — remove matching elements instead of replace.
+- `-key.path` (bare) — delete the path entirely, any type.
 
 A list operand stands for its elements; anything else, `nil` included, is one element (`+tags = "d"` appends `"d"`, `+tags = nil` appends `nil`). Removal compares values strictly: `1` and `1.0` are different elements.
-- `-key.path` (bare) — delete the path entirely, any type.
 
 Ordering with `#`/`*` is fixed (§5.7).
 

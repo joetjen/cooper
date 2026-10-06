@@ -91,6 +91,10 @@ itself:
   string"). The value is filtered and stays a secret.
 - **The message of `:?"..."` crashed the load when it interpolated**;
   it now resolves like any double-quoted string.
+- **A filter argument that interpolated crashed the load**
+  (`trim_suffix: "@{sep}"`, in a loop or not): it reached the filter
+  unresolved. It is now resolved first; one with no string form is a
+  `:resolve` error, and one read from a secret makes the result secret.
 - **`inf` in a string read `infinity`**; it now reads `inf`/`-inf`.
 - **A scheme import that imported itself recursed** instead of
   reporting the cycle a file import reports.

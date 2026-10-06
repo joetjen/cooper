@@ -174,4 +174,30 @@ defmodule Cooper.FiltersTest do
                )
     end
   end
+
+  describe "an interpolated argument" do
+    test "is resolved before the filter runs" do
+      assert {:ok, %{"s" => "HTTPS"}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@sep = \"://\"\ns = ${SCHEME | trim_suffix: \"@{sep}\"}\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+
+    test "with no string form is refused" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@sep = [1]\ns = ${SCHEME | trim_suffix: \"@{sep}\"}\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+
+    test "read from a secret makes the result a secret" do
+      assert {:ok, %{"s" => %Cooper.Secret{value: "HTTPS"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n*sep = \"://\"\ns = ${SCHEME | trim_suffix: \"%{sep}\"}\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+  end
 end

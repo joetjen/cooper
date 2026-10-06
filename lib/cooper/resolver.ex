@@ -835,19 +835,49 @@ defmodule Cooper.Resolver do
   # unaffected by being secret), the same way `!trim(%{pw})` already
   # behaved. Refusing it as "not a string", as this once did, made a
   # secret unfilterable.
+  #
+  # A filter's argument is a string like any other, so a double-quoted one
+  # interpolates (`trim_suffix: "@{sep}"`) and is resolved before the
+  # filter runs; handing the unresolved string to the filter, as this once
+  # did, crashed the load. An argument read from a secret makes the result
+  # a secret too.
   defp finish_ref(fetch, suffix, filters, label, state) do
-    with {:ok, value, state} <- finish_ref(fetch, suffix, label, state) do
+    with {:ok, value, state} <- finish_ref(fetch, suffix, label, state),
+         {:ok, filters, argument_secret?, state} <- resolve_filter_arguments(filters, state) do
       {secret?, inner} =
         case value do
           %Cooper.Secret{value: inner} when filters != [] -> {true, inner}
           other -> {false, other}
         end
 
+      secret? = secret? or argument_secret?
+
       case Cooper.RefCommon.apply_filters(inner, filters) do
         {:ok, filtered} when secret? -> {:ok, %Cooper.Secret{value: filtered}, state}
         {:ok, filtered} -> {:ok, filtered, state}
         {:error, message} -> {:error, Error.new(message: "#{label}: #{message}", stage: :resolve)}
       end
+    end
+  end
+
+  defp resolve_filter_arguments(filters, state) do
+    Enum.reduce_while(filters, {:ok, [], false, state}, fn
+      {name, argument}, {:ok, acc, secret?, state} when is_binary(argument) or is_nil(argument) ->
+        {:cont, {:ok, [{name, argument} | acc], secret?, state}}
+
+      {name, argument}, {:ok, acc, secret?, state} ->
+        with {:ok, resolved, state} <- resolve_value(argument, state),
+             {from_secret?, inner} = unwrap_secret(resolved),
+             {:ok, text} <- Cooper.Display.display(inner) do
+          {:cont, {:ok, [{name, text} | acc], secret? or from_secret?, state}}
+        else
+          {:error, %Error{}} = err -> {:halt, err}
+          {:error, message} -> {:halt, {:error, Error.new(message: message, stage: :resolve)}}
+        end
+    end)
+    |> case do
+      {:ok, acc, secret?, state} -> {:ok, Enum.reverse(acc), secret?, state}
+      err -> err
     end
   end
 
