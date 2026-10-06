@@ -86,10 +86,6 @@ defmodule Cooper do
   trusted/fixed at deploy time (e.g. user-uploaded config): an attacker
   who can supply arbitrary atom-shaped text can exhaust the atom table.
   Not a concern for the common case; a real one to know about outside it.
-
-  The three atoms named after reserved words -- `:true`, `:false`, `:nil`
-  -- are the exception: on the BEAM they *are* the values `true`, `false`
-  and `nil`, which CASC keeps apart, so they load as `%Cooper.Atom{}`.
   """
 
   alias Ichor.Error

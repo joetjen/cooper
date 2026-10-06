@@ -27,7 +27,7 @@ out of scope (per the spec itself, not a Cooper gap).
 | 6.1 | Nil | ✅ | `actions_test.exs` |
 | 6.2 | Booleans | ✅ | `actions_test.exs` |
 | 6.3 | Numbers | ✅ | `actions_test.exs` (int/hex/oct/bin/float/exponent/digit separators/infinity) |
-| 6.4 | Atoms | ✅ | `actions_test.exs` (reserved-word precedence, bare, `:`-sigiled, `:nil`/`:true`/`:false` as `Cooper.Atom`, never the values; `:inf` a native atom) |
+| 6.4 | Atoms | ✅ | `actions_test.exs` (reserved-word precedence, bare, `:`-sigiled, `:nil`/`:true`/`:false` as the values, `:inf` as an atom) |
 | 6.5 | Strings | ⚠️ | `actions_test.exs` (double/single-quoted); `values_test.exs` (triple-quoted dedent); `spec_coverage_test.exs` (triple-quoted does *not* interpolate). **Gap:** backslash-continued strings are not implemented (see bottom of this file). |
 | 6.6 | Dates and times | ✅ | `values_test.exs` -- all 4 forms (offset datetime, local datetime, local date, local time); an impossible date/time is a load-time error |
 | 6.7 | IP addresses | ✅ | `values_test.exs` -- IPv4, IPv4/CIDR, IPv6, IPv6/CIDR, out-of-range octet and CIDR prefix are load-time errors; `ipv4_test.exs`/`ipv6_test.exs` -- validation, `String.Chars`, CIDR containment and network math (`network/1`, `broadcast/1`, `netmask/1`, `first_host/1`, `last_host/1`), including `/31`-`/32` and `/127`-`/128` edge cases |

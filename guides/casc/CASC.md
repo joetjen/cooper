@@ -340,11 +340,12 @@ remove = yes
 
 ```casc
 level = :info    ; identical to `level = info`
-enabled = :true   ; the atom :true -- NOT the boolean
-enabled = true    ; the boolean -- NOT an atom
+mode = :inf       ; the atom inf -- NOT infinity
 ```
 
-An implementation whose host language cannot tell an atom from the value it is named after (on the BEAM, `:true` *is* `true`) must still keep them apart, by representing the atom some other way.
+**`:nil`, `:true` and `:false` are the values `nil`, `true` and `false`.** On the reference implementations' runtime those three atoms *are* the three values, so there is no separate atom for a document to reach; an implementation on a runtime that tells them apart produces the value too, so that a document means one thing everywhere. `:inf` is an ordinary atom.
+
+Keeping them as atoms distinct from the values was tried and dropped. It took a wrapper on the BEAM (`:true` *is* `true` there), so those three spellings came back as something no other atom is, and a document's meaning still depended on which implementation read it — the opposite of what the distinction was for.
 
 `:` has no other meaning in CASC — not an assignment operator (§5.3), and appears nowhere else in the grammar.
 
