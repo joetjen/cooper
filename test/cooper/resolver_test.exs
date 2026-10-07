@@ -409,4 +409,31 @@ defmodule Cooper.ResolverTest do
                )
     end
   end
+
+  describe "!bool (CASC.md §7.5)" do
+    test "reads every spelling a boolean arrives in from an environment" do
+      for {text, value} <- [
+            {"true", true},
+            {"1", true},
+            {"yes", true},
+            {"on", true},
+            {"false", false},
+            {"0", false},
+            {"no", false},
+            {"off", false}
+          ] do
+        assert {:ok, %{"v" => ^value}} =
+                 Cooper.load_string("#@version = 1.0\nv = !bool(${B})\n", env: %{"B" => text}),
+               text
+      end
+    end
+
+    test "refuses anything else, upper case included" do
+      for text <- ["TRUE", "Yes", "2", "y", ""] do
+        assert {:error, %Ichor.Error{stage: :resolve}} =
+                 Cooper.load_string("#@version = 1.0\nv = !bool(\"#{text}\")\n"),
+               text
+      end
+    end
+  end
 end

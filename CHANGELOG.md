@@ -28,6 +28,9 @@ this implementation's next release is `0.6.0`.
 
 ### Changed
 
+- **`!bool` reads `1`/`0`, `yes`/`no` and `on`/`off`** besides
+  `true`/`false` (lower case only), so `DEBUG=1`, the commonest `.env`
+  spelling of a boolean, no longer fails the load (CASC.md §7.5).
 - **`.env.<env>` is named by `COOPER_ENV`**, as the real environment,
   `:env` and the base `.env` set it -- `.env.dev`, `.env.staging`,
   `.env.test`, `.env.prod` in every Cooper. It was named by `Mix.env/0`

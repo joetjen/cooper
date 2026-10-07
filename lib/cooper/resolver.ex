@@ -863,9 +863,16 @@ defmodule Cooper.Resolver do
   def tag_float(arg), do: {:error, "cannot convert #{inspect(arg)} to a float"}
 
   @doc false
+  # The spellings a boolean arrives in from an environment (CASC.md §7.5):
+  # `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off` -- lower case only, as
+  # `true`/`false` always were. Only the first pair once was, so the
+  # commonest `.env` spelling of all, `DEBUG=1`, failed the load.
+  @true_spellings ~w(true 1 yes on)
+  @false_spellings ~w(false 0 no off)
+
   def tag_bool(arg) when is_boolean(arg), do: {:ok, arg}
-  def tag_bool("true"), do: {:ok, true}
-  def tag_bool("false"), do: {:ok, false}
+  def tag_bool(arg) when arg in @true_spellings, do: {:ok, true}
+  def tag_bool(arg) when arg in @false_spellings, do: {:ok, false}
   def tag_bool(arg), do: {:error, "not a boolean: #{inspect(arg)}"}
 
   @doc false

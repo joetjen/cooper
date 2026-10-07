@@ -652,7 +652,7 @@ Giving `vault` meaning is entirely the consumer's job. An unregistered resolver 
 
 `!Name(argument)` constructs a value of type `Name` from one argument (typically a string). Parsing only needs to recognize "a tag plus one parenthesized argument" — giving it meaning is the registered handler's job.
 
-Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), `!trim`, `!downcase`, `!upcase` (normalization), and `!module` (below). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2; `!bool` reads `true`/`1`/`yes`/`on` as true and `false`/`0`/`no`/`off` as false, lower case only, and refuses anything else), `!duration`, `!bytes` (constructors for §6.8/§6.9), `!trim`, `!downcase`, `!upcase` (normalization), and `!module` (below). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
 
 **`!module("Name")`** names a module of the host language:
 
