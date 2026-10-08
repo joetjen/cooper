@@ -97,7 +97,7 @@ patterns expand against the filesystem. A path may interpolate
 `${NAME}`/`${NAME:default}` to select one:
 
 ```casc
-import "env/${MIX_ENV:dev}.casc"
+import "env/${COOPER_ENV}.casc"
 ```
 
 Only `${...}`; `%{...}` needs the finished tree, which does not exist
@@ -109,7 +109,7 @@ its environment's overlay, last so it overrides them:
 
 ```casc
 import "inc/database.casc"
-import "env/${MIX_ENV:dev}.casc"
+import "env/${COOPER_ENV}.casc"
 ```
 
 Every selectable file must exist -- a missing import is a load error, so

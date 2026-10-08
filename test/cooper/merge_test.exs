@@ -147,4 +147,129 @@ defmodule Cooper.MergeTest do
              } = tree["replicas"]["b"]
     end
   end
+
+  describe "inner sigils, end to end" do
+    test "append and delete inside a block" do
+      # Once a replace and `b = nil`.
+      assert run!("""
+             a.tags = [1]
+             a.b = 1
+             a.c = 2
+             a {
+               +tags = [2]
+               -b
+             }
+             """) == %{"a" => %{"tags" => [1, 2], "c" => 2}}
+    end
+  end
+
+  describe "interpolated keys outside a for loop (CASC.md §4.2)" do
+    test "resolve from variables and the environment" do
+      # Once the unresolved `Cooper.Interp.Text` itself became the key.
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\n@region = "eu"\n"region-@{region}".k = 1\nsvc."${STAGE}-x" = true),
+               env: %{"STAGE" => "prod"},
+               dotenv: false
+             ) == {:ok, %{"region-eu" => %{"k" => 1}, "svc" => %{"prod-x" => true}}}
+    end
+
+    test "follow the built-key rules" do
+      assert {:error, %Ichor.Error{message: dotted}} =
+               Cooper.Grammar.run(~s(#@version = 1.0\n@k = "a.b"\n"@{k}" = 1))
+
+      assert dotted =~ "more than one path segment"
+
+      assert {:error, %Ichor.Error{message: config}} =
+               Cooper.Grammar.run(~s(#@version = 1.0\na = "k"\n"%{a}" = 1))
+
+      assert config =~ "may only reference @{...} and ${...}"
+    end
+  end
+
+  describe "`+`/`-` operands (§8.2, §8.4)" do
+    test "a nil operand is one element, appended as itself" do
+      assert run!("a = [1]\n+a = nil\n") == %{"a" => [1, nil]}
+    end
+
+    test "a nil operand removes the nil elements" do
+      assert run!("a = [1, nil, 2]\n-a = nil\n") == %{"a" => [1, 2]}
+    end
+
+    test "an operand that is a reference is appended once it resolves, wherever it was declared" do
+      assert {:ok, %{"tags" => ["a", "b", "c"]}} =
+               Cooper.load_string(
+                 "#@version = 1.0\ntags = [\"a\"]\n+tags = @{more}\n@more = [\"b\", \"c\"]\n"
+               )
+    end
+
+    test "removing compares strictly: an integer is not the float of the same value" do
+      assert run!("a = [1, 2.0, \"x\"]\n-a = [1.0, 2]\n") == %{"a" => [1, 2.0, "x"]}
+    end
+
+    test "appending to a tuple is an error" do
+      assert {:error, %Ichor.Error{}} =
+               Cooper.load_string("#@version = 1.0\nt = (1, 2)\n+t = [3]\n")
+    end
+  end
+
+  # Through the whole pipeline, since an element block becomes a map only
+  # when it is resolved.
+  defp loaded!(source) do
+    {:ok, result} = Cooper.load_string("#@version = 1.0\n" <> source)
+    result
+  end
+
+  describe "maps inside lists (CASC.md §6.10)" do
+    test "a list element may be a block, which is a map" do
+      assert loaded!("l = [{ a = 1 }, { b { c = 2 } }]\n") == %{
+               "l" => [%{"a" => 1}, %{"b" => %{"c" => 2}}]
+             }
+    end
+
+    test "so may a tuple element" do
+      assert loaded!("t = ({ x = 1 }, 2)\n") == %{"t" => {%{"x" => 1}, 2}}
+    end
+
+    test "+ and - append and remove whole maps, compared by value" do
+      assert loaded!("l = [{ a = 1 }, { a = 2 }]\n+l = [{ a = 3 }]\n-l = [{ a = 1 }]\n") ==
+               %{"l" => [%{"a" => 2}, %{"a" => 3}]}
+    end
+
+    test "an element block's keys interpolate, and see the file's private variables" do
+      assert {:ok, %{"l" => [%{"k-x" => 7}]}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@*n = \"k\"\n@*v = 7\nl = [{ \"@{n}-x\" = @{v} }]\n"
+               )
+    end
+
+    test "a loop binding reaches an element block" do
+      assert {:ok, %{"o" => %{"l" => [%{"k-a" => "a"}]}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a\"] as o { l = [{ \"k-@{x}\" = @{x} }] }\n"
+               )
+    end
+
+    test "a secret inside an element block stays secret" do
+      assert {:ok, %{"l" => [%{"pw" => %Cooper.Secret{value: "s"}}]}} =
+               Cooper.load_string("#@version = 1.0\nl = [{ *pw = \"s\" }]\n")
+    end
+  end
+
+  describe "an empty block (CASC.md §5.4)" do
+    test "is an empty map" do
+      assert loaded!("a {}\nb = {}\nc = [{}]\n") == %{"a" => %{}, "b" => %{}, "c" => [%{}]}
+    end
+
+    test "written over a map, leaves it as it is" do
+      assert loaded!("w.x = 1\nw {}\n") == %{"w" => %{"x" => 1}}
+    end
+
+    test "written over anything else, replaces it" do
+      assert loaded!("w = 1\nw {}\n") == %{"w" => %{}}
+    end
+
+    test "~ empties a map" do
+      assert loaded!("w.x = 1\n~w {}\n") == %{"w" => %{}}
+    end
+  end
 end

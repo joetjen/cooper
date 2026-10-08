@@ -97,13 +97,13 @@ defmodule Cooper.MixProject do
       # === RUNTIME ===
       {:ichor_runtime, "~> 0.2"},
       {:ichor, "~> 0.3", only: [:dev, :test], runtime: false},
-      # `optional: true` -- `Cooper.Dotenv` calls into it, but only when
-      # `.env` loading actually runs (the default), so an app that never
-      # ends up on that path shouldn't be forced to install it. It's
-      # deliberately *not* `only: [:dev, :test]`: `.env.prod` loading is
-      # meant to work in a real release too.
-      {:dotenvy, "~> 1.1", optional: true},
-      # Not optional, unlike dotenvy -- `:telemetry.execute/3` is safe
+      # Not optional: `.env` files are read by default, and an optional
+      # dependency made that silently do nothing in any application that
+      # had not added it itself -- a default that quietly isn't one. It is
+      # deliberately *not* `only: [:dev, :test]` either: `.env.prod`
+      # loading is meant to work in a real release too.
+      {:dotenvy, "~> 1.1"},
+      # Not optional either -- `:telemetry.execute/3` is safe
       # (near-zero cost) to call with zero attached handlers, so there's
       # no real "app that never needs it" case to spare from the
       # dependency the way there is for dotenvy's actual file I/O. Tiny,
@@ -138,7 +138,7 @@ defmodule Cooper.MixProject do
 
   defp package do
     [
-      licenses: ["MIT"],
+      licenses: ["Apache-2.0"],
       links: %{
         "GitHub" => "https://github.com/joetjen/cooper",
         "Docs" => "https://joetjen.github.io/cooper"

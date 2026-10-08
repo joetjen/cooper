@@ -88,11 +88,15 @@ defmodule Cooper.Actions do
     end
   end
 
-  def handle_rule(:disabled_statement, captures, ctx) do
-    with {:ok, _discarded, ctx} <- Map.fetch!(captures, :real_statement).eval.(ctx) do
-      {:ok, [], ctx}
-    end
-  end
+  # CASC.md §5.6: a disabled statement "produces nothing" -- so it is
+  # never evaluated at all, the same way a `${?NAME}`-skipped one isn't.
+  # Evaluating it and discarding only its entries (as this once did) let
+  # its side effects through: a disabled `#@name = ...` still defined the
+  # variable (`ctx.vars` is what `Cooper.Scope.split/1` builds the
+  # variable environment from), a disabled `#import "..."` still loaded
+  # the file -- and failed the whole load if it was missing -- and a bad
+  # literal inside one still raised.
+  def handle_rule(:disabled_statement, _captures, ctx), do: {:ok, [], ctx}
 
   # `${?NAME}` guards the *one* statement immediately following it
   # (CASC.md §7.2). When the env var is unset/empty, the guarded
@@ -128,7 +132,21 @@ defmodule Cooper.Actions do
       # @*name values never leave their declaring file" when it
       # propagates an imported file's vars back into the importer's own
       # `ctx.vars`.
-      ctx = put_in(ctx, [:vars, name], {value, not private?})
+      #
+      # A private declaration is kept under its own `{:private, name}` key
+      # rather than `name`, so it cannot overwrite a public variable of the
+      # same name an import brought in (CASC.md §5.2: inside its own file a
+      # private declaration *shadows* a public one -- it does not remove it
+      # for the file that declared it). Overwriting it, as this once did,
+      # left the imported file's own `@{name}` undefined.
+      #
+      # The value is stamped with this file's scope as it is stored: the
+      # variable environment is built from `ctx.vars`, not from the entries
+      # `Cooper.Grammar` stamps, so a reference inside a declaration's own
+      # value (`@*b = "v@{a}"`, `a` private too) would otherwise carry no
+      # file at all and never see this file's private declarations.
+      key = if private?, do: {:private, name}, else: name
+      ctx = put_in(ctx, [:vars, key], {Cooper.Scope.stamp(value, ctx.scope), not private?})
       {:ok, [{:var, decl}], ctx}
     end
   end
@@ -173,11 +191,23 @@ defmodule Cooper.Actions do
     end
   end
 
+  # `import_kw` is a bare IDENT (see the grammar's own comment), so this
+  # rule matches *any* identifier followed by a quoted string -- which is
+  # also exactly what an assignment without its optional `=` to a string
+  # value looks like (`foo "bar"`, CASC.md §5.3's own example). Ordered
+  # choice has already committed to this rule by the time the keyword can
+  # be checked, so a non-`import` keyword is that assignment, built here
+  # the way `:sigil_kv_statement` would have built it -- not an error, as
+  # it once was ("expected \"import\", got \"foo\"").
   def handle_rule(:import_statement, captures, ctx) do
     with {:ok, import_kw, ctx} <- Map.fetch!(captures, :import_kw).eval.(ctx),
-         :ok <- validate_kw(import_kw, "import"),
          {:ok, path, ctx} <- Map.fetch!(captures, :path).eval.(ctx) do
-      Cooper.Loader.load_import(path, ctx)
+      if import_kw == "import" do
+        Cooper.Loader.load_import(path, ctx)
+      else
+        op = %Cooper.Op{path: [import_kw], sigil: :merge, value: path, secret?: false}
+        {:ok, [{:op, op}], ctx}
+      end
     end
   end
 
@@ -188,12 +218,32 @@ defmodule Cooper.Actions do
       sigil = sigil_for(sigil_text)
 
       case rhs do
+        # An empty block is an empty map (CASC.md §5.4): it writes one,
+        # which leaves a map already there as it is. Emitting nothing, as
+        # this once did, made `w {}` and `w = {}` no key at all.
+        %Cooper.Block{ops: []} ->
+          op = %Cooper.Op{path: segments, sigil: sigil, value: %{}, secret?: secret?}
+          prefix = if sigil == :replace, do: [{:clear, segments}], else: []
+          {:ok, prefix ++ [{:op, op}], ctx}
+
         %Cooper.Block{ops: nested} ->
+          # An inner op keeps its own merge-control sigil when it has one
+          # (`a { +tags = ["d"] }` appends, `a { -b }` deletes); only a
+          # plain inner op takes the statement's. Overwriting every inner
+          # sigil -- as this once did -- turned the first into a replace
+          # and the second into `b = nil`.
           entries =
             Enum.map(nested, fn
               {:op, op} ->
+                inner_sigil = if op.sigil == :merge, do: sigil, else: op.sigil
+
                 {:op,
-                 %{op | path: segments ++ op.path, secret?: secret? or op.secret?, sigil: sigil}}
+                 %{
+                   op
+                   | path: segments ++ op.path,
+                     secret?: secret? or op.secret?,
+                     sigil: inner_sigil
+                 }}
 
               {:clear, path} ->
                 {:clear, segments ++ path}
@@ -218,6 +268,12 @@ defmodule Cooper.Actions do
           {:ok, [{:op, op}], ctx}
       end
     end
+  end
+
+  # A delete followed by a whole statement (see the grammar's own comment
+  # on `followed_delete`) -- the lookahead captures nothing.
+  def handle_rule(:followed_delete, captures, ctx) do
+    Map.fetch!(captures, :delete_statement).eval.(ctx)
   end
 
   def handle_rule(:delete_statement, captures, ctx) do
@@ -251,12 +307,15 @@ defmodule Cooper.Actions do
 
   # ---- lists and tuples (CASC.md §6.10-6.11) -------------------------------
 
+  # An element may be a block (`[{ path = "^/admin" }]`, CASC.md §6.10):
+  # it stays a `Cooper.Block` here and becomes a map in `Cooper.Resolver`,
+  # once its keys -- which may interpolate -- can be resolved.
   def handle_rule(:list, captures, ctx) do
-    eval_each(Map.get(captures, :value, []), ctx)
+    eval_each(Map.get(captures, :element, []), ctx)
   end
 
   def handle_rule(:tuple, captures, ctx) do
-    with {:ok, values, ctx} <- eval_each(Map.get(captures, :value, []), ctx) do
+    with {:ok, values, ctx} <- eval_each(Map.get(captures, :element, []), ctx) do
       {:ok, List.to_tuple(values), ctx}
     end
   end
@@ -309,6 +368,17 @@ defmodule Cooper.Actions do
     with {:ok, name, ctx} <- Map.fetch!(captures, :name).eval.(ctx),
          {:ok, arg, ctx} <- Map.fetch!(captures, :arg).eval.(ctx) do
       {:ok, %Cooper.Ref.Tagged{name: name, arg: arg}, ctx}
+    end
+  end
+
+  # The number's own spelling travels with its value, so `ref_suffix`
+  # can tell `:+5` (substitute) from `:5`/`:-5` (default).
+  def handle_rule(:signed_number, captures, ctx) do
+    [{_name, cap}] = Map.to_list(captures)
+    {:token, _name, text} = cap.node
+
+    with {:ok, value, ctx} <- cap.eval.(ctx) do
+      {:ok, {text, value}, ctx}
     end
   end
 
@@ -374,15 +444,21 @@ defmodule Cooper.Actions do
   def handle_token(:INTEGER, text, _ctx), do: {:ok, parse_integer(text)}
   def handle_token(:FLOAT, text, _ctx), do: {:ok, parse_float(text)}
 
-  def handle_token(:DATE, text, _ctx), do: {:ok, Date.from_iso8601!(text)}
-  def handle_token(:TIME, text, _ctx), do: {:ok, Time.from_iso8601!(text)}
+  # The DATE/TIME/DATETIME tokens only check the *shape* of a literal;
+  # whether `2023-02-30` or `25:00:00` is a real date or time is decided
+  # here, and an impossible one is a load-time error naming it rather than
+  # the `from_iso8601!/1` crash it once was.
+  def handle_token(:DATE, text, _ctx), do: temporal(Date.from_iso8601(text), "date", text)
+  def handle_token(:TIME, text, _ctx), do: temporal(Time.from_iso8601(text), "time", text)
 
   def handle_token(:DATETIME, text, _ctx) do
     if String.ends_with?(text, "Z") or Regex.match?(~r/[+-]\d{2}:\d{2}$/, text) do
-      {:ok, dt, _offset} = DateTime.from_iso8601(text)
-      {:ok, dt}
+      case DateTime.from_iso8601(text) do
+        {:ok, dt, _offset} -> {:ok, dt}
+        {:error, reason} -> temporal({:error, reason}, "date-time", text)
+      end
     else
-      {:ok, NaiveDateTime.from_iso8601!(text)}
+      temporal(NaiveDateTime.from_iso8601(text), "date-time", text)
     end
   end
 
@@ -449,6 +525,13 @@ defmodule Cooper.Actions do
   def handle_token(_token, text, _ctx), do: {:ok, text}
 
   # ---- helpers --------------------------------------------------------------
+
+  defp temporal({:ok, value}, _kind, _text), do: {:ok, value}
+
+  defp temporal({:error, reason}, kind, text) do
+    {:error,
+     Error.new(message: "invalid #{kind} #{inspect(text)}: #{inspect(reason)}", stage: :action)}
+  end
 
   # `for`/`in`/`from`/`as` are grammar-level bare IDENTs (CASC.md §4.1's
   # *contextual* keywords, never globally reserved -- see the grammar's

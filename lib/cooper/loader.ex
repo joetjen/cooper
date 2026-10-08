@@ -50,6 +50,14 @@ defmodule Cooper.Loader do
   end
 
   def load_import(%Cooper.Interp.Text{segments: segments}, ctx) do
+    # Which file an import reads is decided by these names, so -- like a
+    # `${?NAME}` guard -- they shape the cached tree and have to be
+    # watched (`Cooper.Cache`). Recorded before interpolating, so a name
+    # that turns out unset is watched too: setting it is what changes the
+    # outcome.
+    path_names = for %Cooper.Ref.Env{name: name} when is_binary(name) <- segments, do: name
+    ctx = update_in(ctx, [:env_guard_names], &MapSet.union(&1, MapSet.new(path_names)))
+
     case interpolate_path(segments, ctx, []) do
       {:ok, path} -> load_import(path, ctx)
       {:error, error} -> {:error, error}
@@ -127,6 +135,21 @@ defmodule Cooper.Loader do
   end
 
   defp load_scheme(scheme, rest, ctx) do
+    label = "#{scheme}://#{rest}"
+
+    # A scheme source is put on the in-progress set under this label (see
+    # `load_source/3`), so one that imports itself again -- directly or
+    # through others -- is a cycle like any file's, rather than the
+    # unbounded recursion it once was.
+    if MapSet.member?(ctx.importing, label) do
+      chain = ctx.importing |> MapSet.to_list() |> Enum.sort() |> Enum.join(" -> ")
+      {:error, Error.new(message: "import cycle detected: #{chain} -> #{label}", stage: :import)}
+    else
+      load_registered_scheme(scheme, rest, ctx)
+    end
+  end
+
+  defp load_registered_scheme(scheme, rest, ctx) do
     case Map.fetch(ctx.import_schemes, scheme) do
       {:ok, loader} when is_function(loader, 1) ->
         case loader.(rest) do
@@ -147,8 +170,15 @@ defmodule Cooper.Loader do
     end
   end
 
+  # The expansion itself is recorded beside the files it found, as
+  # `{:glob, root, pattern, files}`, so `Cooper.Cache` can expand the
+  # pattern again and see a file that now matches -- or no longer does.
+  # Fingerprinting only the files read, as this once did, noticed one
+  # edited or deleted, never one added where a glob looks.
   defp load_filesystem(pattern, ctx) do
     with {:ok, files} <- resolve_filesystem_paths(pattern, ctx.root) do
+      ctx = %{ctx | loaded_files: MapSet.put(ctx.loaded_files, {:glob, ctx.root, pattern, files})}
+
       Enum.reduce_while(files, {:ok, [], ctx}, fn file, {:ok, acc, ctx} ->
         case load_file(file, ctx) do
           {:ok, entries, ctx} -> {:cont, {:ok, acc ++ entries, ctx}}
@@ -158,16 +188,22 @@ defmodule Cooper.Loader do
     end
   end
 
-  defp resolve_filesystem_paths(pattern, root) do
-    files =
-      pattern
-      |> expand_braces()
-      |> Enum.flat_map(&Path.wildcard(Path.join(root, &1)))
-      |> Enum.map(&Path.expand/1)
-      |> Enum.uniq()
-      |> Enum.sort()
+  @doc false
+  # Every file `pattern` (braces and wildcards, CASC.md §5.1) matches under
+  # `root`, absolute and sorted -- shared with `Cooper.Cache`, which
+  # expands a recorded import again to tell whether its matches changed.
+  @spec expand_import(String.t(), String.t()) :: [String.t()]
+  def expand_import(pattern, root) do
+    pattern
+    |> expand_braces()
+    |> Enum.flat_map(&Path.wildcard(Path.join(root, &1)))
+    |> Enum.map(&Path.expand/1)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
-    case files do
+  defp resolve_filesystem_paths(pattern, root) do
+    case expand_import(pattern, root) do
       [] ->
         {:error,
          Error.new(

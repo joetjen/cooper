@@ -36,8 +36,14 @@ defmodule Cooper.Literals do
   @doc "Parses a duration literal's text into total nanoseconds."
   @spec parse_duration(String.t()) :: {:ok, integer()} | {:error, String.t()}
   def parse_duration(text) do
+    # Each component's digits may carry `_` separators (CASC.md §6.8), the
+    # same shape the DURATION token accepts: a digit first, then digits or
+    # `_`. They are dropped from the amounts once the text is known to be
+    # nothing but components.
     components =
-      Regex.scan(~r/(\d+(?:\.\d+)?)(ns|us|µs|ms|d|h|m|s)/, text, capture: :all_but_first)
+      Regex.scan(~r/(\d[\d_]*(?:\.\d[\d_]*)?)(ns|us|µs|ms|d|h|m|s)/u, text,
+        capture: :all_but_first
+      )
 
     # `Regex.scan/3` alone doesn't guarantee full coverage -- it happily
     # returns matches for "5msXYZ9s" too, skipping the garbage between
@@ -48,19 +54,14 @@ defmodule Cooper.Literals do
     if Enum.map_join(components, &Enum.join(&1)) != text do
       {:error, "invalid duration literal #{inspect(text)}"}
     else
-      validate_duration(components, text)
+      components
+      |> Enum.map(fn [amount, unit] -> [String.replace(amount, "_", ""), unit] end)
+      |> validate_duration(text)
     end
   end
 
   defp validate_duration([[amount, unit]], _text) do
-    factor = Map.fetch!(@duration_unit_ns, unit)
-
-    value =
-      if String.contains?(amount, "."),
-        do: String.to_float(amount),
-        else: String.to_integer(amount) * 1.0
-
-    {:ok, round(value * factor)}
+    {:ok, scaled(amount, Map.fetch!(@duration_unit_ns, unit))}
   end
 
   defp validate_duration(components, text) when length(components) > 1 do
@@ -90,6 +91,23 @@ defmodule Cooper.Literals do
     {:error, "invalid duration literal #{inspect(text)}"}
   end
 
+  # `amount` (digits, maybe a fraction) times `factor`, exactly, rounded
+  # half away from zero to a whole number. Computing it through a float,
+  # as this once did, lost precision above 2^53 -- `9223372036854775807ns`
+  # became 2^63, though a compound duration was summed exactly -- and an
+  # amount too large for a float crashed the load outright.
+  defp scaled(amount, factor) do
+    {whole, fraction} =
+      case String.split(amount, ".") do
+        [whole, fraction] -> {whole, fraction}
+        [whole] -> {whole, ""}
+      end
+
+    numerator = String.to_integer(whole <> fraction) * factor
+    denominator = Integer.pow(10, String.length(fraction))
+    div(2 * numerator + denominator, 2 * denominator)
+  end
+
   @byte_unit_multiplier %{
     "b" => 1,
     "kb" => 1_000,
@@ -111,12 +129,7 @@ defmodule Cooper.Literals do
       [_, amount, unit] ->
         case Map.fetch(@byte_unit_multiplier, String.downcase(unit)) do
           {:ok, multiplier} ->
-            value =
-              if String.contains?(amount, "."),
-                do: String.to_float(amount),
-                else: String.to_integer(amount) * 1.0
-
-            {:ok, round(value * multiplier)}
+            {:ok, scaled(amount, multiplier)}
 
           :error ->
             {:error, "invalid byte-size unit in #{inspect(text)}"}

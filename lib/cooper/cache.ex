@@ -28,10 +28,10 @@ defmodule Cooper.Cache do
   making it genuinely per-access-fresh (with no cache involved at all)
   would mean not knowing a file's own shape (which statements exist)
   until every single read, which is a fundamentally bigger feature than
-  a read-through cache. (`${...}` inside an `import "..."` path is a
-  separate, unconditional load-time error, not something this cache
-  ever has to keep fresh -- CASC.md §5.1 doesn't support it, so it
-  never reaches this cache in the first place.)
+  a read-through cache. A `${NAME}` in an `import "..."` path (CASC.md
+  §5.1) or an interpolated key (§4.2) shapes the tree the same way a
+  guard does, and is tracked and watched alongside the guard names
+  (`env_guard_names`).
 
   `Cooper.load_file/2` defaults `watch_env` to `true` automatically for
   any file that reads `${...}` at all -- an ordinary value, a guard, or
@@ -84,7 +84,9 @@ defmodule Cooper.Cache do
   @default_poll_interval 5_000
 
   @type entry :: %{
-          fingerprint: [{String.t(), integer() | nil}],
+          fingerprint: [
+            {String.t(), integer() | nil} | {{:glob, String.t(), String.t()}, [String.t()]}
+          ],
           tree: term(),
           vars: map(),
           env_watch: nil | %{names: MapSet.t(), values: map(), opts: keyword()},
@@ -156,7 +158,10 @@ defmodule Cooper.Cache do
   would go undetected: the "before" snapshot would already reflect the
   "after" value. Later polls re-derive the current values from
   `Cooper.Dotenv.env/1`, computed from `opts` (only the dotenv-relevant
-  keys are kept: `:env`/`:dotenv`/`:dotenv_env`/`:dotenv_files`).
+  keys are kept: `:env`/`:dotenv`/`:dotenv_env`/`:dotenv_files`/
+  `:dotenv_dir`/`:dotenv_override`). Keeping fewer, as this once did,
+  made the poll read a different environment than the load had --
+  another directory's `.env`, or the files in the other order.
 
   A no-op if `names` is empty (nothing to watch) or the `{path, root}`
   entry doesn't currently exist (e.g. a concurrent `invalidate/1` raced
@@ -175,7 +180,16 @@ defmodule Cooper.Cache do
   @spec watch_env(String.t(), String.t(), MapSet.t(), map(), keyword()) :: :ok
   def watch_env(path, root, names, values, opts) do
     if MapSet.size(names) > 0 do
-      dotenv_opts = Keyword.take(opts, [:env, :dotenv, :dotenv_env, :dotenv_files])
+      dotenv_opts =
+        Keyword.take(opts, [
+          :env,
+          :dotenv,
+          :dotenv_env,
+          :dotenv_files,
+          :dotenv_dir,
+          :dotenv_override
+        ])
+
       GenServer.cast(__MODULE__, {:watch_env, path, root, names, values, dotenv_opts})
     end
 
@@ -239,7 +253,33 @@ defmodule Cooper.Cache do
   def handle_cast({:watch_env, path, root, names, values, dotenv_opts}, state) do
     case raw_lookup(path, root) do
       {:ok, entry} ->
-        watch = %{names: names, values: values, opts: dotenv_opts}
+        # The baseline is the one the entry was first watched with: a name
+        # already watched keeps the value it had then, and only a newly
+        # read name takes the value it has now. Re-baselining on every
+        # load, as this once did, meant a change landing between two
+        # loads was never seen -- and a `${?NAME}` decision baked into the
+        # cached tree stayed stale until a file changed.
+        watch =
+          case entry.env_watch do
+            %{names: old_names, values: old_values} ->
+              all_names = MapSet.union(old_names, names)
+
+              # An unset name is absent from a baseline, never `nil` -- the
+              # poll compares whole maps -- so each name takes its value
+              # (or its absence) from the baseline it belongs to.
+              baseline =
+                for name <- all_names,
+                    source = if(MapSet.member?(old_names, name), do: old_values, else: values),
+                    Map.has_key?(source, name),
+                    into: %{},
+                    do: {name, Map.fetch!(source, name)}
+
+              %{names: all_names, values: baseline, opts: dotenv_opts}
+
+            nil ->
+              %{names: names, values: values, opts: dotenv_opts}
+          end
+
         :ets.insert(@table, {{path, root}, %{entry | env_watch: watch}})
         {:noreply, ensure_polling(state)}
 
@@ -294,7 +334,12 @@ defmodule Cooper.Cache do
     new_map = Map.new(new_fingerprint)
     all_files = MapSet.union(mapset_keys(old_map), mapset_keys(new_map))
 
-    for file <- all_files, Map.get(old_map, file) != Map.get(new_map, file), do: file
+    # An import's expansion is not itself a file: a file it gained or lost
+    # is already a key here, appearing or disappearing.
+    for file <- all_files,
+        not match?({:glob, _, _}, file),
+        Map.get(old_map, file) != Map.get(new_map, file),
+        do: file
   end
 
   defp mapset_keys(map), do: map |> Map.keys() |> MapSet.new()
@@ -370,13 +415,26 @@ defmodule Cooper.Cache do
     end
   end
 
+  # A fingerprint holds each file read with its mtime, and each import's
+  # expansion (`{:glob, root, pattern}`) with the files it matched. Both
+  # are compared against disk now: a file edited or deleted changes its
+  # mtime, and a file added where an import looks -- or removed from
+  # there -- changes what the pattern expands to.
   defp fingerprint_valid?(fingerprint) do
-    Enum.all?(fingerprint, fn {file, mtime} -> current_mtime(file) == mtime end)
+    Enum.all?(fingerprint, fn {key, seen} -> current(key) == seen end)
   end
 
   defp build_fingerprint(loaded_files) do
-    for file <- MapSet.to_list(loaded_files), do: {file, current_mtime(file)}
+    for entry <- MapSet.to_list(loaded_files) do
+      case entry do
+        {:glob, root, pattern, files} -> {{:glob, root, pattern}, files}
+        file -> {file, current_mtime(file)}
+      end
+    end
   end
+
+  defp current({:glob, root, pattern}), do: Cooper.Loader.expand_import(pattern, root)
+  defp current(file), do: current_mtime(file)
 
   defp current_mtime(file) do
     case File.stat(file, time: :posix) do

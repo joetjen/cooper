@@ -58,26 +58,16 @@ defmodule Cooper.Loop do
     with {:ok, element_bindings} <- validate_bindings(bindings),
          {:ok, resolved} <- resolve_iterables(element_bindings, outer_vars),
          {:ok, length} <- validate_lengths(resolved) do
-      # `throw`/`catch` here rather than threading an `{:error, _}` tuple
-      # back up through `for`/`Enum.map` (`expand_iteration/5` ->
-      # `resolve_dest_segment/2`, several calls deep): the only failure
-      # possible at that depth is the interpolated-destination case
-      # below, and it's rare enough that plumbing a Result type through
-      # every intermediate call for it isn't worth the noise -- a scoped
-      # non-local exit, caught right where it's thrown from, same job an
-      # exception would do in a language without algebraic error types.
-      try do
-        entries =
-          for i <- 0..(length - 1)//1 do
-            overlay = build_overlay(bindings, resolved, i)
-            expand_iteration(overlay, from_template, dest_segments, dest_secret?, body_ops)
-          end
+      entries =
+        for i <- 0..(length - 1)//1 do
+          overlay = build_overlay(bindings, resolved, i)
+          expand_iteration(overlay, from_template, dest_segments, dest_secret?, body_ops)
+        end
 
-        {:ok, List.flatten(entries)}
-      catch
-        {:loop_error, message} -> {:error, Error.new(message: message, stage: :loop)}
-      end
+      {:ok, List.flatten(entries)}
     end
+  catch
+    {:loop_key, %Error{} = error} -> {:error, error}
   end
 
   defp validate_bindings(bindings) do
@@ -122,12 +112,20 @@ defmodule Cooper.Loop do
 
   defp resolve_iterable(list, _outer_vars) when is_list(list), do: {:ok, list}
 
+  defp resolve_iterable(%Cooper.Ref.Var{name: name}, _outer_vars) when not is_binary(name) do
+    {:error,
+     Error.new(
+       message: "a loop iterable must name its variable directly, not build the name",
+       stage: :loop
+     )}
+  end
+
   defp resolve_iterable(%Cooper.Ref.Var{name: name}, outer_vars) do
-    case Map.fetch(outer_vars, name) do
-      {:ok, {list, _public?}} when is_list(list) ->
+    case Cooper.Scope.lookup(outer_vars, name) do
+      {:ok, list} when is_list(list) ->
         {:ok, list}
 
-      {:ok, {_other, _public?}} ->
+      {:ok, _other} ->
         {:error, Error.new(message: "loop iterable \"@{#{name}}\" is not a list", stage: :loop)}
 
       :error ->
@@ -185,7 +183,7 @@ defmodule Cooper.Loop do
   end
 
   defp expand_iteration(overlay, from_template, dest_segments, dest_secret?, body_ops) do
-    resolved_dest = Enum.map(dest_segments, &resolve_dest_segment(&1, overlay))
+    resolved_dest = substitute_path(dest_segments, overlay)
 
     base_entry =
       case from_template do
@@ -196,7 +194,7 @@ defmodule Cooper.Loop do
           op = %Cooper.Op{
             path: resolved_dest,
             sigil: :merge,
-            value: %Cooper.Ref.Config{path: template_path},
+            value: %Cooper.Ref.Config{path: substitute_path(template_path, overlay)},
             secret?: dest_secret?
           }
 
@@ -209,10 +207,17 @@ defmodule Cooper.Loop do
           {:op,
            %{
              op
-             | path: resolved_dest ++ Enum.map(op.path, &resolve_dest_segment(&1, overlay)),
+             | path: resolved_dest ++ substitute_path(op.path, overlay),
                value: substitute(op.value, overlay),
                secret?: dest_secret? or op.secret?
            }}
+
+        # A `~key { ... }` inside the body clears under *this
+        # iteration's* destination, like every other entry it generated
+        # -- passing it through untouched (as this once did) cleared the
+        # top-level `key` instead, once per iteration.
+        {:clear, path} ->
+          {:clear, resolved_dest ++ substitute_path(path, overlay)}
 
         other ->
           other
@@ -221,52 +226,104 @@ defmodule Cooper.Loop do
     base_entry ++ body_entries
   end
 
-  defp resolve_dest_segment(segment, _overlay) when is_binary(segment), do: segment
+  # A key segment that still interpolates something other than a loop
+  # binding (`"@{stage}-@{id}"`, with `@stage` an ordinary variable) stays
+  # a `Cooper.Interp.Text` -- `Cooper.Merge` resolves it against the
+  # load's variables and environment like any other interpolated key,
+  # rather than this being the error it once was.
+  defp substitute_path(path, overlay), do: Enum.map(path, &substitute_key(&1, overlay))
 
-  defp resolve_dest_segment(%Cooper.Interp.Text{} = text, overlay) do
-    case substitute(text, overlay) do
-      joined when is_binary(joined) ->
-        joined
-
-      %Cooper.Interp.Text{} ->
+  # An interpolated segment the bindings turned into text follows the
+  # rules every interpolated key does (CASC.md §7.2): non-empty, and no
+  # `.`, which would split it. Taking the text as it came, as this once
+  # did, let `out."@{x}"` over `"a.b"` build a key the same text outside
+  # a loop is refused for. The error is thrown to `expand/6`, the one
+  # place that can return it.
+  defp substitute_key(%Cooper.Interp.Text{} = segment, overlay) do
+    case substitute(segment, overlay) do
+      "" ->
         throw(
-          {:loop_error,
-           "a for loop's keys may only reference its own bindings -- found a reference that isn't one of them"}
+          {:loop_key,
+           Error.new(message: "interpolated key resolved to an empty string", stage: :resolve)}
         )
+
+      text when is_binary(text) ->
+        if String.contains?(text, ".") do
+          throw(
+            {:loop_key,
+             Error.new(
+               message:
+                 "interpolated key resolved to #{inspect(text)}, which would split into more than one path segment",
+               stage: :resolve
+             )}
+          )
+        else
+          text
+        end
+
+      text ->
+        text
     end
   end
 
-  defp substitute(%Cooper.Ref.Var{name: name} = ref, overlay) when is_binary(name) do
+  defp substitute_key(segment, overlay), do: substitute(segment, overlay)
+
+  # A bare `@{x}` becomes the iteration's value. One carrying an index, a
+  # suffix, or filters (`@{x | upcase}`, `@{x[0]}`, `@{x:default}`) keeps
+  # them: the value is bound onto the reference, which then resolves
+  # normally. Replacing it with the bare value, as this once did, silently
+  # dropped the filter, the index, or the suffix.
+  defp substitute(%Cooper.Ref.Var{name: name, bound: nil} = ref, overlay) when is_binary(name) do
     case Map.fetch(overlay, name) do
-      {:ok, value} -> value
-      :error -> ref
+      {:ok, value} when ref.index == nil and ref.suffix == nil and ref.filters == [] ->
+        value
+
+      {:ok, value} ->
+        %{substitute_parts(ref, overlay) | bound: {:ok, value}}
+
+      :error ->
+        substitute_parts(ref, overlay)
     end
   end
 
-  # A reference whose *name* is itself interpolated (`${"TOKEN_@{id}"}`,
-  # CASC.md 7.2): the binding substitutes into the name, not for the
-  # reference as a whole -- which is the entire point of the form
-  # inside a loop.
-  defp substitute(%Cooper.Ref.Var{name: name} = ref, overlay),
-    do: %{ref | name: substitute(name, overlay)}
+  # Everything inside a reference that a binding can reach: a built name
+  # (`${"TOKEN_@{id}"}`, CASC.md 7.2 -- the binding substitutes into the
+  # name, not for the reference as a whole, which is the entire point of
+  # the form inside a loop), a `%{...}` path segment
+  # (`%{tokens."supervisor-@{id}"}`), a `:default`/`:+alt`/`:?"msg"`
+  # value, and a filter argument. Only built names were once reached, so
+  # a binding anywhere else survived the loop unsubstituted and failed as
+  # an undefined variable once the loop was gone.
+  defp substitute(%Cooper.Ref.Var{} = ref, overlay), do: substitute_parts(ref, overlay)
 
-  defp substitute(%Cooper.Ref.Env{name: name} = ref, overlay) when not is_binary(name),
-    do: %{ref | name: substitute(name, overlay)}
+  defp substitute(%Cooper.Ref.Env{} = ref, overlay) do
+    %{
+      ref
+      | name: substitute(ref.name, overlay),
+        suffix: substitute(ref.suffix, overlay),
+        filters: substitute(ref.filters, overlay)
+    }
+  end
 
+  defp substitute(%Cooper.Ref.Config{} = ref, overlay) do
+    %{
+      ref
+      | path: substitute_path(ref.path, overlay),
+        suffix: substitute(ref.suffix, overlay),
+        filters: substitute(ref.filters, overlay)
+    }
+  end
+
+  # A plain value joins the surrounding text now; anything else -- a
+  # secret (whose redaction `Cooper.Resolver` applies to its own portion),
+  # a still-unresolved reference, a list that cannot be text at all --
+  # stays a segment of its own for `Cooper.Resolver` to resolve, redact,
+  # or refuse with a proper error.
   defp substitute(%Cooper.Interp.Text{segments: segments}, overlay) do
     new_segments =
-      Enum.map(segments, fn
-        seg when is_binary(seg) ->
-          seg
-
-        %Cooper.Ref.Var{name: name} = ref ->
-          case Map.fetch(overlay, name) do
-            {:ok, value} -> Cooper.Display.to_string(value)
-            :error -> ref
-          end
-
-        other ->
-          substitute(other, overlay)
+      Enum.map(segments, fn seg ->
+        substituted = substitute(seg, overlay)
+        if plain?(substituted), do: Cooper.Display.to_string(substituted), else: substituted
       end)
 
     if Enum.all?(new_segments, &is_binary/1) do
@@ -279,6 +336,30 @@ defmodule Cooper.Loop do
   defp substitute(%Cooper.Ref.Tagged{arg: arg} = ref, overlay),
     do: %{ref | arg: substitute(arg, overlay)}
 
+  # A block written as a list element (CASC.md §6.10): the bindings reach
+  # its keys -- under the same key rules as any other -- and its values.
+  defp substitute(%Cooper.Block{ops: ops} = block, overlay) do
+    %{
+      block
+      | ops:
+          Enum.map(ops, fn
+            {:op, op} ->
+              {:op,
+               %{
+                 op
+                 | path: substitute_path(op.path, overlay),
+                   value: substitute(op.value, overlay)
+               }}
+
+            {:clear, path} ->
+              {:clear, substitute_path(path, overlay)}
+
+            other ->
+              other
+          end)
+    }
+  end
+
   defp substitute(list, overlay) when is_list(list), do: Enum.map(list, &substitute(&1, overlay))
 
   defp substitute(tuple, overlay) when is_tuple(tuple) do
@@ -286,4 +367,27 @@ defmodule Cooper.Loop do
   end
 
   defp substitute(other, _overlay), do: other
+
+  defp substitute_parts(%Cooper.Ref.Var{} = ref, overlay) do
+    %{
+      ref
+      | name: substitute(ref.name, overlay),
+        suffix: substitute(ref.suffix, overlay),
+        filters: substitute(ref.filters, overlay)
+    }
+  end
+
+  @unresolved [
+    Cooper.Ref.Var,
+    Cooper.Ref.Env,
+    Cooper.Ref.Config,
+    Cooper.Ref.Resolver,
+    Cooper.Ref.Tagged,
+    Cooper.Interp.Text,
+    Cooper.Merge.Layered,
+    Cooper.Secret
+  ]
+
+  defp plain?(%module{}) when module in @unresolved, do: false
+  defp plain?(value), do: Cooper.Display.displayable?(value)
 end

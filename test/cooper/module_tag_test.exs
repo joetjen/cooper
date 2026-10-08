@@ -1,10 +1,10 @@
 defmodule Cooper.ModuleTagTest do
   use ExUnit.Case, async: true
 
-  # `!module` (CASC.md §7.5). The tag name is deliberately the same in every
-  # Cooper implementation while the shape it accepts is that implementation's
-  # own, so a document naming a module stays readable across ports even though
-  # what counts as a module name differs by language.
+  # `!module` (CASC.md §7.5). A module name is written the same way for every
+  # Cooper implementation -- dot-separated PascalCase -- and each translates
+  # it into its own language's module, or takes it from the application's
+  # `:modules` mapping first.
 
   defp load!(source) do
     {:ok, tree, vars} = Cooper.Grammar.run_tree("#@version = 1.0\n" <> source)
@@ -12,9 +12,9 @@ defmodule Cooper.ModuleTagTest do
     result
   end
 
-  defp load(source) do
+  defp load(source, opts \\ []) do
     {:ok, tree, vars} = Cooper.Grammar.run_tree("#@version = 1.0\n" <> source)
-    Cooper.Resolver.resolve(tree, vars: vars)
+    Cooper.Resolver.resolve(tree, [vars: vars] ++ opts)
   end
 
   describe "building a module" do
@@ -26,9 +26,14 @@ defmodule Cooper.ModuleTagTest do
       assert load!(~s<a = !module("String")>) == %{"a" => String}
     end
 
-    test "a lower-case name becomes an Erlang module" do
-      # `:crypto`, not `Elixir.crypto`.
-      assert load!(~s<a = !module("crypto")>) == %{"a" => :crypto}
+    test "a name in the application's mapping is what the mapping says" do
+      assert {:ok, %{"a" => :crypto}} =
+               load(~s<a = !module("Crypto")>, modules: %{"Crypto" => :crypto})
+    end
+
+    test "the mapping is asked by the name exactly as written" do
+      assert {:ok, %{"a" => Crypto}} =
+               load(~s<a = !module("Crypto")>, modules: %{"CRYPTO" => :crypto})
     end
 
     test "surrounding whitespace is ignored" do
@@ -61,12 +66,19 @@ defmodule Cooper.ModuleTagTest do
   describe "rejecting what is not a module name" do
     test "a name with invalid characters" do
       assert {:error, error} = load(~s<a = !module("Foo Bar")>)
-      assert error.message =~ "not a dot-separated module name"
+      assert error.message =~ "not a dot-separated PascalCase module name"
     end
 
     test "an empty name" do
       assert {:error, error} = load(~s<a = !module("")>)
-      assert error.message =~ "not a dot-separated module name"
+      assert error.message =~ "not a dot-separated PascalCase module name"
+    end
+
+    test "a segment that is not PascalCase, even one the mapping holds" do
+      for name <- ["crypto", "Foo.bar", "Foo_Bar", "foo-bar", "./x.js"] do
+        assert {:error, error} = load(~s<a = !module("#{name}")>, modules: %{name => :x})
+        assert error.message =~ "PascalCase", name
+      end
     end
 
     test "a name that is not a string" do

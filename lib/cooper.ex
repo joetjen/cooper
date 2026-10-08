@@ -31,10 +31,10 @@ defmodule Cooper do
       resolution from the real environment -- give every name a test
       needs a deterministic value under `:env` explicitly, rather than
       relying on it being otherwise unset.
-    * `:dotenv` / `:dotenv_env` / `:dotenv_files` / `:dotenv_override` --
-      layer `.env` file(s) from the project root *under*
-      `System.get_env/0`, via the optional `:dotenvy` dependency, on by
-      default. The real environment outranks the files, so a deployment's
+    * `:dotenv` / `:dotenv_env` / `:dotenv_files` / `:dotenv_dir` /
+      `:dotenv_override` -- layer `.env` file(s) from `:dotenv_dir`
+      (default: the project root) *under*
+      `System.get_env/0`, on by default. The real environment outranks the files, so a deployment's
       variables are not silently shadowed by one; `dotenv_override: true`
       swaps that. See `Cooper.Dotenv` for the full layering rules,
       environment detection, and how to disable or reconfigure it.
@@ -49,6 +49,11 @@ defmodule Cooper do
     * `:tags` -- same shape, for `!Name(arg)` beyond the five built-ins
       (`int`/`float`/`bool`/`duration`/`bytes`, §7.5/§9.1). Unregistered
       use is a load-time error naming it, same as `:resolvers`.
+    * `:modules` -- `%{String.t() => module()}`, what a `!module("Name")`
+      (§7.5) means, by the name exactly as written. A name not in it is
+      the Elixir module of that name (`Acme.Payments` ->
+      `Elixir.Acme.Payments`); the map is for the rest, e.g. an Erlang
+      module: `%{"Crypto" => :crypto}`.
     * `:import_schemes` -- `%{String.t() => (rest :: String.t() ->
       {:ok, String.t()} | {:error, term()})}`, one loader per
       `import "scheme://..."` scheme your application registers
@@ -95,6 +100,7 @@ defmodule Cooper do
           dotenv: boolean(),
           dotenv_env: atom() | nil,
           dotenv_files: [String.t()],
+          dotenv_dir: String.t(),
           dotenv_override: boolean(),
           cache: boolean(),
           watch_env: boolean(),
@@ -133,10 +139,10 @@ defmodule Cooper do
   or an explicit `Cooper.Cache.invalidate/1`/`clear/0`. See
   `Cooper.Cache`'s moduledoc for why that's a deliberate scope
   boundary. `cache: false` sidesteps it entirely, at the cost of a full
-  reparse on every call. (`${...}` inside an `import "..."` path is a
-  different matter entirely -- CASC.md §5.1 doesn't support it, so it's
-  always an unconditional load-time error, never something to keep
-  fresh.)
+  reparse on every call. The same holds for every other `${NAME}` that
+  shapes the tree rather than a value in it -- one in an `import "..."`
+  path (CASC.md §5.1, which file gets read) or in an interpolated key
+  (§4.2) -- and `watch_env` watches those names alongside the guards.
 
   `watch_env` polls every `${NAME}` this call reads for changes -- an
   ordinary value, a guard, or both -- and defaults to `true` for a file
@@ -195,7 +201,7 @@ defmodule Cooper do
   end
 
   defp resolve_cached(tree, vars, env, absolute, root, opts, env_guard_names) do
-    resolver_opts = [vars: vars, env: env] ++ Keyword.take(opts, [:resolvers, :tags])
+    resolver_opts = [vars: vars, env: env] ++ Keyword.take(opts, [:resolvers, :tags, :modules])
 
     with {:ok, resolved, env_names} <- Cooper.Resolver.resolve_with_env_names(tree, resolver_opts) do
       # Every name this load depends on any way at all: an ordinary
@@ -262,7 +268,7 @@ defmodule Cooper do
       grammar_opts = Keyword.take(opts, [:root, :file, :import_schemes, :env])
 
       with {:ok, tree, vars} <- Cooper.Grammar.run_tree(source, grammar_opts),
-           resolver_opts = [vars: vars] ++ Keyword.take(opts, [:env, :resolvers, :tags]) do
+           resolver_opts = [vars: vars] ++ Keyword.take(opts, [:env, :resolvers, :tags, :modules]) do
         Cooper.Resolver.resolve(tree, resolver_opts)
       end
     end
