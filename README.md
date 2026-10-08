@@ -124,7 +124,7 @@ along as its own dependency automatically — no separate line needed:
 ```elixir
 def deps do
   [
-    {:cooper, "~> 0.4.0"}
+    {:cooper, "~> 0.5.0"}
   ]
 end
 ```
@@ -161,4 +161,4 @@ test suite, and Dialyzer, in that order. See
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE). Releases before 0.6.0 were MIT.
+Apache-2.0 — see [LICENSE](LICENSE). Releases before 0.5.0 were MIT.
