@@ -5,11 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-Planned as `0.6.0`: the version line is shared with the Praxis port
-(`praxis/libs_prx/cooper`), which released `0.5.0` and recorded that
-this implementation's next release is `0.6.0`.
+## [0.5.0] - 2026-10-08
 
 ### Added
 
@@ -351,8 +347,8 @@ not a list is one element, compared strictly (§8.4).
   `ichor_runtime ~> 0.2` in turn), and dropped the patch component from
   both requirements (`~> 0.2`/`~> 0.3` rather than pinning a specific
   patch). `ichor_runtime` 0.2.0's breaking change is internal to the
-  parse pipeline: raw capture data (`Ichor.Capture.node_t/0`'s `:rule`
-  variant) is now an ordered `[{name, value}]` list instead of a plain
+  parse pipeline: raw capture data (the `:rule` variant of
+  `Ichor.Capture`'s `node_t` type) is now an ordered `[{name, value}]` list instead of a plain
   map, fixing sibling-capture evaluation order depending on a map's own
   (cross-OTP-version-unstable) iteration order rather than true
   first-occurrence source order. `lib/cooper/native_grammar/native.ex`
