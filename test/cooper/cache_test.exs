@@ -294,13 +294,12 @@ defmodule Cooper.CacheTest do
 
       attach_telemetry([[:cooper, :cache, :env_changed]])
 
-      original = File.cwd!()
-      File.cd!(dir)
-      on_exit(fn -> File.cd!(original) end)
+      # Through `:dotenv_dir`, which the poll must keep: it re-reads the
+      # environment from the same directory the load did.
+      assert {:ok, %{"value" => "default"}} =
+               Cooper.load_file(path, watch_env: true, dotenv_dir: dir)
 
-      assert {:ok, %{"value" => "default"}} = Cooper.load_file(path, watch_env: true)
-
-      File.write!(".env", "COOPER_TELEM_DOTENV_VAR=from-dotenv\n")
+      File.write!(Path.join(dir, ".env"), "COOPER_TELEM_DOTENV_VAR=from-dotenv\n")
 
       assert_receive {:telemetry, [:cooper, :cache, :env_changed], _, metadata}, 2000
       assert metadata.changed_names == ["COOPER_TELEM_DOTENV_VAR"]
@@ -354,6 +353,30 @@ defmodule Cooper.CacheTest do
       refute_receive {:telemetry, [:cooper, :cache, :env_changed], _, _}, 500
     end
 
+    test "watches a name an import path is chosen by, and reloads the other file" do
+      # Which file an import reads shapes the cached tree exactly as a
+      # guard does; it was once never watched, so a cached tree kept
+      # importing the file the *old* value selected.
+      dir = Path.join(@scratch_dir, "telem_import_env_#{unique()}")
+      File.mkdir_p!(dir)
+      write(Path.join(dir, "dev.casc"), 9700, "#@version = 1.0\nwhich = \"dev\"\n")
+      write(Path.join(dir, "prod.casc"), 9700, "#@version = 1.0\nwhich = \"prod\"\n")
+      path = Path.join(dir, "main.casc")
+      write(path, 9700, "#@version = 1.0\nimport \"${COOPER_TELEM_STAGE:dev}.casc\"\n")
+
+      System.delete_env("COOPER_TELEM_STAGE")
+      on_exit(fn -> System.delete_env("COOPER_TELEM_STAGE") end)
+
+      attach_telemetry([[:cooper, :cache, :env_changed]])
+
+      assert {:ok, %{"which" => "dev"}} = Cooper.load_file(path, dotenv: false)
+      System.put_env("COOPER_TELEM_STAGE", "prod")
+
+      assert_receive {:telemetry, [:cooper, :cache, :env_changed], _, metadata}, 2000
+      assert metadata.changed_names == ["COOPER_TELEM_STAGE"]
+      assert {:ok, %{"which" => "prod"}} = Cooper.load_file(path, dotenv: false)
+    end
+
     test "watches a guard-only name -- never read as an ordinary ${...} value anywhere in the file" do
       path = scratch_path("telem_env_guard_only")
       # `COOPER_TELEM_GUARD_ONLY_VAR` appears *only* in the guard, never
@@ -403,6 +426,80 @@ defmodule Cooper.CacheTest do
         write(path, base_mtime + i, "#@version = 1.0\nname = \"#{name}\"\n")
         assert {:ok, %{"name" => ^name}} = Cooper.load_file(path)
       end)
+    end
+  end
+
+  describe "the env baseline" do
+    setup do
+      on_exit(fn -> Cooper.Cache.clear() end)
+      :ok
+    end
+
+    test "a change landing between two loads is still seen, since a reload never re-baselines" do
+      path = scratch_path("env_baseline")
+      write(path, 9900, "#@version = 1.0\nvalue = ${COOPER_BASELINE_VAR:\"default\"}\n")
+      System.delete_env("COOPER_BASELINE_VAR")
+      on_exit(fn -> System.delete_env("COOPER_BASELINE_VAR") end)
+
+      attach_telemetry([[:cooper, :cache, :env_changed]])
+
+      {:ok, %{"value" => "default"}} = Cooper.load_file(path, watch_env: true)
+      System.put_env("COOPER_BASELINE_VAR", "live")
+      {:ok, _} = Cooper.load_file(path, watch_env: true)
+
+      assert_receive {:telemetry, [:cooper, :cache, :env_changed], _, metadata}, 2000
+      assert metadata.changed_names == ["COOPER_BASELINE_VAR"]
+    end
+  end
+
+  describe "a glob import" do
+    setup do
+      dir = Path.join(@scratch_dir, "glob_#{unique()}")
+      File.mkdir_p!(Path.join(dir, "parts"))
+      path = Path.join(dir, "app.casc")
+      write(path, 9500, "#@version = 1.0\nimport \"parts/*.casc\"\n")
+      write(Path.join(dir, "parts/a.casc"), 9500, "#@version = 1.0\na = 1\n")
+      %{dir: dir, path: path}
+    end
+
+    test "a file added where it looks is read on the next load", %{dir: dir, path: path} do
+      assert {:ok, %{"a" => 1}} = Cooper.load_file(path, watch_env: false)
+
+      write(Path.join(dir, "parts/b.casc"), 9500, "#@version = 1.0\nb = 2\n")
+
+      assert {:ok, %{"a" => 1, "b" => 2}} = Cooper.load_file(path, watch_env: false)
+    end
+
+    test "a file deleted from where it looks is gone on the next load", %{dir: dir, path: path} do
+      write(Path.join(dir, "parts/b.casc"), 9500, "#@version = 1.0\nb = 2\n")
+      assert {:ok, %{"a" => 1, "b" => 2}} = Cooper.load_file(path, watch_env: false)
+
+      File.rm!(Path.join(dir, "parts/b.casc"))
+
+      assert {:ok, result} = Cooper.load_file(path, watch_env: false)
+      assert result == %{"a" => 1}
+    end
+
+    test "a file the pattern does not match leaves the entry cached", %{dir: dir, path: path} do
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+      attach_telemetry([[:cooper, :cache, :file_changed]])
+
+      write(Path.join(dir, "parts/notes.txt"), 9500, "not casc")
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+
+      refute_receive {:telemetry, [:cooper, :cache, :file_changed], _, _}, 200
+    end
+
+    test "the change names the file added", %{dir: dir, path: path} do
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+      attach_telemetry([[:cooper, :cache, :file_changed]])
+
+      added = Path.join(dir, "parts/b.casc")
+      write(added, 9500, "#@version = 1.0\nb = 2\n")
+      {:ok, _} = Cooper.load_file(path, watch_env: false)
+
+      assert_receive {:telemetry, [:cooper, :cache, :file_changed], _, metadata}, 1000
+      assert metadata.changed_files == [Path.expand(added)]
     end
   end
 end

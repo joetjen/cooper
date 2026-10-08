@@ -154,4 +154,101 @@ defmodule Cooper.LoopTest do
       assert {:error, %Ichor.Error{stage: :loop}} = Cooper.Grammar.run(source)
     end
   end
+
+  describe "bindings reach every part of the body" do
+    test "a %{...} path segment" do
+      # CASC.md §7.2's own `%{tokens."supervisor-@{id}"}` form; the binding
+      # was once left unsubstituted and failed as an undefined variable.
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\n@l = ["a"]\nfor @i in @{l} as out."@{i}" { v = %{t."@{i}"} }\nt.a = 5),
+               dotenv: false
+             ) == {:ok, %{"out" => %{"a" => %{"v" => 5}}, "t" => %{"a" => 5}}}
+    end
+
+    test "a reference's default" do
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\nfor @i in ["a"] as out."@{i}" { v = @{missing:"fallback-@{i}"} }),
+               dotenv: false
+             ) == {:ok, %{"out" => %{"a" => %{"v" => "fallback-a"}}}}
+    end
+
+    test "a key may mix bindings with ordinary variables" do
+      # Once "a for loop's keys may only reference its own bindings".
+      assert Cooper.load_string(
+               ~s(#@version = 1.0\n@stage = "prod"\nfor @i in ["a"] as out."@{stage}-@{i}" { v = 1 }),
+               dotenv: false
+             ) == {:ok, %{"out" => %{"prod-a" => %{"v" => 1}}}}
+    end
+
+    test "a ~key { } in the body clears under the destination, not at the top level" do
+      source = """
+      #@version = 1.0
+      server.x = 1
+      @l = [1]
+      for @i in @{l} as out { ~server { a = 1 } }
+      """
+
+      assert {:ok, %{"server" => %{"x" => 1}, "out" => %{"server" => %{"a" => 1}}}} =
+               Cooper.Grammar.run(source)
+    end
+  end
+
+  describe "where the copies showed loops contradicting CASC.md" do
+    test "a bound value keeps the reference's filters" do
+      assert {:ok, %{"out" => %{"a" => %{"up" => "A"}, "b" => %{"up" => "B"}}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a\", \"b\"] as out.\"@{x}\" { up = @{x | upcase} }\n"
+               )
+    end
+
+    test "`+` and `-` in the body edit the `from` template's copy, not the template" do
+      source = """
+      #@version = 1.0
+      t { list = [1], a = 1, b = 2 }
+      for @x in ["p", "q"] from t as out."@{x}" {
+        +list = [@{x}]
+        -a
+      }
+      """
+
+      assert {:ok, result} = Cooper.load_string(source)
+      assert result["t"] == %{"list" => [1], "a" => 1, "b" => 2}
+      assert result["out"]["p"] == %{"list" => [1, "p"], "b" => 2}
+      assert result["out"]["q"] == %{"list" => [1, "q"], "b" => 2}
+    end
+
+    test "a binding reaches a filter argument" do
+      assert {:ok, %{"out" => %{"s" => "HTTPS"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"://\"] as out { s = ${SCHEME | trim_suffix: \"@{x}\"} }\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+
+    test "a destination key built from a binding may not hold a `.`, as no interpolated key may" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a.b\"] as out.\"@{x}\" { v = 1 }\n"
+               )
+    end
+
+    test "a body key built from a binding may not hold a `.`" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string(
+                 "#@version = 1.0\nfor @x in [\"a\"] as out { \"k-@{x}.z\" = 1 }\n"
+               )
+    end
+
+    test "a key built from a binding may not be empty" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string("#@version = 1.0\nfor @x in [\"\"] as out.\"@{x}\" { v = 1 }\n")
+    end
+
+    test "a loop iterable must name its variable, not build the name" do
+      assert {:error, %Ichor.Error{stage: :loop}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@n = \"l\"\n@l = [1]\nfor @x in @{\"@{n}\"} as out { v = @{x} }\n"
+               )
+    end
+  end
 end

@@ -158,4 +158,46 @@ defmodule Cooper.FiltersTest do
       assert error.message =~ "not a string"
     end
   end
+
+  describe "a secret (§4.3)" do
+    test "is filtered as its value, and stays a secret" do
+      assert {:ok, %{"trimmed" => %Cooper.Secret{value: "hunter2"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n*pw = \"  hunter2  \"\ntrimmed = %{pw | trim}\n"
+               )
+    end
+
+    test "is filtered through a chain" do
+      assert {:ok, %{"v" => %Cooper.Secret{value: "abc"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n*pw = \"  AbC  \"\nv = %{pw | trim | downcase}\n"
+               )
+    end
+  end
+
+  describe "an interpolated argument" do
+    test "is resolved before the filter runs" do
+      assert {:ok, %{"s" => "HTTPS"}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@sep = \"://\"\ns = ${SCHEME | trim_suffix: \"@{sep}\"}\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+
+    test "with no string form is refused" do
+      assert {:error, %Ichor.Error{stage: :resolve}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@sep = [1]\ns = ${SCHEME | trim_suffix: \"@{sep}\"}\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+
+    test "read from a secret makes the result a secret" do
+      assert {:ok, %{"s" => %Cooper.Secret{value: "HTTPS"}}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n*sep = \"://\"\ns = ${SCHEME | trim_suffix: \"%{sep}\"}\n",
+                 env: %{"SCHEME" => "HTTPS://"}
+               )
+    end
+  end
 end

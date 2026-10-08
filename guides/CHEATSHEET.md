@@ -28,7 +28,7 @@ one on.
 |---|---|---|---|
 | `:env` | `%{String.t() => String.t()}` | `%{}` | **Override**, not replacement, for `${...}` resolution — always wins for a name it defines, but a name it doesn't define still falls through to `.env`/the real environment (see [.env files](#env-files)). |
 | `:dotenv` | `boolean()` | `true` | Layer `.env` file(s) *under* `System.get_env/0` (see [.env files](#env-files)). `false` disables just this layer. |
-| `:dotenv_env` | `atom() \| nil` | live `Mix.env/0` if Mix is loaded, else `Application.compile_env(:cooper, :dotenv_env)`, else `nil` | Which `.env.<env>` file to read. |
+| `:dotenv_env` | `atom() \| nil` | `COOPER_ENV` (`dev`, `staging`, `test`, `prod`) | Which `.env.<env>` file to read. |
 | `:dotenv_files` | `[String.t()]` | `[".env", ".env.<dotenv_env>", ".env.local"]` | Fully replaces the default `.env` file list. |
 | `:dotenv_override` | `boolean()` | `false` | Put the `.env` files *above* `System.get_env/0` instead, restoring the pre-inversion order. |
 | `:root` | `String.t()` | `path`'s directory (`load_file/2`) / `File.cwd!/0` (`load_string/2`) | Where a bare `import "..."` resolves relative to. |
@@ -62,8 +62,7 @@ On by default. Layers, later winning:
 never an error. `:env`, if passed, always wins for the names it
 defines, but doesn't isolate resolution from anything below it -- a
 name not in `:env` still falls through to `.env`/the real environment.
-Runs through the optional `:dotenvy` dependency — add
-`{:dotenvy, "~> 1.1"}` to your own `mix.exs` deps. See the
+Runs through `:dotenvy`, which Cooper depends on. See the
 [tutorial](TUTORIAL.md#11-env-files) for the full walkthrough.
 
 ## Caching
@@ -165,7 +164,7 @@ string; `error.stage` says roughly where it came from:
 | `:import` | A file couldn't be read, an import cycle, or an unregistered `scheme://`. |
 | `:merge` | A `~`/`+`/`-` sigil applied to a value it can't operate on (e.g. `+`/`-` against a tuple). |
 | `:resolve` | An undefined `@{}`/`${}` reference with no default, a `${NAME:?"msg"}` failure, a `%{...}`/`@{...}` reference cycle, or an unregistered resolver/tag. |
-| `:dotenv` | An `.env` file that exists but fails to parse, or `dotenv: true` explicitly requested without the optional `:dotenvy` dependency installed. |
+| `:dotenv` | An `.env` file that exists but fails to parse. |
 
 ## Test-time injection
 

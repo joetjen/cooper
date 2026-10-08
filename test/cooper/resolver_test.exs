@@ -354,4 +354,86 @@ defmodule Cooper.ResolverTest do
       assert result["v"] == "hello world"
     end
   end
+
+  describe "a list, map, or tuple has no string form" do
+    test "interpolating one is an error, not raw bytes or a crash" do
+      assert {:error, %Ichor.Error{stage: :resolve, message: list}} =
+               load(~s(@x = [1, 2]\nv = "@{x}"))
+
+      assert list =~ "cannot interpolate [1, 2]"
+
+      assert {:error, %Ichor.Error{stage: :resolve, message: tuple}} =
+               load(~s[@x = (1, 2)\nv = "a@{x}"])
+
+      assert tuple =~ "cannot interpolate {1, 2}"
+    end
+
+    test "a secret one does not show its value in the message" do
+      assert {:error, %Ichor.Error{message: message}} = load(~s(*x = [1]\nv = "a%{x}"))
+      refute message =~ "1"
+    end
+  end
+
+  describe "where the copies showed references contradicting CASC.md" do
+    test "`:+1` substitutes the number, it is no signed default" do
+      assert {:ok, %{"set" => 1, "unset" => ""}} =
+               Cooper.load_string("#@version = 1.0\nset = ${PORT:+1}\nunset = ${NOPE:+1}\n",
+                 env: %{"PORT" => "9090"}
+               )
+    end
+
+    test "`:-1` is a default of minus one" do
+      assert {:ok, %{"v" => -1}} =
+               Cooper.load_string("#@version = 1.0\nv = ${NOPE:-1}\n", env: %{})
+    end
+
+    test "the message of `:?` interpolates, as every double-quoted string does" do
+      assert {:error, %Ichor.Error{stage: :resolve, message: "need M"}} =
+               Cooper.load_string("#@version = 1.0\n@m = \"M\"\na = @{n:?\"need @{m}\"}\n")
+    end
+
+    test "infinity reads as CASC spells it inside a string" do
+      assert {:ok, %{"v" => "inf -inf"}} =
+               Cooper.load_string("#@version = 1.0\n@a = inf\n@b = -inf\nv = \"@{a} @{b}\"\n")
+    end
+
+    test "nil reads as CASC spells it inside a string" do
+      assert {:ok, %{"v" => "[nil]"}} =
+               Cooper.load_string("#@version = 1.0\n@n = nil\nv = \"[@{n}]\"\n")
+    end
+
+    test "an index past the start of a list is missing, and takes the default" do
+      assert {:ok, %{"a" => 3, "b" => "none"}} =
+               Cooper.load_string(
+                 "#@version = 1.0\n@l = [1, 2, 3]\na = @{l[-1]}\nb = @{l[-4]:\"none\"}\n"
+               )
+    end
+  end
+
+  describe "!bool (CASC.md §7.5)" do
+    test "reads every spelling a boolean arrives in from an environment" do
+      for {text, value} <- [
+            {"true", true},
+            {"1", true},
+            {"yes", true},
+            {"on", true},
+            {"false", false},
+            {"0", false},
+            {"no", false},
+            {"off", false}
+          ] do
+        assert {:ok, %{"v" => ^value}} =
+                 Cooper.load_string("#@version = 1.0\nv = !bool(${B})\n", env: %{"B" => text}),
+               text
+      end
+    end
+
+    test "refuses anything else, upper case included" do
+      for text <- ["TRUE", "Yes", "2", "y", ""] do
+        assert {:error, %Ichor.Error{stage: :resolve}} =
+                 Cooper.load_string("#@version = 1.0\nv = !bool(\"#{text}\")\n"),
+               text
+      end
+    end
+  end
 end

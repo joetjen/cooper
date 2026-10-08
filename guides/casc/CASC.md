@@ -81,6 +81,8 @@ foo."bar baz".dronf = "fnord"
 
 Double-quoted key segments support interpolation and escapes, same as double-quoted strings (§6.5). Single-quoted key segments are literal, same as single-quoted strings. Bare identifier keys cannot be interpolated (§4.1's rule has no room for `@{}`), so an interpolated key must be double-quoted.
 
+An interpolated segment must resolve to a non-empty string with no `.` in it (a written-out `"a.b"` is one segment; a `.` that arrives through interpolation would silently be read as two), and may not be built from a secret (§7.2). The rule is the same inside a `for` loop (§5.5), where the segment is built from a binding, as outside one.
+
 ### 4.3 Secret keys
 
 Any key segment may be prefixed `*` to mark it **secret**: `*password = "..."`, `db.*password = "..."`, `*db.password = "..."`. The stored value is unaffected; consumers should redact secret values on display (e.g. `"[~~REDACTED~~]"`).
@@ -105,7 +107,7 @@ import "vault://secret/base"
 4. **A path may interpolate `${NAME}` or `${NAME:default}`** (§7.2), which is how one document selects among several:
 
    ```casc
-   import "env/${MIX_ENV:dev}.casc"
+   import "env/${COOPER_ENV}.casc"
    ```
 
    Only `${...}` works. An import is resolved *while the document is parsed* — the imported file's statements are spliced into the importer — so a reference needing the finished tree (`%{...}`, §7.3) cannot be available yet and is a load-time error. The environment is available, which is the same thing `${?NAME}` reads (§7.2).
@@ -190,6 +192,8 @@ Desugaring to the canonical tree always happens *before* merge (§8) — a corre
 Allowing three equivalent forms — rather than picking one, as TOML does — is a deliberate readability tradeoff: a deep config often reads better as dotted paths, a config with many siblings often reads better as a block. Consistency across a codebase is left to tooling (a formatter), not enforced by the grammar.
 
 **Block keys may be identifier-shaped (§4.1) or quoted strings (§4.2)** — so a block with quoted keys already covers what a separate "map" type would. **There is no separate map syntax in CASC; a block in value position is a map, however its keys are written.**
+
+**An empty block is an empty map**: `logger {}` and `logger = {}` both make `logger` a map with nothing in it. Like any block it merges, so written over a map that already exists it adds nothing and leaves that map as it is; `~logger {}` empties it.
 
 ### 5.5 Loops
 
@@ -289,6 +293,8 @@ Blocks/maps deep-merge and lists replace by default (§8 has full rationale). Th
 - **`-key = [...]`** — **remove** matching elements from an existing list.
 - **`-key.path`** (bare, no value) — **delete** the path entirely, any type.
 
+A bare `-key.path` followed by another complete statement is always the delete — `-feature.legacy_mode` on one line and `c = 1` on the next is a delete and an assignment, never the remove `-feature.legacy_mode = c` (statements are not newline-terminated, so without this rule the operator being optional, §5.3, would make the next line's key the remove value). Write the remove form with its `=` (`-tags = b`) where its value is itself a bare word that could start a statement.
+
 `+`/`-` (list form) apply only to lists — using either against a tuple is a load-time error (§8.3), since it would silently change the tuple's fixed arity.
 
 **Sigil ordering** — `#`, then merge-control (`~`/`+`/`-`), then `*`, directly before the key, no separators:
@@ -336,9 +342,12 @@ remove = yes
 
 ```casc
 level = :info    ; identical to `level = info`
-enabled = :true   ; the atom :true -- NOT the boolean
-enabled = true    ; the boolean -- NOT an atom
+mode = :inf       ; the atom inf -- NOT infinity
 ```
+
+**`:nil`, `:true` and `:false` are the values `nil`, `true` and `false`.** On the reference implementations' runtime those three atoms *are* the three values, so there is no separate atom for a document to reach; an implementation on a runtime that tells them apart produces the value too, so that a document means one thing everywhere. `:inf` is an ordinary atom.
+
+Keeping them as atoms distinct from the values was tried and dropped. It took a wrapper on the BEAM (`:true` *is* `true` there), so those three spellings came back as something no other atom is, and a document's meaning still depended on which implementation read it — the opposite of what the distinction was for.
 
 `:` has no other meaning in CASC — not an assignment operator (§5.3), and appears nowhere else in the grammar.
 
@@ -425,6 +434,17 @@ list2 = [
 
 Comma, newline, or whitespace all separate elements.
 
+**An element may be a block** — a map, written exactly as a block is anywhere else (§5.4), keys interpolating and statements merging inside it:
+
+```casc
+access_control = [
+  { path = "^/admin", roles = ["ROLE_ADMIN"] }
+  { path = "^/api",   roles = ["ROLE_API"] }
+]
+```
+
+The same holds for a tuple's elements (§6.11). A list of maps is still a list: it replaces wholesale (§8.2), and `+`/`-` append or remove whole maps, compared by value (§8.4).
+
 ### 6.11 Tuples
 
 Parentheses — chosen to avoid colliding with blocks, which already own `{ ... }` (§5.4) as both structure and map type:
@@ -448,6 +468,8 @@ Comma, newline, or whitespace separate elements, same as lists. `;` and `|` are 
 ## 7. Interpolation and references
 
 Three brace-delimited sigils, plus two extensibility mechanisms sharing the same shape (§9).
+
+**A value interpolated into a string reads as CASC writes it:** `nil`, `true`, `false`, `inf`, `-inf`; an atom as its name; a duration in nanoseconds (`500000000ns`) and a byte size in bytes (`2048B`); an IP address or network as written in canonical form; a float as the shortest digits that read back as the same float, written as a plain decimal or with an exponent, whichever is shorter (the decimal on a tie), and always with a fraction (`1.0`, `52.52`, `100.0`, `0.0001`, `1.0e3`, `1.0e-5`). A list, a tuple or a map has no string form, and interpolating one is a load error.
 
 ### 7.1 Variables
 
@@ -474,6 +496,15 @@ Deliberately bash-like. Names match `/^[a-zA-Z_][a-zA-Z0-9_]*$/`.
 - `${NAME[]:[...]}` — parse as a list (split on `,`/`;`), with a default
 - `${NAME[i]:default}` — index into the split list
 
+**`${COOPER_ENV}` names the current environment** in every implementation, so one document selects per-environment files the same way everywhere: `import "env/${COOPER_ENV}.casc"`. The names are `dev`, `staging`, `test` and `prod`. A real `COOPER_ENV` always wins and is used exactly as written; unset or empty, each implementation falls back to its host's own variable (`MIX_ENV`, `PRX_ENV`, `APP_ENV`, `NODE_ENV`), else `dev`, and maps that value onto the shared names through one table:
+
+| Host value | `COOPER_ENV` |
+|---|---|
+| `development`, `local` | `dev` |
+| `testing` | `test` |
+| `production` | `prod` |
+| anything else (`dev`, `staging`, `test`, `prod`, ...) | unchanged |
+
 **`${...}` always resolves to a string.** For a number or boolean, wrap it in the matching tagged value (§7.5) rather than relying on CASC to guess:
 
 ```casc
@@ -484,6 +515,8 @@ debug = !bool(${DEBUG:false})
 This is deliberate, not an oversight: guessing a type from what a string looks like is exactly the kind of implicit behavior that produces surprises, so CASC never does it silently.
 
 **Note:** real bash uses `${NAME:-default}` (with a dash); CASC drops it so the suffix grammar (`:default`, `:+alt`, `:?"msg"`) is identical across `@{...}`, `${...}`, and `%{...}` — one rule, not three near-identical ones.
+
+`:+` always introduces a substitute, so `${PORT:+1}` substitutes `1` and `${PORT:+inf}` substitutes infinity; a default of minus one is `${PORT:-1}`, and of minus infinity `${PORT:-inf}`. The message of `:?"..."` is a double-quoted string like any other and interpolates: `@{n:?"need @{m}"}` fails with `need` followed by `@{m}`'s value.
 
 #### Filters
 
@@ -619,7 +652,7 @@ Giving `vault` meaning is entirely the consumer's job. An unregistered resolver 
 
 `!Name(argument)` constructs a value of type `Name` from one argument (typically a string). Parsing only needs to recognize "a tag plus one parenthesized argument" — giving it meaning is the registered handler's job.
 
-Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2), `!duration`, `!bytes` (constructors for §6.8/§6.9), `!trim`, `!downcase`, `!upcase` (normalization), and `!module` (below). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
+Built in: `!int`, `!float`, `!bool` (coercion, mainly for `${...}`, §7.2; `!bool` reads `true`/`1`/`yes`/`on` as true and `false`/`0`/`no`/`off` as false, lower case only, and refuses anything else), `!duration`, `!bytes` (constructors for §6.8/§6.9), `!trim`, `!downcase`, `!upcase` (normalization), and `!module` (below). The normalizing tags do for a whole value what the matching filter (§7.2) does for one reference, and share its rule that a non-string argument is an error rather than a coercion. Anything else — e.g. `!uuid("...")` — is consumer-defined. An unregistered tag is a load-time error naming it (§9.4, §9.1).
 
 **`!module("Name")`** names a module of the host language:
 
@@ -630,9 +663,24 @@ formatter = !module("${LOG_FORMATTER}")
 
 It exists because §6.4's atoms are bare identifiers, so a dotted module name cannot be written as a literal — and because a module is often deployment-selected, which means it arrives through `${...}` as a string.
 
-**The tag is the same in every implementation; the shape it accepts is not.** What counts as a module name belongs to the language a given implementation targets, so a document that names a module stays readable across ports even where the naming convention differs. This implementation accepts dot-separated identifiers, mapping an upper-case initial to an Elixir module (`Foo.Bar` → `Elixir.Foo.Bar`) and anything else to an Erlang module (`crypto` → `:crypto`).
+**A module name is written the same way for every implementation**: dot-separated segments, each in PascalCase (`[A-Z][A-Za-z0-9]*`). Anything else — `crypto`, `Foo.bar`, `stripe_client`, `./x.js` — is a load error, so a document that names a module means one module everywhere.
 
-Like a bare atom literal, this creates an atom, with the same caveat: fine for a fixed, trusted set of configuration files, not for untrusted input.
+Each implementation resolves the name in two steps:
+
+1. **The application's mapping**, a `modules` load option from written name to host module, consulted by the name *exactly* as written. It is how a module outside the convention is reached: an Erlang module from Elixir (`"Crypto" => :crypto`), a module whose own spelling differs, or any Node module.
+2. **The host's convention**, for a name the mapping does not hold:
+
+| Written | Elixir | Praxis | PHP | Node |
+|---|---|---|---|---|
+| `Acme.Payments.StripeClient` | `Acme.Payments.StripeClient` | `acme.payments.stripe-client` | `Acme\Payments\StripeClient` | mapping required |
+| `Cooper.Resolver` | `Cooper.Resolver` | `cooper.resolver` | `Cooper\Resolver` | mapping required |
+| `ASCO.HTTPClient` | `ASCO.HTTPClient` | `asco.http-client` | `ASCO\HTTPClient` | mapping required |
+
+Praxis splits a segment into words before an upper-case letter that follows a lower-case letter or a digit, and before the last capital of a run of capitals followed by a lower-case letter (`HTTPClient` → `http`, `client`), then joins them lower-case with `-`. Node has no convention to translate into — a Node module is a location, not a name — so there a name the mapping does not hold is a load error naming the `modules` option.
+
+No implementation checks at load that the module exists; the name is resolved, never loaded.
+
+On the BEAM, like a bare atom literal, this creates an atom, with the same caveat: fine for a fixed, trusted set of configuration files, not for untrusted input.
 
 ---
 
@@ -658,6 +706,8 @@ Merge operates on the fully-desugared tree (§5.4). Imports behave like "early w
 - `+key = [...]` — append instead of replace (plain assignment if `key` doesn't exist yet).
 - `-key = [...]` — remove matching elements instead of replace.
 - `-key.path` (bare) — delete the path entirely, any type.
+
+A list operand stands for its elements; anything else, `nil` included, is one element (`+tags = "d"` appends `"d"`, `+tags = nil` appends `nil`). Removal compares values strictly: `1` and `1.0` are different elements.
 
 Ordering with `#`/`*` is fixed (§5.7).
 

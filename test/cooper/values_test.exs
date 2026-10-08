@@ -142,4 +142,37 @@ defmodule Cooper.ValuesTest do
       assert is_tuple(result)
     end
   end
+
+  describe "an impossible date or time is a load-time error, not a crash" do
+    test "dates, times, and date-times" do
+      for literal <- ["2023-02-30", "25:00:00", "2023-02-30T07:32:00", "2023-02-30T07:32:00Z"] do
+        assert {:error, %Ichor.Error{stage: :action, message: message}} =
+                 Cooper.Grammar.run("#@version = 1.0\nv = #{literal}")
+
+        assert message =~ "invalid"
+        assert message =~ literal
+      end
+    end
+  end
+
+  describe "duration and byte-size arithmetic" do
+    test "is exact beyond 2^53, as a compound duration already was" do
+      assert {:ok, 9_223_372_036_854_775_807} =
+               Cooper.Literals.parse_duration("9223372036854775807ns")
+
+      assert {:ok, 9_007_199_254_740_993} = Cooper.Literals.parse_bytes("9007199254740993B")
+    end
+
+    test "rounds a fraction half away from zero" do
+      assert {:ok, 2} = Cooper.Literals.parse_duration("1.5ns")
+      assert {:ok, 1} = Cooper.Literals.parse_duration("0.5ns")
+      assert {:ok, 1001} = Cooper.Literals.parse_bytes("1.0005KB")
+    end
+
+    test "takes an amount too large for a float" do
+      huge = String.duplicate("9", 400)
+      assert {:ok, n} = Cooper.Literals.parse_duration(huge <> "ns")
+      assert n == String.to_integer(huge)
+    end
+  end
 end

@@ -43,8 +43,8 @@ defmodule Cooper.Grammar do
   @spec run(String.t(), keyword()) ::
           {:ok, term()} | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
   def run(source_text, opts \\ []) do
-    with {:ok, entries} <- run_ops(source_text, opts) do
-      Cooper.Merge.assemble(entries)
+    with {:ok, tree, _vars, _files, _env_names} <- run_tree_with_files(source_text, opts) do
+      {:ok, tree}
     end
   end
 
@@ -111,10 +111,66 @@ defmodule Cooper.Grammar do
   def run_tree_with_files(source_text, opts \\ []) do
     with {:ok, entries, ctx} <-
            run_with_context(source_text, Cooper.Actions, initial_context(opts)),
+         {public, private} = Cooper.Scope.split(ctx.vars),
+         vars = {public, Map.put(ctx.private_vars, ctx.scope, private)},
+         {:ok, entries, key_env_names} <- resolve_keys(entries, vars, ctx.env),
          {:ok, tree} <- Cooper.Merge.assemble(entries) do
-      {public, private} = Cooper.Scope.split(ctx.vars)
-      private_vars = Map.put(ctx.private_vars, ctx.scope, private)
-      {:ok, tree, {public, private_vars}, ctx.loaded_files, ctx.env_guard_names}
+      env_names = MapSet.union(ctx.env_guard_names, key_env_names)
+      {:ok, tree, vars, ctx.loaded_files, env_names}
+    end
+  end
+
+  # Every interpolated key segment (`"region-@{name}" = ...`, CASC.md
+  # §4.2) resolved to the string it names, before merging -- once was
+  # never, outside a `for` loop: the unresolved `Cooper.Interp.Text`
+  # itself became the map key. The variables are complete by now (every
+  # file has been read), which is the earliest a key can be resolved.
+  # The `${NAME}`s read here shape the tree the way a `${?NAME}` guard
+  # does, so they join the guard names `Cooper.Cache` watches.
+  defp resolve_keys(entries, vars, env) do
+    Enum.reduce_while(entries, {:ok, [], MapSet.new()}, fn entry, {:ok, acc, names} ->
+      case resolve_entry_keys(entry, vars, env) do
+        {:ok, entry, entry_names} ->
+          {:cont, {:ok, [entry | acc], MapSet.union(names, entry_names)}}
+
+        {:error, _} = err ->
+          {:halt, err}
+      end
+    end)
+    |> case do
+      {:ok, acc, names} -> {:ok, Enum.reverse(acc), names}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp resolve_entry_keys({:op, %Cooper.Op{path: path} = op}, vars, env) do
+    with {:ok, path, names} <- resolve_path_keys(path, vars, env) do
+      {:ok, {:op, %{op | path: path}}, names}
+    end
+  end
+
+  defp resolve_entry_keys({:clear, path}, vars, env) do
+    with {:ok, path, names} <- resolve_path_keys(path, vars, env) do
+      {:ok, {:clear, path}, names}
+    end
+  end
+
+  defp resolve_entry_keys(other, _vars, _env), do: {:ok, other, MapSet.new()}
+
+  defp resolve_path_keys(path, vars, env) do
+    Enum.reduce_while(path, {:ok, [], MapSet.new()}, fn
+      segment, {:ok, acc, names} when is_binary(segment) ->
+        {:cont, {:ok, [segment | acc], names}}
+
+      segment, {:ok, acc, names} ->
+        case Cooper.Resolver.resolve_key(segment, vars: vars, env: env) do
+          {:ok, key, key_names} -> {:cont, {:ok, [key | acc], MapSet.union(names, key_names)}}
+          {:error, _} = err -> {:halt, err}
+        end
+    end)
+    |> case do
+      {:ok, acc, names} -> {:ok, Enum.reverse(acc), names}
+      {:error, _} = err -> err
     end
   end
 

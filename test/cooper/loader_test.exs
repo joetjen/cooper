@@ -163,4 +163,31 @@ defmodule Cooper.LoaderTest do
       assert {:error, %Ichor.Error{stage: :import}} = Cooper.Grammar.run(source, root: @fixtures)
     end
   end
+
+  describe "private variables (§5.2)" do
+    test "one private variable reads another" do
+      assert {:ok, %{"x" => "v1"}} =
+               Cooper.load_string("#@version = 1.0\n@*a = 1\n@*b = \"v@{a}\"\nx = @{b}\n")
+    end
+
+    test "a private variable shadows an imported public one of the same name, in this file only" do
+      source =
+        "#@version = 1.0\nimport \"shadow_child.casc\"\n@*name = \"private\"\nx = @{name}\n"
+
+      assert {:ok, %{"child" => "public", "x" => "private"}} =
+               Cooper.load_string(source, root: @fixtures, file: fixture("main.casc"))
+    end
+  end
+
+  describe "a scheme import (§9.3)" do
+    test "importing itself again is a cycle, like a file import" do
+      source = "#@version = 1.0\nimport \"loop://self\"\n"
+      schemes = %{"loop" => fn "self" -> {:ok, source} end}
+
+      assert {:error, %Ichor.Error{stage: :import, message: message}} =
+               Cooper.load_string(source, import_schemes: schemes)
+
+      assert message =~ "cycle"
+    end
+  end
 end

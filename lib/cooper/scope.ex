@@ -71,6 +71,20 @@ defmodule Cooper.Scope do
   # `Cooper.IPv4`, `DateTime`, ...) is a leaf: walking its fields would
   # rebuild it field-by-field for nothing, and `Cooper.Secret` in
   # particular must not be taken apart here.
+  # A block written as a list element (CASC.md §6.10) keeps its statements
+  # until it is resolved, so its keys and values are stamped where they sit.
+  def stamp(%Cooper.Block{ops: ops} = block, scope) do
+    %{
+      block
+      | ops:
+          Enum.map(ops, fn
+            {:op, op} -> {:op, %{stamp(op, scope) | path: stamp(op.path, scope)}}
+            {:clear, path} -> {:clear, stamp(path, scope)}
+            other -> other
+          end)
+    }
+  end
+
   def stamp(%_{} = struct, _scope), do: struct
 
   def stamp(list, scope) when is_list(list), do: Enum.map(list, &stamp(&1, scope))
@@ -86,15 +100,35 @@ defmodule Cooper.Scope do
   def stamp(other, _scope), do: other
 
   @doc """
-  Splits a parsed file's `vars` (`name => {value, public?}`) into the
-  public environment that crosses file boundaries and the private one
-  that does not.
+  Splits a parsed file's `vars` (`name => {value, public?}`, a private
+  declaration keyed `{:private, name}`) into the public environment that
+  crosses file boundaries and the private one that does not, both keyed
+  by plain name.
   """
   @spec split(map()) :: {map(), map()}
   def split(vars) do
-    {public, private} = Enum.split_with(vars, fn {_name, {_value, public?}} -> public? end)
+    {public, private} = Enum.split_with(vars, fn {_key, {_value, public?}} -> public? end)
 
     {Map.new(public, fn {name, {value, _}} -> {name, value} end),
-     Map.new(private, fn {name, {value, _}} -> {name, value} end)}
+     Map.new(private, fn {{:private, name}, {value, _}} -> {name, value} end)}
+  end
+
+  @doc """
+  The value `name` has in a file's `vars` so far -- its private
+  declaration if it has one, otherwise the public one (CASC.md §5.2's
+  shadowing, as `Cooper.Loop` needs it for an iterable).
+  """
+  @spec lookup(map(), String.t()) :: {:ok, term()} | :error
+  def lookup(vars, name) do
+    case Map.fetch(vars, {:private, name}) do
+      {:ok, {value, _}} ->
+        {:ok, value}
+
+      :error ->
+        case Map.fetch(vars, name) do
+          {:ok, {value, _}} -> {:ok, value}
+          :error -> :error
+        end
+    end
   end
 end

@@ -422,13 +422,12 @@ iex> Cooper.load_file("config.casc")
 ```
 
 1. `.env`
-2. `.env.<env>` — `<env>`, in order: an explicit `:dotenv_env`; else
-   live `Mix.env/0` when Mix is loaded (`mix run`/`mix test`/`iex -S
-   mix`); else `Application.compile_env(:cooper, :dotenv_env)`, if a
-   compiled release's own `config/config.exs` set `config :cooper,
-   dotenv_env: config_env()` — the only way left to auto-detect an
-   environment once Mix itself isn't around. Pass `dotenv_env:`
-   explicitly instead if you'd rather not add that config
+2. `.env.<env>` — `<env>` is an explicit `:dotenv_env`, else
+   `COOPER_ENV` as the real environment, `:env` and `.env` set it
+   (falling back to `MIX_ENV`, the live `Mix.env/0`, or a release's
+   `config :cooper, dotenv_env: config_env()`, mapped onto `dev`,
+   `staging`, `test`, `prod`). So the files are `.env.dev`,
+   `.env.staging`, `.env.test` and `.env.prod`, in every Cooper.
 3. `.env.local` — a personal, usually-gitignored override
 4. `System.get_env/0` — the real environment, outranking every file
 5. `:env`, if passed — always the final, highest-precedence override
@@ -462,11 +461,8 @@ iex> Cooper.load_string(source, env: %{"REGION" => "eu-west"})
 `dotenv: false` disables just the `.env` file layers (2-4) —
 `System.get_env/0` and `:env` still apply either way. `:dotenv_files`
 fully replaces the default four-file list, for a non-standard layout.
-This runs through the optional `:dotenvy` dependency — add
-`{:dotenvy, "~> 1.1"}` to your own `mix.exs` deps. An explicit `dotenv:
-true` without it installed is a load-time error naming it; the
-*default*-enabled case just no-ops instead (same as no `.env` files
-existing).
+This runs through `:dotenvy`, which Cooper depends on, so nothing needs
+adding to your own `mix.exs`.
 
 ## 12. Caching
 
@@ -506,10 +502,10 @@ runs — so it only refreshes when the entry itself invalidates (a
 fingerprinted file changes, or an explicit `invalidate/1`/`clear/0`),
 not on every access the way an ordinary value read is. See
 `Cooper.Cache`'s own moduledoc for the full reasoning, and §13 below
-for guards specifically. (A `${...}` inside an `import "..."` path is
-a different matter — CASC.md §5.1 doesn't support it at all, so it's
-always an unconditional load-time error, never something that gets
-cached and goes stale.)
+for guards specifically. The same goes for a `${NAME}` that picks which
+file an `import "..."` reads (CASC.md §5.1) or builds an interpolated
+key (§4.2): both shape the cached tree, and both are watched like a
+guard.
 
 ### Getting notified of changes
 

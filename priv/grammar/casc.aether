@@ -21,7 +21,14 @@ TRIVIA  := (SPACE | COMMENT)*
 NIL_KW   := "nil"
 TRUE_KW  := "true"
 FALSE_KW := "false"
-INF_KW   := ("+" | "-")? "inf"
+; The trailing negative lookahead keeps a signed `inf` from stealing the
+; front of an identifier: without it `+info` lexes as INF_KW("+inf")
+; followed by IDENT("o") -- `+inf` (4 chars) out-munches the `+` literal
+; (1 char), and IDENT can never start with a sign to win the race back --
+; so `+info = [...]` (an append to `info`, CASC.md §5.7) and `-info` (a
+; delete) failed to parse at all. An unsigned `info` was never affected:
+; IDENT already wins that one on length.
+INF_KW   := ("+" | "-")? "inf" !(ALNUM | "_" | "+" | "-" | "?" | "!")
 
 ; -- Identifiers (CASC.md §4.1) --------------------------------------------
 IDENT := ALPHA (ALNUM | "_" | "+" | "-")* ("?" | "!")?
@@ -60,7 +67,11 @@ IPV6 := (HEX_GROUP (":" HEX_GROUP){7} | (HEX_GROUP (":" HEX_GROUP)*)? "::" (HEX_
 ; matches at all, so "ms" must be tried before "m" or "s" alone would
 ; ever get the chance to steal one character of it.
 DURATION_UNIT := "ns" | "us" | "µs" | "ms" | "d" | "h" | "m" | "s"
-DURATION := DIGIT+ ("." DIGIT+)? DURATION_UNIT (DIGIT+ DURATION_UNIT)*
+; `_` digit separators are allowed in every component (CASC.md §6.8:
+; "Digit separators (`_`) are allowed per §6.3"), so `1_000ms` is a
+; duration rather than INTEGER("1_000") followed by a stray `ms`.
+DURATION := DIGIT (DIGIT | "_")* ("." DIGIT (DIGIT | "_")*)? DURATION_UNIT
+            (DIGIT (DIGIT | "_")* DURATION_UNIT)*
 
 ; -- Byte sizes (CASC.md §6.9) ----------------------------------------------
 ; Case-insensitive per the spec (each unit literal carries the `i`
@@ -139,7 +150,11 @@ RESOLVER_REF_RAW := @native("Cooper.Native.ResolverRef", "scan")
 ; nothing following it for splicing to trigger on, would otherwise be
 ; left unconsumed and fail `Grammar.VM`'s whole-input match. The trailing
 ; `TRIVIA?` mops that up explicitly.
-file := version_header statement* TRIVIA?
+; The leading `TRIVIA?` is CASC.md §2's "first non-blank, non-comment
+; statement": a comment or blank lines may come before the header.
+; `@skip` splices trivia before a sequence's later elements only, so
+; without it a file opening with `# comment` failed to parse at all.
+file := TRIVIA? version_header statement* TRIVIA?
 
 ; `kw` is deliberately an IDENT, not a literal "version" token -- CASC.md
 ; §4.1 only reserves `for`/`in`/`from`/`as` as *contextual* keywords, and
@@ -180,7 +195,23 @@ env_guard              := "${?" name:IDENT "}"
 ; `delete_statement`'s bare `-key.path` form. Trying them in the other
 ; order would let `delete_statement` greedily match just the path and
 ; leave a trailing `= [...]` as unparseable garbage.
-real_statement := var_decl | for_statement | import_statement | sigil_kv_statement | delete_statement
+real_statement := var_decl | for_statement | import_statement | followed_delete
+                | sigil_kv_statement | delete_statement
+
+; A bare `-key.path` delete immediately followed by another complete
+; statement. This grammar is newline-insensitive (`@skip TRIVIA` splices
+; newlines like any other whitespace), so without this alternative
+; `sigil_kv_statement`'s optional "=" lets the *next line's* key become
+; the remove value: `-a.b` then `c = 1` parsed as `-a.b = c` (remove the
+; atom `c`) and then failed on the stray `= 1`. Tried first, so a delete
+; wins whenever what follows it is itself a whole statement; anything
+; else (`-tags = [...]`, `-tags ["b"]`, a trailing `-a.b` before `}` or
+; end of input) falls through exactly as before.
+;
+; One case stays genuinely ambiguous without newlines, and resolves as a
+; delete: `-tags b` followed by `c = 1` reads as `-tags`, then `b c`.
+; Write the remove with its `=` -- `-tags = b` -- to say otherwise.
+followed_delete := delete_statement &statement
 
 ; Public `@name = value` / private `@*name = value` (CASC.md §5.2).
 var_decl := "@" private:"*"? name:IDENT "="? value
@@ -335,7 +366,16 @@ env_bracket := "[" INTEGER? "]"
 ; would otherwise shadow the ":+alt" form -- CASC.md gives no textual way
 ; to disambiguate that case, so ordered-choice-first-wins is the
 ; resolution, same call as the version-header/number grammar makes.
-ref_suffix := (":" "?" msg:DQ_STRING) | (":" "+" alt:value) | (":" default:value)
+ref_suffix := (":" "?" msg:DQ_STRING) | (":" "+" alt:value)
+            | (":" signed_alt:signed_number) | (":" default:value)
+
+; The lexer folds `:+5` into ":" INTEGER("+5") -- a signed number
+; out-munches the "+" literal -- which the plain `:default` form above
+; would read as a *default* of 5: the opposite of what `:+alt` means,
+; and not what the same reference inside a string means. So a number
+; (or `inf`) directly after ":" is checked for its sign: `+` makes it
+; the substitute form, anything else stays a default.
+signed_number := INTEGER | FLOAT | INF_KW
 
 ; Filters run left to right on whatever the reference resolved to, *after*
 ; any `ref_suffix` above has already supplied a default or alternate --
@@ -365,8 +405,13 @@ filter_arg := DQ_STRING | SQ_STRING
 ; §6.10-6.11); the trailing `","?` after each element makes the comma
 ; optional rather than required, and `@skip`'s default splicing already
 ; tolerates newline/whitespace-only separation for free.
-list  := "[" (value ","?)* "]"
-tuple := "(" (value ","?)* ")"
+list  := "[" (element ","?)* "]"
+tuple := "(" (element ","?)* ")"
+
+; A list or tuple element is a value, or a block -- a map (CASC.md §6.10).
+; Only a value once was, so a list of maps (`[{ path = "^/admin" }]`,
+; the shape framework configuration is full of) could not be written.
+element := block | value
 
 ; A bare identifier value (`level = info`) or an explicit `:`-sigiled one
 ; (`level = :info`, or `:true`/`:false`/`:nil`/`:inf` to *reach* an atom

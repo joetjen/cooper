@@ -98,6 +98,18 @@ defmodule Cooper.Merge do
     end
   end
 
+  # An empty block (`w {}`, CASC.md §5.4) is an empty map, and blocks
+  # deep-merge: written over a map already there it adds nothing, so the
+  # map stays as it is. Only where there is none -- or something that is
+  # not a map -- does it become `%{}`.
+  defp apply_entry({:op, %Cooper.Op{sigil: :merge, value: empty} = op}, tree, secrets)
+       when empty == %{} do
+    case get_at(tree, op.path) do
+      {:ok, %{} = existing} when not is_struct(existing) -> {:ok, tree, track_secret(secrets, op)}
+      _ -> {:ok, put_at(tree, op.path, %{}), track_secret(secrets, op)}
+    end
+  end
+
   defp apply_entry({:op, %Cooper.Op{sigil: :merge} = op}, tree, secrets) do
     {:ok, put_at(tree, op.path, op.value), track_secret(secrets, op)}
   end
@@ -106,45 +118,151 @@ defmodule Cooper.Merge do
     {:ok, put_at(tree, op.path, op.value), track_secret(secrets, op)}
   end
 
-  defp apply_entry({:op, %Cooper.Op{sigil: :append} = op}, tree, secrets) do
-    case get_at(tree, op.path) do
-      {:ok, existing} when is_tuple(existing) ->
-        {:error, tuple_guard_error(op.path, "+")}
+  # `+key`/`-key` (CASC.md §8.4). Three cases:
+  #
+  #   * the path runs into a `for ... from` template's lazy base before it
+  #     ends: the list is the template's, so the edit waits for it as a
+  #     `Cooper.Merge.ListEdit` reading the template's own value;
+  #   * the list or the operand is still a reference (`+tags = @{more}`):
+  #     the edit waits for both, as a `ListEdit`;
+  #   * both are known: applied here, element-wise.
+  defp apply_entry({:op, %Cooper.Op{sigil: sigil} = op}, tree, secrets)
+       when sigil in [:append, :remove] do
+    mark = if sigil == :append, do: "+", else: "-"
 
-      {:ok, existing} when is_list(existing) ->
-        {:ok, put_at(tree, op.path, existing ++ List.wrap(op.value)), track_secret(secrets, op)}
+    case lazy_at(tree, op.path) do
+      {:lazy, template_ref} ->
+        edit = %Cooper.Merge.ListEdit{
+          base: template_ref,
+          op: sigil,
+          operand: op.value,
+          path: op.path
+        }
 
-      :error ->
-        {:ok, put_at(tree, op.path, op.value), track_secret(secrets, op)}
+        {:ok, put_at(tree, op.path, edit), track_secret(secrets, op)}
 
-      {:ok, _other} ->
-        {:error, not_a_list_error(op.path, "+")}
-    end
-  end
-
-  defp apply_entry({:op, %Cooper.Op{sigil: :remove} = op}, tree, secrets) do
-    case get_at(tree, op.path) do
-      {:ok, existing} when is_tuple(existing) ->
-        {:error, tuple_guard_error(op.path, "-")}
-
-      {:ok, existing} when is_list(existing) ->
-        removed = List.wrap(op.value)
-
-        {:ok, put_at(tree, op.path, Enum.reject(existing, &(&1 in removed))),
-         track_secret(secrets, op)}
-
-      :error ->
-        {:ok, tree, secrets}
-
-      {:ok, _other} ->
-        {:error, not_a_list_error(op.path, "-")}
+      found ->
+        existing = if found == nil, do: get_at(tree, op.path), else: found
+        apply_list_edit(existing, op, mark, tree, secrets)
     end
   end
 
   defp apply_entry({:op, %Cooper.Op{sigil: :delete} = op}, tree, secrets) do
     remaining = secrets |> Enum.reject(&prefixed_by?(&1, op.path)) |> MapSet.new()
-    {:ok, delete_path(tree, op.path), remaining}
+
+    # Under a `for ... from` base the key may come from the template, so
+    # its absence is recorded rather than deleting nothing.
+    tree =
+      case lazy_at(tree, op.path) do
+        nil -> delete_path(tree, op.path)
+        _lazy_or_found -> put_at(tree, op.path, %Cooper.Merge.Absent{})
+      end
+
+    {:ok, tree, remaining}
   end
+
+  defp apply_list_edit({:ok, existing}, op, mark, _tree, _secrets) when is_tuple(existing) do
+    {:error, tuple_guard_error(op.path, mark)}
+  end
+
+  defp apply_list_edit(:error, %Cooper.Op{sigil: :append} = op, _mark, tree, secrets) do
+    {:ok, put_at(tree, op.path, op.value), track_secret(secrets, op)}
+  end
+
+  defp apply_list_edit(:error, %Cooper.Op{sigil: :remove}, _mark, tree, secrets) do
+    {:ok, tree, secrets}
+  end
+
+  defp apply_list_edit({:ok, base}, op, mark, tree, secrets) do
+    deferred? =
+      (unresolved?(base) and not is_list(base)) or unresolved?(op.value) or
+        (op.sigil == :remove and (contains_unresolved?(base) or contains_unresolved?(op.value)))
+
+    cond do
+      deferred? ->
+        edit = %Cooper.Merge.ListEdit{base: base, op: op.sigil, operand: op.value, path: op.path}
+        {:ok, put_at(tree, op.path, edit), track_secret(secrets, op)}
+
+      not is_list(base) ->
+        {:error, not_a_list_error(op.path, mark)}
+
+      op.sigil == :append ->
+        {:ok, put_at(tree, op.path, base ++ items(op.value)), track_secret(secrets, op)}
+
+      true ->
+        removed = items(op.value)
+
+        {:ok, put_at(tree, op.path, Enum.reject(base, &(&1 in removed))),
+         track_secret(secrets, op)}
+    end
+  end
+
+  @doc false
+  # The elements a `+`/`-` operand stands for: a list is its own elements,
+  # anything else is one element. Not `List.wrap/1`, which reads `nil` as
+  # no elements at all -- `+a = nil` appended nothing, where every other
+  # scalar is appended as itself (CASC.md §8.2).
+  @spec items(term()) :: list()
+  def items(value) when is_list(value), do: value
+  def items(value), do: [value]
+
+  @unresolved [
+    Cooper.Ref.Var,
+    Cooper.Ref.Env,
+    Cooper.Ref.Config,
+    Cooper.Ref.Resolver,
+    Cooper.Ref.Tagged,
+    Cooper.Interp.Text,
+    Cooper.Merge.Layered,
+    Cooper.Merge.ListEdit,
+    Cooper.Block
+  ]
+
+  defp unresolved?(%module{}) when module in @unresolved, do: true
+  defp unresolved?(_value), do: false
+
+  defp contains_unresolved?(value) when is_list(value),
+    do: Enum.any?(value, &contains_unresolved?/1)
+
+  defp contains_unresolved?(value) when is_tuple(value),
+    do: value |> Tuple.to_list() |> Enum.any?(&contains_unresolved?/1)
+
+  defp contains_unresolved?(value) when is_map(value) and not is_struct(value),
+    do: value |> Map.values() |> Enum.any?(&contains_unresolved?/1)
+
+  defp contains_unresolved?(value), do: unresolved?(value)
+
+  # Where `path` runs into a lazy `for ... from` base before reaching its
+  # end: `{:lazy, ref}`, the `%{...}` that will supply the value once the
+  # template resolves (defaulting to `Cooper.Merge.Absent` where the
+  # template lacks the key) -- or `{:ok, value}` when an override already
+  # written under that base is at the path. `nil` when the path never
+  # touches a lazy base.
+  defp lazy_at(_node, []), do: nil
+
+  defp lazy_at(%Cooper.Ref.Config{path: base}, rest),
+    do:
+      {:lazy, %Cooper.Ref.Config{path: base ++ rest, suffix: {:default, %Cooper.Merge.Absent{}}}}
+
+  defp lazy_at(%Cooper.Merge.Layered{base: base, overrides: overrides}, rest) do
+    case get_at(overrides, rest) do
+      {:ok, value} ->
+        {:ok, value}
+
+      :error ->
+        {:lazy,
+         %Cooper.Ref.Config{path: base.path ++ rest, suffix: {:default, %Cooper.Merge.Absent{}}}}
+    end
+  end
+
+  defp lazy_at(%{} = map, [seg | rest]) when not is_struct(map) do
+    case Map.fetch(map, seg) do
+      {:ok, value} -> lazy_at(value, rest)
+      :error -> nil
+    end
+  end
+
+  defp lazy_at(_other, _path), do: nil
 
   defp track_secret(secrets, %Cooper.Op{secret?: true, path: path}), do: MapSet.put(secrets, path)
 

@@ -15,19 +15,13 @@ defmodule Cooper.Dotenv do
   Five layers, later winning, `Dotenvy.source/2`'s own convention:
 
     1. `.env`
-    2. `.env.<env>` -- `<env>`, in order: the explicit `:dotenv_env`
-       option; else live `Mix.env/0` when Mix is loaded (true for
-       `mix run`/`mix test`/`iex -S mix`, false for a compiled OTP
-       release); else `Application.compile_env(:cooper, :dotenv_env)`
-       -- baked in at *the host application's own* compile time, the
-       only way left to auto-detect an environment in a release. That
-       last one only fires if the host app opts in with `config
-       :cooper, dotenv_env: config_env()` in its own
-       `config/config.exs` -- deliberately not something Cooper can
-       default on its own (see `compiled_env/0`'s own comment for why
-       naively reading `Mix.env/0` from inside Cooper's own source
-       could never work here). No match at all leaves `<env>` (and
-       this whole layer) absent.
+    2. `.env.<env>` -- `<env>` is the explicit `:dotenv_env` option, else
+       `COOPER_ENV` (see below) as the real environment, `:env` and the
+       base `.env` file set it -- so `.env.dev`, `.env.staging`,
+       `.env.test` and `.env.prod` in every Cooper, matching
+       `env/${COOPER_ENV}.casc`. Picking it by the host's own name, as
+       this once did, read `.env.development` beside documents that
+       read `dev`.
     3. `.env.local`
     4. `System.get_env/0` -- the real environment outranks every file.
     5. the `:env` option, if the caller passed one -- always the final,
@@ -49,10 +43,14 @@ defmodule Cooper.Dotenv do
   a load-time error. `.env.<env>` in particular is *expected* to be
   absent for every environment but the current one.
 
-  All paths are resolved relative to the current working directory,
-  deliberately not `:root` (`load_file/2`'s config-file directory) --
-  `.env` files live at the project root regardless of where the CASC
-  file being loaded happens to sit.
+  All paths are resolved relative to `:dotenv_dir`, which defaults to
+  the **project root** -- deliberately not `:root` (`load_file/2`'s
+  config-file directory): `.env` files live at the project root
+  regardless of where the CASC file being loaded happens to sit, or
+  where the application was started from. The project root is the
+  directory of the running Mix project's `mix.exs`; in a release, which
+  has no Mix, `RELEASE_ROOT`; else the working directory. An absolute
+  path in `:dotenv_files` is used as it is.
 
   **`:env` is an override layer, not a replacement.** Passing `env:
   %{"FOO" => "bar"}` does not isolate resolution from the real
@@ -64,16 +62,31 @@ defmodule Cooper.Dotenv do
   guaranteed-deterministic value should give that name an explicit
   entry in `:env` rather than relying on it being otherwise unset.
 
+  ## `COOPER_ENV`
+
+  The one name a document reads the current environment by, in every
+  Cooper implementation (CASC.md §7.2): `import "env/${COOPER_ENV}.casc"`.
+  Every layer above is consulted first, so a real `COOPER_ENV` -- in the
+  environment, a `.env` file, or `:env` -- always wins. Unset or empty,
+  it falls back to this host's own name for the same thing: `MIX_ENV`
+  from those same layers, else the live `Mix.env/0` (Mix does not export
+  `MIX_ENV` to the OS environment), else -- in a release, which has no
+  Mix -- `Application.compile_env(:cooper, :dotenv_env)` if the host app
+  set `config :cooper, dotenv_env: config_env()`, else `"dev"`. A fallback value is
+  mapped onto the names every Cooper uses -- `development` and `local`
+  become `dev`, `testing` becomes `test`, `production` becomes `prod`,
+  anything else is kept -- so a document selects `env/prod.casc` the same
+  way whichever host's convention set the variable. A real `COOPER_ENV`
+  is used exactly as written.
+
   ## Enabling
 
   `.env` file loading (layers 2-4) is on by default; `dotenv: false`
   disables just those three layers -- `System.get_env/0` and an
-  explicit `:env` still apply either way. If `:dotenvy` isn't
-  installed: the *default*-enabled case silently no-ops (same as if no
-  `.env` files existed), but an explicit `dotenv: true` with the
-  dependency missing is a load-time error naming it -- asking for it by
-  name and not getting it is a real misconfiguration, not something to
-  paper over.
+  explicit `:env` still apply either way. `:dotenvy` is an ordinary
+  dependency of Cooper: it was an optional one, and the default then
+  silently read no `.env` file in any application that had not added it
+  itself.
   """
 
   alias Ichor.Error
@@ -90,6 +103,7 @@ defmodule Cooper.Dotenv do
           dotenv: boolean(),
           dotenv_env: atom() | nil,
           dotenv_files: [String.t()],
+          dotenv_dir: String.t(),
           dotenv_override: boolean()
         ]
 
@@ -106,47 +120,57 @@ defmodule Cooper.Dotenv do
   def env(opts) do
     overrides = Keyword.get(opts, :env, %{})
 
-    case enabled(opts) do
-      false -> {:ok, Map.merge(System.get_env(), overrides)}
-      {true, required?} -> load(overrides, opts, required?)
+    result =
+      if Keyword.get(opts, :dotenv, true),
+        do: load(overrides, opts),
+        else: {:ok, Map.merge(System.get_env(), overrides)}
+
+    with {:ok, env} <- result, do: {:ok, with_cooper_env(env)}
+  end
+
+  @doc false
+  # See "`COOPER_ENV`" in the moduledoc.
+  @spec with_cooper_env(%{String.t() => String.t()}) :: %{String.t() => String.t()}
+  def with_cooper_env(env) do
+    if present?(env["COOPER_ENV"]),
+      do: env,
+      else: Map.put(env, "COOPER_ENV", host_env(env))
+  end
+
+  defp host_env(env) do
+    cond do
+      present?(env["MIX_ENV"]) -> unified(env["MIX_ENV"])
+      env = mix_env() -> unified(Atom.to_string(env))
+      true -> release_env(compiled_env())
     end
   end
 
-  defp enabled(opts) do
-    case Keyword.fetch(opts, :dotenv) do
-      {:ok, true} -> {true, true}
-      {:ok, false} -> false
-      :error -> {true, false}
+  # The environment names every Cooper uses (CASC.md §7.2): `dev`,
+  # `staging`, `test`, `prod`. The same table in every implementation, so
+  # one document means one environment whichever host set the variable.
+  @unified %{
+    "development" => "dev",
+    "local" => "dev",
+    "testing" => "test",
+    "production" => "prod"
+  }
+
+  @doc false
+  @spec unified(String.t()) :: String.t()
+  def unified(name), do: Map.get(@unified, name, name)
+
+  defp present?(value), do: is_binary(value) and value != ""
+
+  defp load(overrides, opts) do
+    sources = sources(opts) ++ [overrides]
+
+    case Dotenvy.source(sources, require_files: false) do
+      {:ok, env} ->
+        {:ok, env}
+
+      {:error, reason} ->
+        {:error, Error.new(message: "dotenv loading failed: #{inspect(reason)}", stage: :dotenv)}
     end
-  end
-
-  defp load(overrides, opts, required?) do
-    if Code.ensure_loaded?(Dotenvy) do
-      sources = sources(opts) ++ [overrides]
-
-      case Dotenvy.source(sources, require_files: false) do
-        {:ok, env} ->
-          {:ok, env}
-
-        {:error, reason} ->
-          {:error,
-           Error.new(message: "dotenv loading failed: #{inspect(reason)}", stage: :dotenv)}
-      end
-    else
-      missing_dependency(overrides, required?)
-    end
-  end
-
-  defp missing_dependency(overrides, false), do: {:ok, Map.merge(System.get_env(), overrides)}
-
-  defp missing_dependency(_overrides, true) do
-    {:error,
-     Error.new(
-       message:
-         "dotenv: true requires the optional :dotenvy dependency -- add " <>
-           "{:dotenvy, \"~> 1.1\"} to your own mix.exs deps",
-       stage: :dotenv
-     )}
   end
 
   # Orders the file layers and the real environment, lowest precedence first.
@@ -164,9 +188,38 @@ defmodule Cooper.Dotenv do
   end
 
   defp files(opts) do
-    case Keyword.fetch(opts, :dotenv_files) do
-      {:ok, files} -> files
-      :error -> [@base_file] ++ env_file(opts) ++ [@local_file]
+    files =
+      case Keyword.fetch(opts, :dotenv_files) do
+        {:ok, files} -> files
+        :error -> [@base_file] ++ env_file(opts) ++ [@local_file]
+      end
+
+    dir = Keyword.get_lazy(opts, :dotenv_dir, &project_root/0)
+    Enum.map(files, &Path.expand(&1, dir))
+  end
+
+  @doc false
+  # Where `.env` files are read from unless `:dotenv_dir` says otherwise:
+  # the running Mix project's directory, else a release's `RELEASE_ROOT`,
+  # else the working directory. Reading them from the working directory
+  # only, as this once did, found none when an application was started
+  # from anywhere but its own root.
+  @spec project_root() :: String.t()
+  def project_root do
+    mix_project_root() || release_root() || File.cwd!()
+  end
+
+  defp mix_project_root do
+    if Code.ensure_loaded?(Mix.Project) and function_exported?(Mix.Project, :get, 0) and
+         Mix.Project.get() != nil do
+      Path.dirname(Mix.Project.project_file())
+    end
+  end
+
+  defp release_root do
+    case System.get_env("RELEASE_ROOT") do
+      root when is_binary(root) and root != "" -> root
+      _ -> nil
     end
   end
 
@@ -179,10 +232,34 @@ defmodule Cooper.Dotenv do
 
   defp current_env(opts) do
     case Keyword.get(opts, :dotenv_env, :auto) do
-      :auto -> mix_env() || compiled_env()
+      :auto -> name_env(opts)
       env -> env
     end
   end
+
+  # `COOPER_ENV` as it stands before `.env.<env>` is read -- from the real
+  # environment, `:env`, and the base `.env` file, in the order the
+  # layering puts them -- which names the file to read next.
+  defp name_env(opts) do
+    base =
+      case Dotenvy.source([base_file_path(opts)], require_files: false) do
+        {:ok, env} -> env
+        {:error, _} -> %{}
+      end
+
+    layered =
+      if Keyword.get(opts, :dotenv_override, false),
+        do: Map.merge(System.get_env(), base),
+        else: Map.merge(base, System.get_env())
+
+    layered
+    |> Map.merge(Keyword.get(opts, :env, %{}))
+    |> with_cooper_env()
+    |> Map.fetch!("COOPER_ENV")
+  end
+
+  defp base_file_path(opts),
+    do: Path.expand(@base_file, Keyword.get_lazy(opts, :dotenv_dir, &project_root/0))
 
   defp mix_env do
     if Code.ensure_loaded?(Mix) and function_exported?(Mix, :env, 0) do
@@ -209,4 +286,20 @@ defmodule Cooper.Dotenv do
   # the two ever disagree) -- neither of which a bare
   # `Application.get_env/3` would provide.
   defp compiled_env, do: @compiled_dotenv_env
+
+  @doc false
+  # A release's environment: the host app's compiled `:dotenv_env`, if it
+  # set one, else `"dev"`. Takes the compiled value as an argument, since
+  # it is a constant wherever it is read -- `nil` for this project -- and
+  # the compiler and Dialyzer then call every other branch dead, which is
+  # true here and not in an application that sets it. It also lets the
+  # release path be tested at all.
+  @spec release_env(term()) :: String.t()
+  def release_env(compiled) do
+    case compiled do
+      env when is_atom(env) and not is_nil(env) -> unified(Atom.to_string(env))
+      env when is_binary(env) and env != "" -> unified(env)
+      _ -> "dev"
+    end
+  end
 end

@@ -49,7 +49,11 @@ defmodule Cooper.Resolver do
       # `Cooper.Cache`'s own env-change watching (`:watch_env`) uses
       # this to know which specific names a given load depends on,
       # rather than diffing the whole environment on every poll tick.
-      env_names: MapSet.new()
+      env_names: MapSet.new(),
+      # Resolving an interpolated *key* (`resolve_key/2`) rather than a
+      # value: only `@{...}`/`${...}` can be answered then, since keys are
+      # resolved before the tree they belong to exists.
+      keys_only: false
     ]
   end
 
@@ -61,16 +65,15 @@ defmodule Cooper.Resolver do
     "bytes" => &__MODULE__.tag_bytes/1,
     "trim" => &__MODULE__.tag_trim/1,
     "downcase" => &__MODULE__.tag_downcase/1,
-    "upcase" => &__MODULE__.tag_upcase/1,
-    "module" => &__MODULE__.tag_module/1
+    "upcase" => &__MODULE__.tag_upcase/1
   }
 
-  # A module name this implementation accepts: dot-separated segments, each an
-  # identifier. `!module` is deliberately the same tag in every Cooper
-  # implementation while the shape it accepts is that implementation's own --
-  # a port targeting another language defines its own pattern here and leaves
-  # documents that name modules readable in both.
-  @module_pattern ~r/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
+  # A module name as CASC writes it (§7.5): dot-separated PascalCase
+  # segments, the same in every Cooper implementation. Each translates it
+  # into its own host's convention, so one document names one module
+  # everywhere. Accepting the host's own shape, as this once did, made a
+  # document naming a module readable by one implementation only.
+  @module_pattern ~r/^[A-Z][A-Za-z0-9]*(\.[A-Z][A-Za-z0-9]*)*$/
   # What a built reference name is allowed to resolve to: the same
   # shape `casc.aether`'s own IDENT token accepts, so a built name and
   # a written-out one are interchangeable and nothing becomes reachable
@@ -116,7 +119,10 @@ defmodule Cooper.Resolver do
       private_vars: private_vars,
       env: Keyword.get(opts, :env, System.get_env()),
       resolvers: Keyword.get(opts, :resolvers, %{}),
-      tags: Map.merge(@built_in_tags, Keyword.get(opts, :tags, %{}))
+      tags:
+        @built_in_tags
+        |> Map.put("module", &tag_module(&1, Keyword.get(opts, :modules, %{})))
+        |> Map.merge(Keyword.get(opts, :tags, %{}))
     }
 
     case resolve_value(tree, state) do
@@ -125,7 +131,55 @@ defmodule Cooper.Resolver do
     end
   end
 
+  @doc false
+  # Resolves one interpolated key segment (`"region-@{name}" = ...`,
+  # CASC.md §4.2) to the string it names, for `Cooper.Grammar` to apply
+  # before merging -- keys decide the tree's shape, so they cannot wait
+  # for the tree. That is also why only `@{...}` and `${...}` may appear
+  # in one: a `%{...}` needs the finished tree, and a resolver or tag
+  # would run before anything else in the load does. Follows the rules a
+  # built `%{...}` key does (a string, non-empty, no `.`, never from a
+  # secret). Returns every `${NAME}` it read, since that name now shapes
+  # the tree and `Cooper.Cache` has to watch it like a guard.
+  @spec resolve_key(Cooper.Interp.Text.t(), keyword()) ::
+          {:ok, String.t(), MapSet.t()} | {:error, Error.t()}
+  def resolve_key(%Cooper.Interp.Text{} = segment, opts) do
+    {vars, private_vars} = split_var_env(Keyword.get(opts, :vars, %{}))
+
+    state = %State{
+      tree: %{},
+      vars: vars,
+      private_vars: private_vars,
+      env: Keyword.get(opts, :env, System.get_env()),
+      resolvers: %{},
+      tags: %{},
+      keys_only: true
+    }
+
+    case resolve_key_segment(segment, state, "interpolated key") do
+      {:ok, key, state} -> {:ok, key, state.env_names}
+      {:error, _} = err -> err
+    end
+  end
+
   # ---- generic value walker ------------------------------------------------
+
+  defp resolve_value(%module{}, %State{keys_only: true})
+       when module in [
+              Cooper.Ref.Config,
+              Cooper.Ref.Resolver,
+              Cooper.Ref.Tagged,
+              Cooper.Merge.Layered,
+              Cooper.Merge.ListEdit,
+              Cooper.Block
+            ] do
+    {:error,
+     Error.new(
+       message:
+         "an interpolated key may only reference @{...} and ${...} -- it is resolved before the tree, resolvers, and tags it would need",
+       stage: :resolve
+     )}
+  end
 
   defp resolve_value(%Cooper.Ref.Var{} = ref, state), do: resolve_var(ref, state)
   defp resolve_value(%Cooper.Ref.Env{} = ref, state), do: resolve_env(ref, state)
@@ -138,6 +192,19 @@ defmodule Cooper.Resolver do
 
   defp resolve_value(%Cooper.Merge.Layered{} = layered, state),
     do: resolve_layered(layered, state)
+
+  defp resolve_value(%Cooper.Merge.ListEdit{} = edit, state), do: resolve_list_edit(edit, state)
+
+  # A block written as a list or tuple element (`[{ path = "^/admin" }]`,
+  # CASC.md §6.10): its keys are resolved -- they may interpolate, which
+  # is why it waited until now -- its statements merged into a map the
+  # way a document's are, and that map resolved like any other.
+  defp resolve_value(%Cooper.Block{ops: ops}, state) do
+    with {:ok, entries, state} <- block_keys(ops, state),
+         {:ok, tree} <- Cooper.Merge.assemble(entries) do
+      resolve_value(tree, state)
+    end
+  end
 
   # A `Cooper.Merge`-wrapped secret's own inner value may still be
   # unresolved (`*password = ${DB_PASSWORD}`, an unresolved
@@ -207,6 +274,20 @@ defmodule Cooper.Resolver do
     case resolve_ref_name(name, "@{...}", state) do
       {:ok, resolved, state} -> resolve_var(%{ref | name: resolved}, state)
       {:error, _} = err -> err
+    end
+  end
+
+  # A loop binding's value attached to the reference (see `Cooper.Loop`):
+  # resolved, then indexed, defaulted, and filtered like any other value.
+  defp resolve_var(%Cooper.Ref.Var{bound: {:ok, value}} = ref, state) do
+    with {:ok, resolved, state} <- resolve_value(value, state) do
+      finish_ref(
+        apply_index(resolved, ref.index),
+        ref.suffix,
+        ref.filters,
+        "@{#{ref.name}}",
+        state
+      )
     end
   end
 
@@ -392,21 +473,21 @@ defmodule Cooper.Resolver do
   # address the wrong depth), dotted (it would silently become two
   # segments rather than one), or a secret (same reason a name may not
   # be -- it lands in error messages unredacted).
-  defp resolve_key_segment(segment, state) do
+  defp resolve_key_segment(segment, state, label \\ "%{...} key") do
     case resolve_value(segment, state) do
       {:ok, %Cooper.Secret{}, _state} ->
         {:error,
-         Error.new(message: "%{...} key may not be built from a secret value", stage: :resolve)}
+         Error.new(message: "#{label} may not be built from a secret value", stage: :resolve)}
 
       {:ok, "", _state} ->
-        {:error, Error.new(message: "%{...} key resolved to an empty string", stage: :resolve)}
+        {:error, Error.new(message: "#{label} resolved to an empty string", stage: :resolve)}
 
       {:ok, resolved, state} when is_binary(resolved) ->
         if String.contains?(resolved, ".") do
           {:error,
            Error.new(
              message:
-               "%{...} key resolved to #{inspect(resolved)}, which would split into more than one path segment",
+               "#{label} resolved to #{inspect(resolved)}, which would split into more than one path segment",
              stage: :resolve
            )}
         else
@@ -416,7 +497,7 @@ defmodule Cooper.Resolver do
       {:ok, resolved, _state} ->
         {:error,
          Error.new(
-           message: "%{...} key must resolve to a string, got: #{inspect(resolved)}",
+           message: "#{label} must resolve to a string, got: #{inspect(resolved)}",
            stage: :resolve
          )}
 
@@ -521,12 +602,129 @@ defmodule Cooper.Resolver do
     end
   end
 
-  defp deep_merge(%{} = base, %{} = overrides)
-       when not is_struct(base) and not is_struct(overrides) do
-    Map.merge(base, overrides, fn _k, base_v, override_v -> deep_merge(base_v, override_v) end)
+  # The overrides on top of a template's copy. A key marked
+  # `Cooper.Merge.Absent` (`-key` in the loop body) is removed from the
+  # copy; one with no base to apply to keeps its overrides, with any
+  # `Absent` inside them dropped.
+  defp deep_merge(base, %{} = overrides) when not is_struct(overrides) do
+    from = if is_map(base) and not is_struct(base), do: base, else: %{}
+
+    Enum.reduce(overrides, from, fn
+      {key, %Cooper.Merge.Absent{}}, acc ->
+        Map.delete(acc, key)
+
+      {key, value}, acc ->
+        merged =
+          if Map.has_key?(from, key), do: deep_merge(from[key], value), else: strip_absent(value)
+
+        Map.put(acc, key, merged)
+    end)
   end
 
   defp deep_merge(_base, override), do: override
+
+  defp strip_absent(%{} = value) when not is_struct(value), do: deep_merge(%{}, value)
+  defp strip_absent(value), do: value
+
+  defp block_keys(ops, state) do
+    Enum.reduce_while(ops, {:ok, [], state}, fn
+      {:op, op}, {:ok, acc, state} ->
+        case block_path(op.path, state) do
+          {:ok, path, state} -> {:cont, {:ok, [{:op, %{op | path: path}} | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+
+      {:clear, path}, {:ok, acc, state} ->
+        case block_path(path, state) do
+          {:ok, path, state} -> {:cont, {:ok, [{:clear, path} | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+
+      other, {:ok, acc, state} ->
+        {:cont, {:ok, [other | acc], state}}
+    end)
+    |> case do
+      {:ok, acc, state} -> {:ok, Enum.reverse(acc), state}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp block_path(path, state) do
+    Enum.reduce_while(path, {:ok, [], state}, fn
+      segment, {:ok, acc, state} when is_binary(segment) ->
+        {:cont, {:ok, [segment | acc], state}}
+
+      segment, {:ok, acc, state} ->
+        case resolve_key_segment(segment, state, "interpolated key") do
+          {:ok, key, state} -> {:cont, {:ok, [key | acc], state}}
+          {:error, _} = err -> {:halt, err}
+        end
+    end)
+    |> case do
+      {:ok, acc, state} -> {:ok, Enum.reverse(acc), state}
+      {:error, _} = err -> err
+    end
+  end
+
+  # ---- Cooper.Merge.ListEdit (a `+key`/`-key` applied once it resolves) ------
+
+  defp resolve_list_edit(%Cooper.Merge.ListEdit{} = edit, state) do
+    mark = if edit.op == :append, do: "+", else: "-"
+    label = "\"#{mark}#{Enum.join(edit.path, ".")}\""
+
+    with {:ok, base, state} <- resolve_value(edit.base, state) do
+      case base do
+        # A template without this key: `+key` is a plain assignment,
+        # `-key` leaves it absent.
+        %Cooper.Merge.Absent{} when edit.op == :append ->
+          resolve_value(edit.operand, state)
+
+        %Cooper.Merge.Absent{} ->
+          {:ok, base, state}
+
+        _ ->
+          {secret?, base} = unwrap_secret(base)
+          apply_resolved_edit(edit, base, secret?, label, state)
+      end
+    end
+  end
+
+  defp apply_resolved_edit(_edit, base, _secret?, label, _state) when is_tuple(base) do
+    {:error,
+     Error.new(
+       message:
+         "#{label} targets a tuple -- tuples are never merged, only replaced wholesale (CASC.md §8.3)",
+       stage: :resolve
+     )}
+  end
+
+  defp apply_resolved_edit(_edit, base, _secret?, label, _state) when not is_list(base) do
+    {:error,
+     Error.new(
+       message: "#{label} needs a list at that path, found #{inspect(base)}",
+       stage: :resolve
+     )}
+  end
+
+  defp apply_resolved_edit(edit, base, secret?, _label, state) do
+    with {:ok, operand, state} <- resolve_value(edit.operand, state) do
+      {operand_secret?, operand} = unwrap_secret(operand)
+      items = Cooper.Merge.items(operand)
+
+      result =
+        case edit.op do
+          :append -> base ++ items
+          :remove -> Enum.reject(base, &(&1 in items))
+        end
+
+      if secret? or operand_secret?,
+        do: {:ok, %Cooper.Secret{value: result}, state},
+        else: {:ok, result, state}
+    end
+  end
+
+  defp unwrap_secret(%Cooper.Secret{value: value}), do: {true, value}
+  defp unwrap_secret(value), do: {false, value}
 
   # ---- !{resolver:payload} dispatch (CASC.md §7.4/§9.2) ---------------------
 
@@ -601,7 +799,14 @@ defmodule Cooper.Resolver do
   def tag_upcase(arg), do: {:error, "cannot upcase #{inspect(arg)}: not a string"}
 
   @doc false
-  def tag_module(arg) when is_binary(arg) do
+  # `!module("Name")` (§7.5). The application's `:modules` mapping is asked
+  # first, by the name exactly as written; only a name it does not hold is
+  # translated by convention (`Acme.Payments` -> `Elixir.Acme.Payments`).
+  # The mapping is how a module outside the convention is reached -- an
+  # Erlang module (`"Crypto" => :crypto`), or one spelled differently.
+  def tag_module(arg, modules \\ %{})
+
+  def tag_module(arg, modules) when is_binary(arg) do
     name = String.trim(arg)
 
     cond do
@@ -610,14 +815,19 @@ defmodule Cooper.Resolver do
          "cannot convert #{inspect(arg)} to a module: longer than #{@max_module_bytes} bytes"}
 
       not Regex.match?(@module_pattern, name) ->
-        {:error, "cannot convert #{inspect(arg)} to a module: not a dot-separated module name"}
+        {:error,
+         "cannot convert #{inspect(arg)} to a module: not a dot-separated PascalCase module name"}
+
+      Map.has_key?(modules, name) ->
+        {:ok, Map.fetch!(modules, name)}
 
       true ->
-        {:ok, module_atom(name)}
+        {:ok, Module.concat([name])}
     end
   end
 
-  def tag_module(arg), do: {:error, "cannot convert #{inspect(arg)} to a module: not a string"}
+  def tag_module(arg, _modules),
+    do: {:error, "cannot convert #{inspect(arg)} to a module: not a string"}
 
   @doc false
   def tag_int(arg) when is_integer(arg), do: {:ok, arg}
@@ -653,9 +863,16 @@ defmodule Cooper.Resolver do
   def tag_float(arg), do: {:error, "cannot convert #{inspect(arg)} to a float"}
 
   @doc false
+  # The spellings a boolean arrives in from an environment (CASC.md §7.5):
+  # `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off` -- lower case only, as
+  # `true`/`false` always were. Only the first pair once was, so the
+  # commonest `.env` spelling of all, `DEBUG=1`, failed the load.
+  @true_spellings ~w(true 1 yes on)
+  @false_spellings ~w(false 0 no off)
+
   def tag_bool(arg) when is_boolean(arg), do: {:ok, arg}
-  def tag_bool("true"), do: {:ok, true}
-  def tag_bool("false"), do: {:ok, false}
+  def tag_bool(arg) when arg in @true_spellings, do: {:ok, true}
+  def tag_bool(arg) when arg in @false_spellings, do: {:ok, false}
   def tag_bool(arg), do: {:error, "not a boolean: #{inspect(arg)}"}
 
   @doc false
@@ -685,12 +902,55 @@ defmodule Cooper.Resolver do
   # Filters run *after* the suffix has settled what the value is, so a
   # `${NAME:default | trim}` filters whichever of the two it ended up with.
   # Filtering before that would mean transforming a value you might not have.
+  #
+  # A secret is filtered through: the real string is filtered and the
+  # result is a secret again (CASC.md §4.3 -- the stored value is
+  # unaffected by being secret), the same way `!trim(%{pw})` already
+  # behaved. Refusing it as "not a string", as this once did, made a
+  # secret unfilterable.
+  #
+  # A filter's argument is a string like any other, so a double-quoted one
+  # interpolates (`trim_suffix: "@{sep}"`) and is resolved before the
+  # filter runs; handing the unresolved string to the filter, as this once
+  # did, crashed the load. An argument read from a secret makes the result
+  # a secret too.
   defp finish_ref(fetch, suffix, filters, label, state) do
-    with {:ok, value, state} <- finish_ref(fetch, suffix, label, state) do
-      case Cooper.RefCommon.apply_filters(value, filters) do
+    with {:ok, value, state} <- finish_ref(fetch, suffix, label, state),
+         {:ok, filters, argument_secret?, state} <- resolve_filter_arguments(filters, state) do
+      {secret?, inner} =
+        case value do
+          %Cooper.Secret{value: inner} when filters != [] -> {true, inner}
+          other -> {false, other}
+        end
+
+      secret? = secret? or argument_secret?
+
+      case Cooper.RefCommon.apply_filters(inner, filters) do
+        {:ok, filtered} when secret? -> {:ok, %Cooper.Secret{value: filtered}, state}
         {:ok, filtered} -> {:ok, filtered, state}
         {:error, message} -> {:error, Error.new(message: "#{label}: #{message}", stage: :resolve)}
       end
+    end
+  end
+
+  defp resolve_filter_arguments(filters, state) do
+    Enum.reduce_while(filters, {:ok, [], false, state}, fn
+      {name, argument}, {:ok, acc, secret?, state} when is_binary(argument) or is_nil(argument) ->
+        {:cont, {:ok, [{name, argument} | acc], secret?, state}}
+
+      {name, argument}, {:ok, acc, secret?, state} ->
+        with {:ok, resolved, state} <- resolve_value(argument, state),
+             {from_secret?, inner} = unwrap_secret(resolved),
+             {:ok, text} <- Cooper.Display.display(inner) do
+          {:cont, {:ok, [{name, text} | acc], secret? or from_secret?, state}}
+        else
+          {:error, %Error{}} = err -> {:halt, err}
+          {:error, message} -> {:halt, {:error, Error.new(message: message, stage: :resolve)}}
+        end
+    end)
+    |> case do
+      {:ok, acc, secret?, state} -> {:ok, Enum.reverse(acc), secret?, state}
+      err -> err
     end
   end
 
@@ -705,8 +965,18 @@ defmodule Cooper.Resolver do
     case suffix do
       {:default, default} -> resolve_value(default, state)
       {:substitute, _alt} -> {:ok, "", state}
-      {:required, message} -> {:error, Error.new(message: message, stage: :resolve)}
+      {:required, message} -> required(message, state)
       nil -> {:error, Error.new(message: "undefined reference #{label}", stage: :resolve)}
+    end
+  end
+
+  # The message of `:?"..."` is a double-quoted string like any other, so
+  # it interpolates: `@{n:?"need @{m}"}` reports `need M`. Handing the
+  # unresolved string to the error, as this once did, put a struct where
+  # the message belongs. A secret in it shows redacted.
+  defp required(message, state) do
+    with {:ok, text, _state} <- resolve_value(message, state) do
+      {:error, Error.new(message: Kernel.to_string(text), stage: :resolve)}
     end
   end
 
@@ -732,21 +1002,6 @@ defmodule Cooper.Resolver do
 
   defp apply_index(_value, _i), do: :error
 
-  # Builds the atom a module name denotes on this runtime.
-  #
-  # A name beginning with an upper-case letter is an Elixir module, which lives
-  # under the `Elixir.` prefix; anything else is an Erlang module, whose atom is
-  # the name itself. Both are ordinary atoms once built.
-  #
-  # This creates an atom, exactly as a bare atom literal does (CASC.md 6.4), and
-  # carries the same caveat: fine for a fixed, trusted set of configuration
-  # files, not for untrusted input.
-  @spec module_atom(String.t()) :: module()
-  defp module_atom(<<first::utf8, _rest::binary>> = name) when first in ?A..?Z,
-    do: Module.concat([name])
-
-  defp module_atom(name), do: String.to_atom(name)
-
   # ---- Cooper.Interp.Text (string interpolation, CASC.md §7) ----------------
 
   # Each segment contributes two parallel strings: what it really is,
@@ -765,12 +1020,28 @@ defmodule Cooper.Resolver do
         seg, {:ok, acc, secret_seen?, state} ->
           case resolve_value(seg, state) do
             {:ok, %Cooper.Secret{value: v, redacted: r}, state} ->
-              pair = {Display.to_string(v), r || "[~~REDACTED~~]"}
-              {:cont, {:ok, [pair | acc], true, state}}
+              case Display.display(v) do
+                {:ok, text} ->
+                  {:cont, {:ok, [{text, r || "[~~REDACTED~~]"} | acc], true, state}}
+
+                {:error, _} ->
+                  # Named without the value itself: it is a secret.
+                  {:halt,
+                   {:error,
+                    Error.new(
+                      message: "cannot interpolate a secret list, map or tuple into a string",
+                      stage: :resolve
+                    )}}
+              end
 
             {:ok, resolved, state} ->
-              text = Display.to_string(resolved)
-              {:cont, {:ok, [{text, text} | acc], secret_seen?, state}}
+              case Display.display(resolved) do
+                {:ok, text} ->
+                  {:cont, {:ok, [{text, text} | acc], secret_seen?, state}}
+
+                {:error, message} ->
+                  {:halt, {:error, Error.new(message: message, stage: :resolve)}}
+              end
 
             {:error, _} = err ->
               {:halt, err}

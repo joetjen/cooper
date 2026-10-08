@@ -5,6 +5,165 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-08
+
+### Added
+
+- **A list or tuple element may be a block -- a map** (CASC.md §6.10):
+  `access_control = [{ path = "^/admin" }]`. Its keys interpolate, a
+  loop binding reaches it, and `+`/`-` append or remove whole maps,
+  compared by value. A list of maps could not be written before.
+- **`:dotenv_dir`** -- the directory `.env` files are read from, and the
+  base of a relative `:dotenv_files` entry.
+- **`${COOPER_ENV}` is always set**: the one name a document reads the
+  current environment by in every Cooper implementation (CASC.md §7.2).
+  A real `COOPER_ENV` wins, as written; unset or empty it falls back to
+  `MIX_ENV`, then the live `Mix.env/0`, then `"dev"`, mapped onto the
+  names every Cooper uses (`development`/`local` → `dev`, `testing` →
+  `test`, `production` → `prod`).
+
+### Changed
+
+- **`!bool` reads `1`/`0`, `yes`/`no` and `on`/`off`** besides
+  `true`/`false` (lower case only), so `DEBUG=1`, the commonest `.env`
+  spelling of a boolean, no longer fails the load (CASC.md §7.5).
+- **`.env.<env>` is named by `COOPER_ENV`**, as the real environment,
+  `:env` and the base `.env` set it -- `.env.dev`, `.env.staging`,
+  `.env.test`, `.env.prod` in every Cooper. It was named by `Mix.env/0`
+  or the compiled `:dotenv_env`, which now feed `COOPER_ENV`'s own
+  fallback instead. An explicit `:dotenv_env` still wins.
+- **`dotenvy` is a required dependency**, not an optional one. `.env`
+  files are read by default, and as an optional dependency that default
+  silently read nothing in any application that had not added it
+  itself. `dotenv: true` can no longer fail for its absence.
+- **Licensed under Apache-2.0 from this release**, replacing MIT --
+  Apache 2.0 adds an express patent grant MIT lacks. Releases already
+  published stay MIT.
+- **`!module("Name")` takes one written form in every implementation**
+  (CASC.md §7.5): dot-separated PascalCase segments. A lower-case name
+  (`crypto`), a lower-case segment, an underscore or anything else is
+  now a load error -- **breaking** for documents naming an Erlang module
+  directly. Each implementation translates the name into its own
+  convention; here `Acme.Payments` is `Elixir.Acme.Payments` as before.
+- **New `:modules` load option**, a map from the name exactly as
+  written to the module it means, consulted before the convention. It
+  is how an Erlang module is reached now: `%{"Crypto" => :crypto}`.
+
+### Fixed
+
+- **An empty block was no key at all**: `w {}` and `w = {}` left `w`
+  out of the tree. It is an empty map now (CASC.md §5.4); written over a
+  map that already exists it leaves that map as it is.
+Places this implementation contradicted CASC.md, found while porting it
+to PHP (`php-cooper`):
+
+- **`key "value"` -- an assignment without `=` to a string, CASC.md
+  §5.3's own example -- failed with `expected "import", got "key"`.**
+  `import_statement` matches any identifier followed by a quoted string;
+  a non-`import` keyword there is now built as that assignment.
+- **A `#`-disabled statement (§5.6) took effect.** It was evaluated and
+  only its entries dropped, so `#@name = ...` still defined the
+  variable, `#import "..."` still loaded the file (failing the load if
+  it was missing), and a bad literal inside one still raised. It is now
+  never evaluated.
+- **A merge sigil inside a block lost its meaning.** Every inner op took
+  the enclosing statement's sigil, so `a { +tags = ["d"] }` replaced the
+  list and `a { -b }` set `b = nil`. An inner `+`/`-`/`~` now wins; only a
+  plain inner op takes the block's.
+- **`-key.path` followed by another statement failed to parse.** The
+  grammar is newline-insensitive, so the next line's key became the
+  remove value (`-a.b = c`, then a stray `= 1`). A bare delete followed
+  by a complete statement is now a delete -- the rule is added to
+  CASC.md §5.7.
+- **`+info`/`-info` failed to parse**: `+inf` out-munched `+`, leaving
+  `o`. A signed `inf` no longer matches when an identifier character
+  follows.
+- **An interpolated key outside a `for` loop (§4.2) became the map key
+  unresolved** -- the `Cooper.Interp.Text` struct itself. Keys are now
+  resolved before merging, from `@{...}` and `${...}` (a `%{...}`,
+  resolver, or tag in a key is an error naming why), under the same
+  rules as a built `%{...}` key.
+- **`for` loops:** a `~key { }` in the body cleared the *top-level*
+  `key`, once per iteration, instead of the one under the generated
+  destination; a binding was never substituted into a `%{...}` path
+  segment (§7.2's own `%{tokens."supervisor-@{id}"}`), a default, or a
+  filter argument, so it failed as an undefined variable; and a key
+  mixing a binding with an ordinary variable was refused. All three now
+  work.
+- **Interpolating a list produced raw bytes** (`[1, 2]` read as iodata)
+  **and a tuple or map crashed**; each is now a `:resolve` error.
+- **An impossible date or time literal (`2023-02-30`) crashed** the
+  load through `Date.from_iso8601!/1`; it is now an `:action` error
+  naming the literal.
+- **A `${NAME}` in an import path was never watched by the cache**, so a
+  cached tree kept importing the file the old value selected. It is now
+  tracked and polled like a `${?NAME}` guard, as is a `${NAME}` in an
+  interpolated key; the docs that still called `${...}` in an import
+  path unsupported are corrected.
+
+Places the copies (`node-cooper`, `php-cooper`) and a shared corpus of
+conformance cases showed this implementation contradicting CASC.md, or
+itself:
+
+- **A comment before `#@version` failed the load.** Comments are
+  trivia everywhere (§3.2); the header now follows any leading ones.
+- **`1_000ms` failed to parse.** A duration takes `_` the way an
+  integer does (§6.3, §6.8).
+- **`${PORT:+1}` was a default of `+1`.** `:+` always introduces a
+  substitute; a signed number after `:` is a default only when it is
+  negative (`${PORT:-1}`).
+- **One private variable could not read another** (`@*b = "v@{a}"` over
+  `@*a`), and **a private variable did not shadow an imported public
+  one** of the same name. Private variables now resolve first.
+- **`+key = @{list}` appended the reference itself** when the operand
+  was declared later in the file, and `+`/`-` in a `for ... from` body
+  edited a list it could not see yet. Both are now deferred until the
+  values resolve.
+- **`+key = nil` appended nothing** (`List.wrap/1` reads `nil` as no
+  elements); it now appends `nil`, as every other scalar is appended,
+  and `-key = nil` removes it.
+- **A loop value lost its filters**: `@{x | upcase}` in a body gave `x`
+  unfiltered. It now keeps an index, a suffix, and filters.
+- **A key built from a loop binding skipped the interpolated-key
+  rules**: `out."@{x}"` over `"a.b"` or `""` built a key the same text
+  is refused for outside a loop. Both are now `:resolve` errors.
+- **A loop iterable could build its variable's name**; it must name it.
+- **A secret could not be filtered** (`%{pw | trim}` failed as "not a
+  string"). The value is filtered and stays a secret.
+- **The message of `:?"..."` crashed the load when it interpolated**;
+  it now resolves like any double-quoted string.
+- **A filter argument that interpolated crashed the load**
+  (`trim_suffix: "@{sep}"`, in a loop or not): it reached the filter
+  unresolved. It is now resolved first; one with no string form is a
+  `:resolve` error, and one read from a secret makes the result secret.
+- **`inf` in a string read `infinity`**; it now reads `inf`/`-inf`.
+- **A single-unit duration or a byte size was computed through a
+  float**: above 2^53 it lost precision (`9223372036854775807ns` loaded
+  as 2^63) while a compound duration was exact, and an amount too large
+  for a float crashed the load. Both are now exact integer arithmetic,
+  a fraction rounded half away from zero.
+- **`.env` files were read from the working directory**, so an
+  application started from anywhere but its own root read none of them.
+  They are now read from the project root by default: the Mix project's
+  directory, else a release's `RELEASE_ROOT`, else the working directory.
+- **The cache's environment poll ignored `:dotenv_override`**, so it
+  compared against the files in the other order than the load had.
+- **The cache missed a file added where a glob import looks**: it
+  fingerprinted only the files a load read, so an edited or deleted one
+  was noticed and a new match was not. Each import's expansion is now
+  part of the fingerprint and is expanded again on every cache hit; the
+  file it gained or lost is named in `[:cooper, :cache, :file_changed]`.
+- **A scheme import that imported itself recursed** instead of
+  reporting the cycle a file import reports.
+- **`Cooper.Cache` re-baselined the environment on every load**, so a
+  change landing between two loads was never seen. The baseline is now
+  the one the entry was first watched with.
+
+CASC.md now states what this implementation already did: `:nil`,
+`:true`, `:false` are the values `nil`, `true`, `false` (§6.4); how a
+value reads inside a string (§7); and that a `+`/`-` operand that is
+not a list is one element, compared strictly (§8.4).
+
 ## [0.4.0] - 2026-10-01
 
 ### Added
@@ -188,8 +347,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ichor_runtime ~> 0.2` in turn), and dropped the patch component from
   both requirements (`~> 0.2`/`~> 0.3` rather than pinning a specific
   patch). `ichor_runtime` 0.2.0's breaking change is internal to the
-  parse pipeline: raw capture data (`Ichor.Capture.node_t/0`'s `:rule`
-  variant) is now an ordered `[{name, value}]` list instead of a plain
+  parse pipeline: raw capture data (the `:rule` variant of
+  `Ichor.Capture`'s `node_t` type) is now an ordered `[{name, value}]` list instead of a plain
   map, fixing sibling-capture evaluation order depending on a map's own
   (cross-OTP-version-unstable) iteration order rather than true
   first-occurrence source order. `lib/cooper/native_grammar/native.ex`
