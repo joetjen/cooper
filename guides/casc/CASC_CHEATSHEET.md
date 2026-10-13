@@ -182,8 +182,8 @@ was written.
 
 ## Identifiers (§4.1)
 
-`/^[a-zA-Z][a-zA-Z0-9_+-]*[?!]?$/` -- mixed case, `_`/`-`/`+`, digits,
-optional trailing `?`/`!`. `nil`/`true`/`false`/`inf`/`+inf`/`-inf` are
+`/^[a-zA-Z_][a-zA-Z0-9_+-]*[?!]?$/` -- mixed case, `_`/`-`/`+`, digits,
+optional trailing `?`/`!`; a letter or `_` first (`__sentry__`). `nil`/`true`/`false`/`inf`/`+inf`/`-inf` are
 reserved everywhere (§6.4); `for`/`in`/`from`/`as` are reserved only
 inside a `for` statement (§5.5), ordinary identifiers everywhere else.
 A key segment that doesn't fit this rule (spaces, punctuation) must be
