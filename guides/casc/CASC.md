@@ -61,9 +61,9 @@ This is a hard lexical rule: `#TODO` (no space) is a disabled-statement attempt,
 
 ### 4.1 Key names, atoms, and variable names
 
-`/^[a-zA-Z][a-zA-Z0-9_+-]*[?!]?$/` — mixed case, underscores, hyphens, digits, `+`, optionally ending `?` or `!`.
+`/^[a-zA-Z_][a-zA-Z0-9_+-]*[?!]?$/` — mixed case, underscores, hyphens, digits, `+`, optionally ending `?` or `!`. A name may begin with a letter or an underscore.
 
-Examples: `logger`, `handleOtpReports`, `handle-otp-reports`, `enabled?`, `ready!`, `MyApp`.
+Examples: `logger`, `handleOtpReports`, `handle-otp-reports`, `enabled?`, `ready!`, `MyApp`, `__sentry__`, `_private`.
 
 `for`, `in`, `from`, `as` (§5.5) are **contextual** keywords — special only inside a `for` statement, ordinary identifiers everywhere else. This differs from the six reserved words in §6.4 (`nil`, `true`, `false`, `inf`, `+inf`, `-inf`), which are reserved everywhere.
 

@@ -203,4 +203,24 @@ defmodule Cooper.SpecCoverageTest do
       end
     end
   end
+
+  # **Keys, atoms and variable names share one rule** (CASC.md §4.1), and
+  # it lets a name begin with `_`: `__foo__` is a key, a variable and an
+  # atom like any other name. `${...}` reuses the same rule, so an
+  # environment name may lead with `_` as §7.2 always said.
+  describe "a name may begin with an underscore (CASC.md §4.1)" do
+    test "as a key" do
+      assert Cooper.load_string("#@version = 1.0\n__foo__ = 1\n") == {:ok, %{"__foo__" => 1}}
+    end
+
+    test "as a variable" do
+      source = "#@version = 1.0\n@__foo__ = 2\nv = @{__foo__}\nw = \"x-@{__foo__}\"\n"
+      assert Cooper.load_string(source) == {:ok, %{"v" => 2, "w" => "x-2"}}
+    end
+
+    test "as an environment name" do
+      source = "#@version = 1.0\nv = ${_SENTRY_DSN}\n"
+      assert Cooper.load_string(source, env: %{"_SENTRY_DSN" => "dsn"}) == {:ok, %{"v" => "dsn"}}
+    end
+  end
 end

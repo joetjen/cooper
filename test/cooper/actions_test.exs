@@ -66,6 +66,15 @@ defmodule Cooper.ActionsTest do
       assert value(":info") == :info
     end
 
+    # **An identifier may begin with `_`** (CASC.md §4.1), so an atom
+    # may too -- `__sentry__` could not be written at all, bare or with
+    # its colon, because the rule asked for a letter first.
+    test "an atom may begin with an underscore" do
+      assert value("__sentry__") == :__sentry__
+      assert value(":__sentry__") == :__sentry__
+      assert value("_private") == :_private
+    end
+
     test "a colon is required to reach a reserved-word-named atom" do
       assert value(":true") == true
       assert value(":false") == false

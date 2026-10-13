@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-13
+
+### Fixed
+
+- **A name may begin with `_`** (CASC.md §4.1). Keys, atoms and
+  variable names share one rule, and it asked for a letter first, so
+  `__sentry__` could not be written as an atom -- bare or as
+  `:__sentry__` -- nor `__foo__` as a key or a variable. The rule is
+  `/^[a-zA-Z_][a-zA-Z0-9_+-]*[?!]?$/` now. `${...}` reads its name with
+  the same rule, so an environment name may lead with `_` too, as §7.2
+  always said.
+
 ## [0.5.0] - 2026-10-08
 
 ### Added
