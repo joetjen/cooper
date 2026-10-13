@@ -31,7 +31,11 @@ FALSE_KW := "false"
 INF_KW   := ("+" | "-")? "inf" !(ALNUM | "_" | "+" | "-" | "?" | "!")
 
 ; -- Identifiers (CASC.md §4.1) --------------------------------------------
-IDENT := ALPHA (ALNUM | "_" | "+" | "-")* ("?" | "!")?
+; **A name may begin with `_`** (CASC.md §4.1) -- `__sentry__` as an
+; atom, `__foo__` as a key or a variable. It began with a letter only,
+; and nothing else in the grammar starts with `_`: a digit separator is
+; only ever *inside* a number, after a digit.
+IDENT := ("_" | ALPHA) (ALNUM | "_" | "+" | "-")* ("?" | "!")?
 
 ; -- Dates and times (CASC.md §6.6) ----------------------------------------
 ; Declared before INTEGER/FLOAT: each of these always matches *more*
@@ -119,9 +123,10 @@ SQ_STRING     := "'" (!"'" .)* "'"
 ; tie whichever one is declared first always wins *everywhere*, not just
 ; here, so a dedicated ENV_NAME would silently steal every ordinary key
 ; matching that same shape away from IDENT. The accepted trade: env
-; names here can't lead with "_" and can technically include a trailing
-; "+"/"-"/"?"/"!" they shouldn't -- a minor, documented loosening rather
-; than a token that collides with ordinary identifiers.
+; names here can technically include a trailing "+"/"-"/"?"/"!" they
+; shouldn't -- a minor, documented loosening rather than a token that
+; collides with ordinary identifiers. (They could not lead with "_"
+; either, until IDENT could.)
 
 ; A standalone `RESOLVER_PAYLOAD := (!("{"|"}") . | ...)*` token would
 ; join the top-level maximal-munch race (it's referenced by a rule) and,
