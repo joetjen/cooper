@@ -617,7 +617,9 @@ Three rules:
 
 **Resolves lazily, against the fully-merged final tree** — after every import, merge, and override sigil (§8), not eagerly per-file. A reference tracks a value "wherever it ends up," independent of import order: if a later import replaces the whole `tls` block via `~tls { ... }`, `%{tls.min_version}` resolves to the replacement's value even if written in an earlier-processed file.
 
-**Cycle detection is required.** `%{a}` referencing something that transitively contains `%{a}` again must fail at load time with the cycle path in the error — never loop forever or silently return a partial value.
+**A path is followed through a reference.** In the final tree a key holding a reference holds what it resolves to, so a path may run through it: with `origin = %{origins.eu}`, `%{origin.code}` is `origins.eu.code`. The same holds for any other value that resolves to a map — a loop variable bound to a block element, a resolver's or a tag's answer. A path continuing into a value that resolves to anything but a map is undefined, and takes its default if it has one.
+
+**Cycle detection is required.** `%{a}` referencing something that transitively contains `%{a}` again, or a path through `a` itself (`a = %{a.b}`), must fail at load time with the cycle path in the error — never loop forever or silently return a partial value.
 
 **Example:**
 

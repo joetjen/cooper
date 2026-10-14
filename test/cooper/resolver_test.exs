@@ -173,6 +173,62 @@ defmodule Cooper.ResolverTest do
       assert message =~ ~r/\A circular \s %\{\.\.\.\} \s reference: \s
                             (a|b|c) \s -> \s (a|b|c) \s -> \s (a|b|c) \s -> \s \1 \z/x
     end
+
+    test "a path is followed through a value that is itself a reference" do
+      assert load!("""
+             origins.eu.code = "EU"
+             origins.us.code = "US"
+             origin = %{origins.eu}
+             code = %{origin.code}
+             """)["code"] == "EU"
+    end
+
+    test "a path is followed through a chain of references" do
+      assert load!("""
+             a.b.c = 1
+             x = %{a}
+             y = %{x.b}
+             z = %{y.c}
+             """)["z"] == 1
+    end
+
+    test "a path is followed through a loop variable bound to a block element" do
+      assert load!("""
+             @origins = [{ code = "EU" }]
+             for @o in @{origins} as picked.first {
+               origin = @{o}
+             }
+             code = %{picked.first.origin.code}
+             """)["code"] == "EU"
+    end
+
+    test "a key missing behind a reference takes the default" do
+      assert load!("""
+             origins.eu.code = "EU"
+             origin = %{origins.eu}
+             name = %{origin.name:"none"}
+             """)["name"] == "none"
+    end
+
+    test "a path cannot be followed into a reference to a scalar" do
+      assert {:error, %Ichor.Error{stage: :resolve, message: message}} =
+               load("""
+               a = 1
+               b = %{a}
+               c = %{b.d}
+               """)
+
+      assert message =~ "%{b.d}"
+    end
+
+    test "a reference into its own value is a cycle" do
+      assert {:error, %Ichor.Error{stage: :resolve, message: message}} =
+               load("""
+               a = %{a.b}
+               """)
+
+      assert message == "circular %{...} reference: a.b -> a -> a.b"
+    end
   end
 
   describe "!{resolver:payload} dispatch (CASC.md §7.4/§9.4)" do
