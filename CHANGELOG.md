@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   §7.3 always said, so it finds `origins.eu.code` -- through a chain of
   references too, and through any other value that resolves to a map.
   A path through its own key (`a = %{a.b}`) is a cycle, reported as
-  `a.b -> a -> a.b`.
+  `a.b -> a -> a.b`. A path into a secret block -- `*site = @{s}`
+  copying a block element -- finds its value, and that value stays
+  secret.
 
 ## [0.5.1] - 2026-10-13
 

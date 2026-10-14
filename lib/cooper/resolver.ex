@@ -612,8 +612,19 @@ defmodule Cooper.Resolver do
 
   defp fetch_tree_path(_other, _path, _state, _walked), do: {:error, :not_found}
 
-  # The rest of a path through a value already resolved: plain maps only.
+  # The rest of a path through a value already resolved: plain maps,
+  # and a secret one (`*site = @{s}` copying a block element), whose
+  # value found inside stays secret -- secrecy travels with the value,
+  # as `apply_index/2` keeps it for an element of a secret list.
   defp fetch_resolved_path(value, [], state), do: {:ok, value, state}
+
+  defp fetch_resolved_path(%Cooper.Secret{value: inner}, path, state) do
+    case fetch_resolved_path(inner, path, state) do
+      {:ok, %Cooper.Secret{} = found, state} -> {:ok, found, state}
+      {:ok, found, state} -> {:ok, %Cooper.Secret{value: found}, state}
+      {:error, _} = err -> err
+    end
+  end
 
   defp fetch_resolved_path(map, [seg | rest], state) when is_map(map) and not is_struct(map) do
     case Map.fetch(map, seg) do

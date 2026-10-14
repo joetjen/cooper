@@ -202,6 +202,17 @@ defmodule Cooper.ResolverTest do
              """)["code"] == "EU"
     end
 
+    test "a path is followed into a secret block element, and what it finds stays secret" do
+      assert %Cooper.Secret{value: "a"} =
+               load!("""
+               @sites = [{ host = "a" }]
+               for @s in @{sites} as picked.first {
+                 *site = @{s}
+               }
+               host = %{picked.first.site.host}
+               """)["host"]
+    end
+
     test "a key missing behind a reference takes the default" do
       assert load!("""
              origins.eu.code = "EU"
