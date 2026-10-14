@@ -549,18 +549,20 @@ defmodule Cooper.Resolver do
         if path in state.in_progress do
           {:error, cycle_error(state.in_progress, path)}
         else
-          with {:ok, raw, state} <- fetch_tree_path(state.tree, path, state) do
-            state = %{state | in_progress: [path | state.in_progress]}
+          # In progress from before the fetch: reaching `path` may
+          # resolve a reference along the way (`fetch_tree_path/4`),
+          # and one that leads back here is part of the cycle.
+          state = %{state | in_progress: [path | state.in_progress]}
 
-            with {:ok, resolved, state} <- resolve_value(raw, state) do
-              state = %{
-                state
-                | in_progress: List.delete(state.in_progress, path),
-                  cache: Map.put(state.cache, path, resolved)
-              }
+          with {:ok, raw, state} <- fetch_tree_path(state.tree, path, state, []),
+               {:ok, resolved, state} <- resolve_value(raw, state) do
+            state = %{
+              state
+              | in_progress: List.delete(state.in_progress, path),
+                cache: Map.put(state.cache, path, resolved)
+            }
 
-              {:ok, resolved, state}
-            end
+            {:ok, resolved, state}
           end
         end
     end
@@ -570,23 +572,68 @@ defmodule Cooper.Resolver do
   # for-loop's lazy `from` base) -- resolving that node fully (itself
   # possibly recursing through more of this same machinery) before
   # continuing to walk the rest of the path into it.
-  defp fetch_tree_path(tree, [], state), do: {:ok, tree, state}
+  #
+  # The same holds for any other unresolved node the path runs through
+  # -- a reference, an interpolated string, a tagged value: CASC.md §7.3
+  # resolves against the final tree, in which `origin = %{origins.eu}`
+  # *is* the `origins.eu` block, so `%{origin.code}` must find its
+  # `code`. Such a node is resolved through `resolve_path/2` under the
+  # path walked so far (`walked`, reversed), so it is cached once and a
+  # reference into its own value (`a = %{a.b}`) is reported as the cycle
+  # it is. Its resolved value is fully resolved, so the rest of the walk
+  # through it needs no more resolution.
+  defp fetch_tree_path(tree, [], state, _walked), do: {:ok, tree, state}
 
-  defp fetch_tree_path(%Cooper.Merge.Layered{} = layered, path, state) do
+  defp fetch_tree_path(%Cooper.Merge.Layered{} = layered, path, state, walked) do
     case resolve_layered(layered, state) do
-      {:ok, resolved, state} -> fetch_tree_path(resolved, path, state)
+      {:ok, resolved, state} -> fetch_tree_path(resolved, path, state, walked)
       {:error, _} = err -> err
     end
   end
 
-  defp fetch_tree_path(tree, [seg | rest], state) when is_map(tree) and not is_struct(tree) do
+  defp fetch_tree_path(tree, [seg | rest], state, walked)
+       when is_map(tree) and not is_struct(tree) do
     case Map.fetch(tree, seg) do
-      {:ok, v} -> fetch_tree_path(v, rest, state)
+      {:ok, v} -> fetch_tree_path(v, rest, state, [seg | walked])
       :error -> {:error, :not_found}
     end
   end
 
-  defp fetch_tree_path(_other, _path, _state), do: {:error, :not_found}
+  # Any struct, not a list of the ones that can stand for a map: a
+  # loop's copied block element is a `Cooper.Block`, a secret one a
+  # `Cooper.Secret`, and a leaf (a date, an address) resolves to itself
+  # and ends the walk below as undefined.
+  defp fetch_tree_path(%_{}, path, state, [_ | _] = walked) do
+    case resolve_path(Enum.reverse(walked), state) do
+      {:ok, resolved, state} -> fetch_resolved_path(resolved, path, state)
+      {:error, _} = err -> err
+    end
+  end
+
+  defp fetch_tree_path(_other, _path, _state, _walked), do: {:error, :not_found}
+
+  # The rest of a path through a value already resolved: plain maps,
+  # and a secret one (`*site = @{s}` copying a block element), whose
+  # value found inside stays secret -- secrecy travels with the value,
+  # as `apply_index/2` keeps it for an element of a secret list.
+  defp fetch_resolved_path(value, [], state), do: {:ok, value, state}
+
+  defp fetch_resolved_path(%Cooper.Secret{value: inner}, path, state) do
+    case fetch_resolved_path(inner, path, state) do
+      {:ok, %Cooper.Secret{} = found, state} -> {:ok, found, state}
+      {:ok, found, state} -> {:ok, %Cooper.Secret{value: found}, state}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp fetch_resolved_path(map, [seg | rest], state) when is_map(map) and not is_struct(map) do
+    case Map.fetch(map, seg) do
+      {:ok, v} -> fetch_resolved_path(v, rest, state)
+      :error -> {:error, :not_found}
+    end
+  end
+
+  defp fetch_resolved_path(_other, _path, _state), do: {:error, :not_found}
 
   defp cycle_error(in_progress, path) do
     chain = (Enum.reverse(in_progress) ++ [path]) |> Enum.map(&Enum.join(&1, "."))
