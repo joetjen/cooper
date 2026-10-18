@@ -1,0 +1,6 @@
+#@version = 1.0
+a = 1
+wait = 5m
+region = ${REGION}
+*pw = "s"
+t = (1, :x)
