@@ -37,8 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads the suite's JSON request, loads each case's document with the
   suite's fixed environment and extension points, and answers with the
   configuration in the suite's typed JSON -- what Praxis notation has no
-  literal for tagged with a dotted keyword, `casc.duration`,
-  `casc.secret`, `casc.module` and the rest -- or with the error's
+  literal for tagged with a namespaced keyword, `casc/duration`,
+  `casc/secret`, `casc/module` and the rest -- or with the error's
   category (§9.5).
 
 - **Error categories are part of the language** (CASC.md §9.5). Every
@@ -645,7 +645,7 @@ not a list is one element, compared strictly (§8.4).
   the `ichor`/`ichor_runtime` split and docs -- see Ichor's own
   CHANGELOG.md).
 - `RESOLVER_REF_RAW` (`!{resolver:payload}`'s token, in both
-  `casc.aether` and `casc_interp.aether`) now uses Ichor 0.1.1's
+  `casc/aether` and `casc_interp.aether`) now uses Ichor 0.1.1's
   `@native(...)` token-position escape hatch (new module:
   `Cooper.Native.ResolverRef`) instead of a fixed
   one-level-of-nested-braces combinator form — a payload may now

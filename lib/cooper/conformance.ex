@@ -25,10 +25,10 @@ defmodule Cooper.Conformance do
   `{"float": "2.0"}`, `{"keyword": "info"}`, `{"tuple": [...]}`,
   `{"map": [[key, value], ...]}`, arrays, and strings, booleans and
   `null` as they are. What CASC has and Praxis notation has no literal
-  for is a tuple tagged with a dotted keyword -- `casc.duration`,
-  `casc.bytes`, `casc.secret`, `casc.module`, `casc.float`,
-  `casc.ipv4`, `casc.ipv6`, `casc.date`, `casc.time`,
-  `casc.local-date-time`, `casc.date-time` -- which no CASC atom can be,
+  for is a tuple tagged with a namespaced keyword -- `casc/duration`,
+  `casc/bytes`, `casc/secret`, `casc/module`, `casc/float`,
+  `casc/ipv4`, `casc/ipv6`, `casc/date`, `casc/time`,
+  `casc/local-date-time`, `casc/date-time` -- which no CASC atom can be,
   so a tag never reads as a tuple a document wrote.
   """
 
@@ -85,8 +85,8 @@ defmodule Cooper.Conformance do
   def encode(value) when is_nil(value) or is_boolean(value) or is_binary(value), do: value
   def encode(n) when is_integer(n), do: %{"integer" => Integer.to_string(n)}
   def encode(f) when is_float(f), do: %{"float" => Float.to_string(f)}
-  def encode(%Cooper.Infinity{sign: :positive}), do: tagged("casc.float", ["inf"])
-  def encode(%Cooper.Infinity{sign: :negative}), do: tagged("casc.float", ["-inf"])
+  def encode(%Cooper.Infinity{sign: :positive}), do: tagged("casc/float", ["inf"])
+  def encode(%Cooper.Infinity{sign: :negative}), do: tagged("casc/float", ["-inf"])
 
   # A module built by `!module(...)` (§7.5) is an atom with Elixir's
   # prefix, which no CASC atom can carry; it travels by the name CASC
@@ -94,28 +94,28 @@ defmodule Cooper.Conformance do
   # host's value.
   def encode(atom) when is_atom(atom) do
     case Atom.to_string(atom) do
-      "Elixir." <> written -> tagged("casc.module", [written])
+      "Elixir." <> written -> tagged("casc/module", [written])
       name -> %{"keyword" => name}
     end
   end
 
   def encode(list) when is_list(list), do: Enum.map(list, &encode/1)
-  def encode(%Cooper.Duration{nanoseconds: ns}), do: tagged("casc.duration", [encode(ns)])
-  def encode(%Cooper.ByteSize{bytes: n}), do: tagged("casc.bytes", [encode(n)])
-  def encode(%Cooper.Secret{value: v, redacted: nil}), do: tagged("casc.secret", [encode(v)])
+  def encode(%Cooper.Duration{nanoseconds: ns}), do: tagged("casc/duration", [encode(ns)])
+  def encode(%Cooper.ByteSize{bytes: n}), do: tagged("casc/bytes", [encode(n)])
+  def encode(%Cooper.Secret{value: v, redacted: nil}), do: tagged("casc/secret", [encode(v)])
 
   def encode(%Cooper.Secret{value: v, redacted: shown}),
-    do: tagged("casc.secret", [encode(v), shown])
+    do: tagged("casc/secret", [encode(v), shown])
 
-  def encode(%Cooper.IPv4{} = ip), do: tagged("casc.ipv4", [to_string(ip)])
-  def encode(%Cooper.IPv6{} = ip), do: tagged("casc.ipv6", [to_string(ip)])
-  def encode(%Date{} = d), do: tagged("casc.date", [Date.to_iso8601(d)])
-  def encode(%Time{} = t), do: tagged("casc.time", [Time.to_iso8601(t)])
+  def encode(%Cooper.IPv4{} = ip), do: tagged("casc/ipv4", [to_string(ip)])
+  def encode(%Cooper.IPv6{} = ip), do: tagged("casc/ipv6", [to_string(ip)])
+  def encode(%Date{} = d), do: tagged("casc/date", [Date.to_iso8601(d)])
+  def encode(%Time{} = t), do: tagged("casc/time", [Time.to_iso8601(t)])
 
   def encode(%NaiveDateTime{} = t),
-    do: tagged("casc.local-date-time", [NaiveDateTime.to_iso8601(t)])
+    do: tagged("casc/local-date-time", [NaiveDateTime.to_iso8601(t)])
 
-  def encode(%DateTime{} = t), do: tagged("casc.date-time", [DateTime.to_iso8601(t)])
+  def encode(%DateTime{} = t), do: tagged("casc/date-time", [DateTime.to_iso8601(t)])
   def encode(t) when is_tuple(t), do: %{"tuple" => t |> Tuple.to_list() |> Enum.map(&encode/1)}
 
   def encode(%{} = map) when not is_struct(map) do
