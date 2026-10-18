@@ -37,13 +37,13 @@ defmodule Cooper.ConformanceTest do
     end
 
     # What CASC has and Praxis notation has no literal for is a tuple
-    # tagged with a dotted keyword, which no CASC atom can be.
+    # tagged with a namespaced keyword, which no CASC atom can be.
     test "a duration and a byte size are tagged with their base unit" do
       assert Conformance.encode(%Cooper.Duration{nanoseconds: 300_000_000_000}) ==
-               %{"tuple" => [%{"keyword" => "casc.duration"}, %{"integer" => "300000000000"}]}
+               %{"tuple" => [%{"keyword" => "casc/duration"}, %{"integer" => "300000000000"}]}
 
       assert Conformance.encode(%Cooper.ByteSize{bytes: 512}) ==
-               %{"tuple" => [%{"keyword" => "casc.bytes"}, %{"integer" => "512"}]}
+               %{"tuple" => [%{"keyword" => "casc/bytes"}, %{"integer" => "512"}]}
     end
 
     test "a tuple a document wrote stays a tuple, whatever its first element" do
@@ -55,45 +55,45 @@ defmodule Cooper.ConformanceTest do
 
     test "a secret is tagged, and carries its shown form when partly redacted" do
       assert Conformance.encode(%Cooper.Secret{value: "s", redacted: nil}) ==
-               %{"tuple" => [%{"keyword" => "casc.secret"}, "s"]}
+               %{"tuple" => [%{"keyword" => "casc/secret"}, "s"]}
 
       assert Conformance.encode(%Cooper.Secret{
                value: "http://a",
                redacted: "http://[~~REDACTED~~]"
              }) ==
-               %{"tuple" => [%{"keyword" => "casc.secret"}, "http://a", "http://[~~REDACTED~~]"]}
+               %{"tuple" => [%{"keyword" => "casc/secret"}, "http://a", "http://[~~REDACTED~~]"]}
     end
 
     test "a module is tagged with its name as CASC writes it" do
       assert Conformance.encode(Foo.Bar) == %{
-               "tuple" => [%{"keyword" => "casc.module"}, "Foo.Bar"]
+               "tuple" => [%{"keyword" => "casc/module"}, "Foo.Bar"]
              }
     end
 
     test "infinity is a tagged float" do
       assert Conformance.encode(%Cooper.Infinity{sign: :positive}) == %{
-               "tuple" => [%{"keyword" => "casc.float"}, "inf"]
+               "tuple" => [%{"keyword" => "casc/float"}, "inf"]
              }
 
       assert Conformance.encode(%Cooper.Infinity{sign: :negative}) == %{
-               "tuple" => [%{"keyword" => "casc.float"}, "-inf"]
+               "tuple" => [%{"keyword" => "casc/float"}, "-inf"]
              }
     end
 
     test "dates and times are tagged ISO 8601" do
       assert Conformance.encode(~D[2026-10-18]) == %{
-               "tuple" => [%{"keyword" => "casc.date"}, "2026-10-18"]
+               "tuple" => [%{"keyword" => "casc/date"}, "2026-10-18"]
              }
 
       assert Conformance.encode(~T[07:32:00]) == %{
-               "tuple" => [%{"keyword" => "casc.time"}, "07:32:00"]
+               "tuple" => [%{"keyword" => "casc/time"}, "07:32:00"]
              }
 
       assert Conformance.encode(~N[2026-10-18 07:32:00]) ==
-               %{"tuple" => [%{"keyword" => "casc.local-date-time"}, "2026-10-18T07:32:00"]}
+               %{"tuple" => [%{"keyword" => "casc/local-date-time"}, "2026-10-18T07:32:00"]}
 
       assert Conformance.encode(~U[2026-10-18 07:32:00Z]) ==
-               %{"tuple" => [%{"keyword" => "casc.date-time"}, "2026-10-18T07:32:00Z"]}
+               %{"tuple" => [%{"keyword" => "casc/date-time"}, "2026-10-18T07:32:00Z"]}
     end
   end
 
