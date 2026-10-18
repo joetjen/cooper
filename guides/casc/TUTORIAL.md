@@ -111,7 +111,7 @@ tags        = ["a", "b", "c"]
 
 ```elixir
 iex> Cooper.load_string(source)["timeout"]
-{:duration, 500_000_000}
+%Cooper.Duration{nanoseconds: 500_000_000}
 iex> Cooper.load_string(source)["coordinates"]
 {52.52, 13.405}
 ```
@@ -119,10 +119,10 @@ iex> Cooper.load_string(source)["coordinates"]
 `level = info` and `status = :info` produce the identical atom
 `:info` — the leading `:` is only *required* to reach one of the six
 reserved words (`nil`/`true`/`false`/`inf`/`+inf`/`-inf`) as an atom
-(`:true`, not the boolean). Durations/byte sizes come back as tagged
-tuples (`{:duration, ns}`/`{:bytes, bytes}`), never bare numbers, so
-they're never confused with an ordinary integer written in the same
-config. `coordinates` is a genuine Elixir tuple, fixed at 2 elements —
+(`:true`, not the boolean). Durations/byte sizes come back as structs
+(`%Cooper.Duration{nanoseconds: ns}`/`%Cooper.ByteSize{bytes: n}`), never
+bare numbers or tuples, so they're never confused with an ordinary
+integer, or a tuple, written in the same config. `coordinates` is a genuine Elixir tuple, fixed at 2 elements —
 see §9 below for why that matters at merge time.
 
 ## 5. Secrets

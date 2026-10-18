@@ -272,8 +272,12 @@ defmodule Cooper.ResolverTest do
       assert load!("v = !int(\"42\")") == %{"v" => 42}
       assert load!("v = !float(\"3.5\")") == %{"v" => 3.5}
       assert load!("v = !bool(\"true\")") == %{"v" => true}
-      assert load!("v = !duration(\"5m\")") == %{"v" => {:duration, 300_000_000_000}}
-      assert load!("v = !bytes(\"512MiB\")") == %{"v" => {:bytes, 536_870_912}}
+
+      assert load!("v = !duration(\"5m\")") == %{
+               "v" => %Cooper.Duration{nanoseconds: 300_000_000_000}
+             }
+
+      assert load!("v = !bytes(\"512MiB\")") == %{"v" => %Cooper.ByteSize{bytes: 536_870_912}}
     end
 
     test "port/debug example from CASC.md §7.2, end to end" do

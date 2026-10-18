@@ -58,8 +58,8 @@ key = value        ; "=" is always optional -- "key value" works too
 | `\` at end of line | backslash continuation -- joins onto the next line |
 | `1979-05-27T07:32:00Z`, `1979-05-27`, `07:32:00` | date/time/datetime (§6.6) |
 | `127.0.0.1`, `127.0.0.1/32`, `::1/128` | `%Cooper.IPv4{}` / `%Cooper.IPv6{}` (§6.7) |
-| `500ms`, `1h30m` | `{:duration, nanoseconds}` -- units: `ns us µs ms s m h d`, descending, no repeats (§6.8) |
-| `512MiB`, `10GB` | `{:bytes, count}` -- `Ki/Mi/Gi/Ti/Pi` = ×1024, no `i` = ×1000 (§6.9) |
+| `500ms`, `1h30m` | `%Cooper.Duration{nanoseconds: n}` -- units: `ns us µs ms s m h d`, descending, no repeats (§6.8) |
+| `512MiB`, `10GB` | `%Cooper.ByteSize{bytes: n}` -- `Ki/Mi/Gi/Ti/Pi` = ×1024, no `i` = ×1000 (§6.9) |
 | `["a", "b", "c"]` | list -- comma/newline/whitespace-separated |
 | `(52.52, 13.405)` | tuple -- fixed arity, never merged, only replaced wholesale (§6.11) |
 
@@ -144,7 +144,7 @@ coercion. Use a tagged value to change a type.
 `!int(arg)` `!float(arg)` `!bool(arg)` `!duration(arg)` `!bytes(arg)`
 `!trim(arg)` `!downcase(arg)` `!upcase(arg)` `!module(arg)` -- always
 available, no registration needed. `!duration`/`!bytes` produce the same
-`{:duration, ns}` / `{:bytes, n}` shape as the bare literal forms
+`%Cooper.Duration{nanoseconds: ns}` / `%Cooper.ByteSize{bytes: n}` shape as the bare literal forms
 (§6.8/§6.9); `!trim`/`!downcase`/`!upcase` normalize a whole value the
 way the matching filter normalizes one reference; `!module("Foo.Bar")`
 names a module, which §6.4's bare-identifier atoms cannot express.

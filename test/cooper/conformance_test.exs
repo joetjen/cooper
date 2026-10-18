@@ -39,11 +39,18 @@ defmodule Cooper.ConformanceTest do
     # What CASC has and Praxis notation has no literal for is a tuple
     # tagged with a dotted keyword, which no CASC atom can be.
     test "a duration and a byte size are tagged with their base unit" do
-      assert Conformance.encode({:duration, 300_000_000_000}) ==
+      assert Conformance.encode(%Cooper.Duration{nanoseconds: 300_000_000_000}) ==
                %{"tuple" => [%{"keyword" => "casc.duration"}, %{"integer" => "300000000000"}]}
 
-      assert Conformance.encode({:bytes, 512}) ==
+      assert Conformance.encode(%Cooper.ByteSize{bytes: 512}) ==
                %{"tuple" => [%{"keyword" => "casc.bytes"}, %{"integer" => "512"}]}
+    end
+
+    test "a tuple a document wrote stays a tuple, whatever its first element" do
+      assert Conformance.encode({:duration, 5}) ==
+               %{"tuple" => [%{"keyword" => "duration"}, %{"integer" => "5"}]}
+
+      assert Conformance.encode(:infinity) == %{"keyword" => "infinity"}
     end
 
     test "a secret is tagged, and carries its shown form when partly redacted" do
@@ -64,9 +71,11 @@ defmodule Cooper.ConformanceTest do
     end
 
     test "infinity is a tagged float" do
-      assert Conformance.encode(:infinity) == %{"tuple" => [%{"keyword" => "casc.float"}, "inf"]}
+      assert Conformance.encode(%Cooper.Infinity{sign: :positive}) == %{
+               "tuple" => [%{"keyword" => "casc.float"}, "inf"]
+             }
 
-      assert Conformance.encode(:neg_infinity) == %{
+      assert Conformance.encode(%Cooper.Infinity{sign: :negative}) == %{
                "tuple" => [%{"keyword" => "casc.float"}, "-inf"]
              }
     end
@@ -96,7 +105,7 @@ defmodule Cooper.ConformanceTest do
       assert result["result"] ==
                Conformance.encode(%{
                  "a" => 1,
-                 "wait" => {:duration, 300_000_000_000},
+                 "wait" => %Cooper.Duration{nanoseconds: 300_000_000_000},
                  "region" => "eu-west",
                  "pw" => %Cooper.Secret{value: "s", redacted: nil},
                  "t" => {1, :x}

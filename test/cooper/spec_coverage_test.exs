@@ -161,13 +161,13 @@ defmodule Cooper.SpecCoverageTest do
 
       for {literal, expected_ns} <- units do
         assert Cooper.load_string("#@version = 1.0\nv = #{literal}") ==
-                 {:ok, %{"v" => {:duration, expected_ns}}}
+                 {:ok, %{"v" => %Cooper.Duration{nanoseconds: expected_ns}}}
       end
     end
 
     test "compound literals combine strictly-descending units" do
       assert Cooper.load_string("#@version = 1.0\nv = 1h30m") ==
-               {:ok, %{"v" => {:duration, 5_400_000_000_000}}}
+               {:ok, %{"v" => %Cooper.Duration{nanoseconds: 5_400_000_000_000}}}
     end
   end
 
@@ -184,7 +184,7 @@ defmodule Cooper.SpecCoverageTest do
 
       for {literal, expected_bytes} <- units do
         assert Cooper.load_string("#@version = 1.0\nv = #{literal}") ==
-                 {:ok, %{"v" => {:bytes, expected_bytes}}}
+                 {:ok, %{"v" => %Cooper.ByteSize{bytes: expected_bytes}}}
       end
     end
 
@@ -199,7 +199,7 @@ defmodule Cooper.SpecCoverageTest do
 
       for {literal, expected_bytes} <- units do
         assert Cooper.load_string("#@version = 1.0\nv = #{literal}") ==
-                 {:ok, %{"v" => {:bytes, expected_bytes}}}
+                 {:ok, %{"v" => %Cooper.ByteSize{bytes: expected_bytes}}}
       end
     end
   end

@@ -85,8 +85,8 @@ defmodule Cooper.Conformance do
   def encode(value) when is_nil(value) or is_boolean(value) or is_binary(value), do: value
   def encode(n) when is_integer(n), do: %{"integer" => Integer.to_string(n)}
   def encode(f) when is_float(f), do: %{"float" => Float.to_string(f)}
-  def encode(:infinity), do: tagged("casc.float", ["inf"])
-  def encode(:neg_infinity), do: tagged("casc.float", ["-inf"])
+  def encode(%Cooper.Infinity{sign: :positive}), do: tagged("casc.float", ["inf"])
+  def encode(%Cooper.Infinity{sign: :negative}), do: tagged("casc.float", ["-inf"])
 
   # A module built by `!module(...)` (§7.5) is an atom with Elixir's
   # prefix, which no CASC atom can carry; it travels by the name CASC
@@ -100,8 +100,8 @@ defmodule Cooper.Conformance do
   end
 
   def encode(list) when is_list(list), do: Enum.map(list, &encode/1)
-  def encode({:duration, ns}) when is_integer(ns), do: tagged("casc.duration", [encode(ns)])
-  def encode({:bytes, n}) when is_integer(n), do: tagged("casc.bytes", [encode(n)])
+  def encode(%Cooper.Duration{nanoseconds: ns}), do: tagged("casc.duration", [encode(ns)])
+  def encode(%Cooper.ByteSize{bytes: n}), do: tagged("casc.bytes", [encode(n)])
   def encode(%Cooper.Secret{value: v, redacted: nil}), do: tagged("casc.secret", [encode(v)])
 
   def encode(%Cooper.Secret{value: v, redacted: shown}),
