@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: durations, byte sizes and infinity are values of their
+  own.** A duration is `%Cooper.Duration{nanoseconds: n}` (was
+  `{:duration, n}`), a byte size `%Cooper.ByteSize{bytes: n}` (was
+  `{:bytes, n}`), and `inf`/`-inf` `%Cooper.Infinity{sign: :positive |
+  :negative}` (was `:infinity`/`:neg_infinity`). The old shapes were
+  also what a document could write itself -- the tuple `(duration, 5)`
+  read back as five nanoseconds, and the atom `infinity`, which is not
+  a reserved word, as `inf` -- so the two could not be told apart. Now
+  a tuple is a tuple and an atom an atom. `Cooper.Duration.to_milliseconds/1`
+  converts a duration for the BEAM's timeouts.
+
 ### Added
 
 - **`mix cooper.conformance REQUEST ANSWER`**, this implementation's

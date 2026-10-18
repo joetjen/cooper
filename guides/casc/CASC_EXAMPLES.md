@@ -93,7 +93,7 @@ iex> Cooper.load_string(source)
  %{
    "decimal" => 42, "hex" => 255, "octal" => 15, "binary" => 10,
    "grouped" => 1_000_000, "float" => 3.14, "exponent" => 5.0e3,
-   "negative" => -17, "infinite" => :infinity
+   "negative" => -17, "infinite" => %Cooper.Infinity{sign: :positive}
  }}
 ```
 
@@ -112,10 +112,10 @@ cache_size    = 512MiB
 iex> Cooper.load_string(source)
 {:ok,
  %{
-   "quick_retry" => {:duration, 250_000_000},
-   "session_ttl" => {:duration, 5_400_000_000_000},
-   "request_body" => {:bytes, 10_000_000},
-   "cache_size" => {:bytes, 536_870_912}
+   "quick_retry" => %Cooper.Duration{nanoseconds: 250_000_000},
+   "session_ttl" => %Cooper.Duration{nanoseconds: 5_400_000_000_000},
+   "request_body" => %Cooper.ByteSize{bytes: 10_000_000},
+   "cache_size" => %Cooper.ByteSize{bytes: 536_870_912}
  }}
 ```
 
@@ -145,7 +145,7 @@ iex> config
     "payment_gateway" => %{
       "api_key" => [~~REDACTED~~],
       "endpoint" => "https://payments.example.com",
-      "retries" => %{"max" => 3, "backoff" => {:duration, 500_000_000}}
+      "retries" => %{"max" => 3, "backoff" => %Cooper.Duration{nanoseconds: 500_000_000}}
     }
   }
 }

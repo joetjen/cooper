@@ -65,9 +65,11 @@ whichever reads better for a given block. Values include the usual
 scalars (strings, integers, floats, booleans, `nil`, atoms), plus a
 few CASC-specific literals: dates/times, IP addresses/CIDRs, durations
 (`500ms`, `1h30m`), and byte sizes (`512MiB`). Durations and byte sizes
-come back as tagged tuples — `{:duration, nanoseconds}` and
-`{:bytes, count}` — not bare integers, so they're never confused with
-an ordinary number written in the same config. See
+come back as structs of their own — `%Cooper.Duration{nanoseconds: n}`
+and `%Cooper.ByteSize{bytes: n}` — not bare integers or tuples, so
+they're never confused with an ordinary number, or a tuple, written in
+the same config. Infinity (`inf`, `-inf`) is `%Cooper.Infinity{}`, so
+the atom `infinity` stays an atom. See
 [CASC.md §6](casc/CASC.md) for the full literal grammar.
 
 IP addresses are a real data type, not just parsed text — `127.0.0.1`

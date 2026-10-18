@@ -68,15 +68,15 @@ defmodule Cooper.ValuesTest do
 
   describe "durations (CASC.md §6.8)" do
     test "a simple millisecond literal" do
-      assert value("500ms") == {:duration, 500_000_000}
+      assert value("500ms") == %Cooper.Duration{nanoseconds: 500_000_000}
     end
 
     test "a compound literal" do
-      assert value("1h30m") == {:duration, 5_400_000_000_000}
+      assert value("1h30m") == %Cooper.Duration{nanoseconds: 5_400_000_000_000}
     end
 
     test "a fractional single-unit literal" do
-      assert value("1.5h") == {:duration, 5_400_000_000_000}
+      assert value("1.5h") == %Cooper.Duration{nanoseconds: 5_400_000_000_000}
     end
 
     test "rejects a fractional component in a compound literal" do
@@ -90,20 +90,20 @@ defmodule Cooper.ValuesTest do
 
   describe "byte sizes (CASC.md §6.9)" do
     test "binary units" do
-      assert value("512MiB") == {:bytes, 536_870_912}
+      assert value("512MiB") == %Cooper.ByteSize{bytes: 536_870_912}
     end
 
     test "decimal units" do
-      assert value("10GB") == {:bytes, 10_000_000_000}
+      assert value("10GB") == %Cooper.ByteSize{bytes: 10_000_000_000}
     end
 
     test "fractional numerals" do
-      assert value("1.5GiB") == {:bytes, 1_610_612_736}
+      assert value("1.5GiB") == %Cooper.ByteSize{bytes: 1_610_612_736}
     end
 
     test "case-insensitive matching" do
-      assert value("10gb") == {:bytes, 10_000_000_000}
-      assert value("10Gb") == {:bytes, 10_000_000_000}
+      assert value("10gb") == %Cooper.ByteSize{bytes: 10_000_000_000}
+      assert value("10Gb") == %Cooper.ByteSize{bytes: 10_000_000_000}
     end
   end
 
@@ -173,6 +173,27 @@ defmodule Cooper.ValuesTest do
       huge = String.duplicate("9", 400)
       assert {:ok, n} = Cooper.Literals.parse_duration(huge <> "ns")
       assert n == String.to_integer(huge)
+    end
+  end
+
+  describe "a value of one kind never reads as another (CASC.md §6.8, §6.9, §6.4)" do
+    # Durations, byte sizes and infinity are values of their own, so a
+    # tuple or an atom a document writes can never come back as one of
+    # them -- which it did while they were held as {:duration, ns},
+    # {:bytes, n} and :infinity.
+    test "a tuple whose first element is the atom duration is a tuple" do
+      assert value("(duration, 5)") == {:duration, 5}
+      assert value("(bytes, 5)") == {:bytes, 5}
+    end
+
+    test "the atom infinity is an atom, not inf" do
+      assert value("infinity") == :infinity
+      assert value("neg_infinity") == :neg_infinity
+    end
+
+    test "and inf is not an atom" do
+      assert value("inf") == %Cooper.Infinity{sign: :positive}
+      refute is_atom(value("inf"))
     end
   end
 end

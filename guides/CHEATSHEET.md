@@ -97,8 +97,8 @@ baked in at populate time, refreshed only when the entry invalidates
 `!module("Foo.Bar")` yields `Elixir.Foo.Bar`; a lower-case name such as
 `!module("crypto")` yields the Erlang module `:crypto`.
 `!duration(...)` and a bare duration literal (`500ms`) both produce
-`{:duration, nanoseconds}`; `!bytes(...)` and a bare byte-size literal
-(`512MiB`) both produce `{:bytes, count}`.
+`%Cooper.Duration{nanoseconds: n}`; `!bytes(...)` and a bare byte-size literal
+(`512MiB`) both produce `%Cooper.ByteSize{bytes: n}`.
 
 ## IP addresses and CIDR
 

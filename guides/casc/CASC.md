@@ -395,7 +395,7 @@ A single-unit literal may be fractional (`1.5h`); a compound literal (multiple u
 **Result** (`timeout` above, illustrating the resolved shape — the exact tag/base-unit is implementation-defined):
 
 ```elixir
-%{"timeout" => {:duration, 500_000_000}}
+%{"timeout" => %Cooper.Duration{nanoseconds: 500_000_000}}
 ```
 
 Also reachable as a tagged value (§7.5) — `!duration("5m")` — for computed/interpolated values; the bare literal is recommended when static.
@@ -417,7 +417,7 @@ The numeral may be fractional (`1.5GiB`).
 **Result** (`memory_limit` above):
 
 ```elixir
-%{"memory_limit" => {:bytes, 536_870_912}}
+%{"memory_limit" => %Cooper.ByteSize{bytes: 536_870_912}}
 ```
 
 Also reachable as `!bytes("512MiB")` (§7.5), for computed/interpolated values.
