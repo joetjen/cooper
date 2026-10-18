@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`mix cooper.conformance REQUEST ANSWER`**, this implementation's
+  adapter for the Cooper Conformance Suite (`Cooper.Conformance`). It
+  reads the suite's JSON request, loads each case's document with the
+  suite's fixed environment and extension points, and answers with the
+  configuration in the suite's typed JSON -- what Praxis notation has no
+  literal for tagged with a dotted keyword, `casc.duration`,
+  `casc.secret`, `casc.module` and the rest -- or with the error's
+  category (§9.5).
+
 - **Error categories are part of the language** (CASC.md §9.5). Every
   load-time error belongs to one of `lexer`, `parser`, `action`,
   `import`, `merge`, `loop`, `resolve` and `dotenv` -- the stages every
