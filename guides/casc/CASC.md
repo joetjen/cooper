@@ -764,6 +764,23 @@ CASC's core grammar is intentionally small and frozen. Three points let a consum
 
 **The rule underlying all three:** an unregistered tag, resolver, or import scheme is always a load-time error naming the offender — never silently ignored, never passed through as an opaque value. This keeps the core language small and predictable while staying genuinely open: consumers add vocabulary explicitly, and CASC never guesses at what an unrecognized extension point meant.
 
+### 9.5 Error categories
+
+Implementations report a failed load in their own way, but every load-time error belongs to exactly one **category**, named by the stage of loading that refused the document, and an implementation MUST expose it on the error. Categories are compared exactly; messages are not normative.
+
+| category | raised when |
+| --- | --- |
+| `lexer` | the text cannot be split into tokens: an unterminated string, a character no token starts with |
+| `parser` | the tokens do not form a document: a missing or malformed `#@version` header (§2), a statement the grammar has no rule for |
+| `action` | a literal is well formed but means nothing: an impossible date or time (§6.6), an address out of range (§6.7), a malformed duration or byte size (§6.8, §6.9) |
+| `import` | an import cannot be read: no file, a cycle, a scheme nobody registered (§5.1, §9.3) |
+| `merge` | two values cannot be combined as §8 requires: a list operation on a value that is not a list |
+| `loop` | a `for` cannot run: an iterable that is not a list, bound lists of different lengths, an index-only loop (§5.5) |
+| `resolve` | a reference cannot be answered: an undefined variable, environment name or config path with no default, a cycle (§7.3), a resolver or tag that is not registered or that fails (§9.4), a value with no string form interpolated (§7) |
+| `dotenv` | a `.env` file read for `${...}` cannot be parsed |
+
+A conformance suite compares the category of an error and nothing else about it.
+
 ---
 
 ## 10. Minimal valid file
