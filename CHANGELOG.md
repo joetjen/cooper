@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A module interpolates as the name the document wrote** (CASC.md
+  §7): `"x-!module(\"Foo.Bar\")"` is `x-Foo.Bar`, as in every
+  implementation, where it was `x-Elixir.Foo.Bar`. A module reached
+  through the `:modules` mapping reads as the module it maps to.
+- `guides/CHEATSHEET.md` said `!module("crypto")` yields `:crypto`; a
+  lower-case name is refused, and an Erlang module is reached through
+  `:modules`.
+
 ### Changed
 
 - **Breaking: durations, byte sizes and infinity are values of their

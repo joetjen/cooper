@@ -32,7 +32,16 @@ defmodule Cooper.Display do
   # CASC's own spelling (§6.3), which reads back as the same value.
   def to_string(%Cooper.Infinity{sign: :positive}), do: "inf"
   def to_string(%Cooper.Infinity{sign: :negative}), do: "-inf"
-  def to_string(v) when is_atom(v), do: Atom.to_string(v)
+  # A module built by `!module(...)` reads as the name the document wrote
+  # (§7) -- `Foo.Bar`, not the host's `Elixir.Foo.Bar`. No CASC atom can
+  # carry the prefix, so it marks a module and nothing else.
+  def to_string(v) when is_atom(v) do
+    case Atom.to_string(v) do
+      "Elixir." <> written -> written
+      name -> name
+    end
+  end
+
   # Both render in their base unit, which is also valid CASC syntax if
   # fed back in.
   def to_string(%Cooper.Duration{nanoseconds: ns}), do: "#{ns}ns"

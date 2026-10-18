@@ -426,6 +426,27 @@ defmodule Cooper.ResolverTest do
     end
   end
 
+  describe "a module in a string (CASC.md §7)" do
+    # A module reads as the name the document wrote, in every
+    # implementation -- not as its host's spelling of it, which here
+    # carries an `Elixir.` prefix.
+    test "a module interpolates as the name CASC wrote" do
+      assert load!(~S|s = "x-!module(\"Foo.Bar\")"|) == %{"s" => "x-Foo.Bar"}
+    end
+
+    test "and so does one reached through a reference" do
+      assert load!(~S|m = !module("ASCO.HTTPClient")
+s = "m=%{m}"|)["s"] == "m=ASCO.HTTPClient"
+    end
+
+    # A mapped module is held as the host's own atom, so it reads as
+    # that atom's name -- the one place the written name is not kept.
+    test "a module the application mapped reads as the module it maps to" do
+      assert load!(~S|s = "x-!module(\"Crypto\")"|, modules: %{"Crypto" => :crypto}) ==
+               %{"s" => "x-crypto"}
+    end
+  end
+
   describe "a list, map, or tuple has no string form" do
     test "interpolating one is an error, not raw bytes or a crash" do
       assert {:error, %Ichor.Error{stage: :resolve, message: list}} =
