@@ -5,30 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- **A module interpolates as the name the document wrote** (CASC.md
-  §7): `"x-!module(\"Foo.Bar\")"` is `x-Foo.Bar`, as in every
-  implementation, where it was `x-Elixir.Foo.Bar`. A module reached
-  through the `:modules` mapping reads as the module it maps to.
-- `guides/CHEATSHEET.md` said `!module("crypto")` yields `:crypto`; a
-  lower-case name is refused, and an Erlang module is reached through
-  `:modules`.
-
-### Changed
-
-- **Breaking: durations, byte sizes and infinity are values of their
-  own.** A duration is `%Cooper.Duration{nanoseconds: n}` (was
-  `{:duration, n}`), a byte size `%Cooper.ByteSize{bytes: n}` (was
-  `{:bytes, n}`), and `inf`/`-inf` `%Cooper.Infinity{sign: :positive |
-  :negative}` (was `:infinity`/`:neg_infinity`). The old shapes were
-  also what a document could write itself -- the tuple `(duration, 5)`
-  read back as five nanoseconds, and the atom `infinity`, which is not
-  a reserved word, as `inf` -- so the two could not be told apart. Now
-  a tuple is a tuple and an atom an atom. `Cooper.Duration.to_milliseconds/1`
-  converts a duration for the BEAM's timeouts.
+## [0.6.0] - 2026-10-19
 
 ### Added
 
@@ -46,6 +23,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `import`, `merge`, `loop`, `resolve` and `dotenv` -- the stages every
   implementation already reported -- and an implementation must expose
   it. A conformance suite compares the category and nothing else.
+
+### Changed
+
+- **Breaking: durations, byte sizes and infinity are values of their
+  own.** A duration is `%Cooper.Duration{nanoseconds: n}` (was
+  `{:duration, n}`), a byte size `%Cooper.ByteSize{bytes: n}` (was
+  `{:bytes, n}`), and `inf`/`-inf` `%Cooper.Infinity{sign: :positive |
+  :negative}` (was `:infinity`/`:neg_infinity`). The old shapes were
+  also what a document could write itself -- the tuple `(duration, 5)`
+  read back as five nanoseconds, and the atom `infinity`, which is not
+  a reserved word, as `inf` -- so the two could not be told apart. Now
+  a tuple is a tuple and an atom an atom. `Cooper.Duration.to_milliseconds/1`
+  converts a duration for the BEAM's timeouts.
+
+### Fixed
+
+- **A module interpolates as the name the document wrote** (CASC.md
+  §7): `"x-!module(\"Foo.Bar\")"` is `x-Foo.Bar`, as in every
+  implementation, where it was `x-Elixir.Foo.Bar`. A module reached
+  through the `:modules` mapping reads as the module it maps to.
+- `guides/CHEATSHEET.md` said `!module("crypto")` yields `:crypto`; a
+  lower-case name is refused, and an Erlang module is reached through
+  `:modules`.
 
 ## [0.5.2] - 2026-10-14
 
