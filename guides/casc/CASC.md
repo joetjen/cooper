@@ -395,7 +395,7 @@ A single-unit literal may be fractional (`1.5h`); a compound literal (multiple u
 **Result** (`timeout` above, illustrating the resolved shape — the exact tag/base-unit is implementation-defined):
 
 ```elixir
-%{"timeout" => {:duration, 500_000_000}}
+%{"timeout" => %Cooper.Duration{nanoseconds: 500_000_000}}
 ```
 
 Also reachable as a tagged value (§7.5) — `!duration("5m")` — for computed/interpolated values; the bare literal is recommended when static.
@@ -417,7 +417,7 @@ The numeral may be fractional (`1.5GiB`).
 **Result** (`memory_limit` above):
 
 ```elixir
-%{"memory_limit" => {:bytes, 536_870_912}}
+%{"memory_limit" => %Cooper.ByteSize{bytes: 536_870_912}}
 ```
 
 Also reachable as `!bytes("512MiB")` (§7.5), for computed/interpolated values.
@@ -469,7 +469,7 @@ Comma, newline, or whitespace separate elements, same as lists. `;` and `|` are 
 
 Three brace-delimited sigils, plus two extensibility mechanisms sharing the same shape (§9).
 
-**A value interpolated into a string reads as CASC writes it:** `nil`, `true`, `false`, `inf`, `-inf`; an atom as its name; a duration in nanoseconds (`500000000ns`) and a byte size in bytes (`2048B`); an IP address or network as written in canonical form; a float as the shortest digits that read back as the same float, written as a plain decimal or with an exponent, whichever is shorter (the decimal on a tie), and always with a fraction (`1.0`, `52.52`, `100.0`, `0.0001`, `1.0e3`, `1.0e-5`). A list, a tuple or a map has no string form, and interpolating one is a load error.
+**A value interpolated into a string reads as CASC writes it:** `nil`, `true`, `false`, `inf`, `-inf`; an atom as its name; a duration in nanoseconds (`500000000ns`) and a byte size in bytes (`2048B`); an IP address or network as written in canonical form; a module (§7.5) as the name the document wrote, dot-separated PascalCase (`Foo.Bar`), whatever the implementation holds it as; a float as the shortest digits that read back as the same float, written as a plain decimal or with an exponent, whichever is shorter (the decimal on a tie), and always with a fraction (`1.0`, `52.52`, `100.0`, `0.0001`, `1.0e3`, `1.0e-5`). A list, a tuple or a map has no string form, and interpolating one is a load error.
 
 ### 7.1 Variables
 
@@ -763,6 +763,23 @@ CASC's core grammar is intentionally small and frozen. Three points let a consum
 ### 9.4 Failure semantics
 
 **The rule underlying all three:** an unregistered tag, resolver, or import scheme is always a load-time error naming the offender — never silently ignored, never passed through as an opaque value. This keeps the core language small and predictable while staying genuinely open: consumers add vocabulary explicitly, and CASC never guesses at what an unrecognized extension point meant.
+
+### 9.5 Error categories
+
+Implementations report a failed load in their own way, but every load-time error belongs to exactly one **category**, named by the stage of loading that refused the document, and an implementation MUST expose it on the error. Categories are compared exactly; messages are not normative.
+
+| category | raised when |
+| --- | --- |
+| `lexer` | the text cannot be split into tokens: an unterminated string, a character no token starts with |
+| `parser` | the tokens do not form a document: a missing or malformed `#@version` header (§2), a statement the grammar has no rule for |
+| `action` | a literal is well formed but means nothing: an impossible date or time (§6.6), an address out of range (§6.7), a malformed duration or byte size (§6.8, §6.9) |
+| `import` | an import cannot be read: no file, a cycle, a scheme nobody registered (§5.1, §9.3) |
+| `merge` | two values cannot be combined as §8 requires: a list operation on a value that is not a list |
+| `loop` | a `for` cannot run: an iterable that is not a list, bound lists of different lengths, an index-only loop (§5.5) |
+| `resolve` | a reference cannot be answered: an undefined variable, environment name or config path with no default, a cycle (§7.3), a resolver or tag that is not registered or that fails (§9.4), a value with no string form interpolated (§7) |
+| `dotenv` | a `.env` file read for `${...}` cannot be parsed |
+
+A conformance suite compares the category of an error and nothing else about it.
 
 ---
 

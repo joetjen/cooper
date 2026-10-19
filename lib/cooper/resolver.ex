@@ -925,7 +925,7 @@ defmodule Cooper.Resolver do
   @doc false
   def tag_duration(arg) when is_binary(arg) do
     case Cooper.Literals.parse_duration(arg) do
-      {:ok, ns} -> {:ok, {:duration, ns}}
+      {:ok, ns} -> {:ok, %Cooper.Duration{nanoseconds: ns}}
       {:error, message} -> {:error, message}
     end
   end
@@ -935,7 +935,7 @@ defmodule Cooper.Resolver do
   @doc false
   def tag_bytes(arg) when is_binary(arg) do
     case Cooper.Literals.parse_bytes(arg) do
-      {:ok, bytes} -> {:ok, {:bytes, bytes}}
+      {:ok, bytes} -> {:ok, %Cooper.ByteSize{bytes: bytes}}
       {:error, message} -> {:error, message}
     end
   end

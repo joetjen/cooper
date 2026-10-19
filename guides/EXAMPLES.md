@@ -215,11 +215,11 @@ for @name in @{shard_names}, @replicas in @{shard_replicas}
 iex> Cooper.load_string(source)
 {:ok,
  %{
-   "defaults" => %{"shard" => %{"replicas" => 1, "memory_limit" => {:bytes, 536_870_912}}},
+   "defaults" => %{"shard" => %{"replicas" => 1, "memory_limit" => %Cooper.ByteSize{bytes: 536_870_912}}},
    "shards" => %{
-     "orders" => %{"replicas" => 3, "memory_limit" => {:bytes, 536_870_912}},
-     "inventory" => %{"replicas" => 2, "memory_limit" => {:bytes, 536_870_912}},
-     "billing" => %{"replicas" => 1, "memory_limit" => {:bytes, 536_870_912}}
+     "orders" => %{"replicas" => 3, "memory_limit" => %Cooper.ByteSize{bytes: 536_870_912}},
+     "inventory" => %{"replicas" => 2, "memory_limit" => %Cooper.ByteSize{bytes: 536_870_912}},
+     "billing" => %{"replicas" => 1, "memory_limit" => %Cooper.ByteSize{bytes: 536_870_912}}
    }
  }}
 ```

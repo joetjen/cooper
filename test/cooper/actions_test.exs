@@ -45,9 +45,9 @@ defmodule Cooper.ActionsTest do
     end
 
     test "infinity" do
-      assert value("inf") == :infinity
-      assert value("+inf") == :infinity
-      assert value("-inf") == :neg_infinity
+      assert value("inf") == %Cooper.Infinity{sign: :positive}
+      assert value("+inf") == %Cooper.Infinity{sign: :positive}
+      assert value("-inf") == %Cooper.Infinity{sign: :negative}
     end
   end
 

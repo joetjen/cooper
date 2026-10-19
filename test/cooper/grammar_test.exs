@@ -186,7 +186,8 @@ defmodule Cooper.GrammarTest do
       neg = -inf
       """
 
-      assert {:ok, %{"info" => [1, 2], "neg" => :neg_infinity}} = Cooper.Grammar.run(source)
+      assert {:ok, %{"info" => [1, 2], "neg" => %Cooper.Infinity{sign: :negative}}} =
+               Cooper.Grammar.run(source)
     end
   end
 
@@ -214,7 +215,7 @@ defmodule Cooper.GrammarTest do
     end
 
     test "a duration takes `_` between digits, as every other number does (§6.3, §6.8)" do
-      assert {:ok, %{"t" => {:duration, 1_000_000_000}}} =
+      assert {:ok, %{"t" => %Cooper.Duration{nanoseconds: 1_000_000_000}}} =
                Cooper.Grammar.run("#@version = 1.0\nt = 1_000ms\n")
     end
   end

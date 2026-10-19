@@ -272,8 +272,12 @@ defmodule Cooper.ResolverTest do
       assert load!("v = !int(\"42\")") == %{"v" => 42}
       assert load!("v = !float(\"3.5\")") == %{"v" => 3.5}
       assert load!("v = !bool(\"true\")") == %{"v" => true}
-      assert load!("v = !duration(\"5m\")") == %{"v" => {:duration, 300_000_000_000}}
-      assert load!("v = !bytes(\"512MiB\")") == %{"v" => {:bytes, 536_870_912}}
+
+      assert load!("v = !duration(\"5m\")") == %{
+               "v" => %Cooper.Duration{nanoseconds: 300_000_000_000}
+             }
+
+      assert load!("v = !bytes(\"512MiB\")") == %{"v" => %Cooper.ByteSize{bytes: 536_870_912}}
     end
 
     test "port/debug example from CASC.md §7.2, end to end" do
@@ -419,6 +423,27 @@ defmodule Cooper.ResolverTest do
     test "a plain string with no secret at all is unaffected (fast path, no wrapping)" do
       result = load!(~S(v = "hello @{name}"), vars: %{"name" => "world"})
       assert result["v"] == "hello world"
+    end
+  end
+
+  describe "a module in a string (CASC.md §7)" do
+    # A module reads as the name the document wrote, in every
+    # implementation -- not as its host's spelling of it, which here
+    # carries an `Elixir.` prefix.
+    test "a module interpolates as the name CASC wrote" do
+      assert load!(~S|s = "x-!module(\"Foo.Bar\")"|) == %{"s" => "x-Foo.Bar"}
+    end
+
+    test "and so does one reached through a reference" do
+      assert load!(~S|m = !module("ASCO.HTTPClient")
+s = "m=%{m}"|)["s"] == "m=ASCO.HTTPClient"
+    end
+
+    # A mapped module is held as the host's own atom, so it reads as
+    # that atom's name -- the one place the written name is not kept.
+    test "a module the application mapped reads as the module it maps to" do
+      assert load!(~S|s = "x-!module(\"Crypto\")"|, modules: %{"Crypto" => :crypto}) ==
+               %{"s" => "x-crypto"}
     end
   end
 

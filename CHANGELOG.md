@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-19
+
+### Added
+
+- **`mix cooper.conformance REQUEST ANSWER`**, this implementation's
+  adapter for the Cooper Conformance Suite (`Cooper.Conformance`). It
+  reads the suite's JSON request, loads each case's document with the
+  suite's fixed environment and extension points, and answers with the
+  configuration in the suite's typed JSON -- what Praxis notation has no
+  literal for tagged with a namespaced keyword, `casc/duration`,
+  `casc/secret`, `casc/module` and the rest -- or with the error's
+  category (§9.5).
+
+- **Error categories are part of the language** (CASC.md §9.5). Every
+  load-time error belongs to one of `lexer`, `parser`, `action`,
+  `import`, `merge`, `loop`, `resolve` and `dotenv` -- the stages every
+  implementation already reported -- and an implementation must expose
+  it. A conformance suite compares the category and nothing else.
+
+### Changed
+
+- **Breaking: durations, byte sizes and infinity are values of their
+  own.** A duration is `%Cooper.Duration{nanoseconds: n}` (was
+  `{:duration, n}`), a byte size `%Cooper.ByteSize{bytes: n}` (was
+  `{:bytes, n}`), and `inf`/`-inf` `%Cooper.Infinity{sign: :positive |
+  :negative}` (was `:infinity`/`:neg_infinity`). The old shapes were
+  also what a document could write itself -- the tuple `(duration, 5)`
+  read back as five nanoseconds, and the atom `infinity`, which is not
+  a reserved word, as `inf` -- so the two could not be told apart. Now
+  a tuple is a tuple and an atom an atom. `Cooper.Duration.to_milliseconds/1`
+  converts a duration for the BEAM's timeouts.
+
+### Fixed
+
+- **A module interpolates as the name the document wrote** (CASC.md
+  §7): `"x-!module(\"Foo.Bar\")"` is `x-Foo.Bar`, as in every
+  implementation, where it was `x-Elixir.Foo.Bar`. A module reached
+  through the `:modules` mapping reads as the module it maps to.
+- `guides/CHEATSHEET.md` said `!module("crypto")` yields `:crypto`; a
+  lower-case name is refused, and an Erlang module is reached through
+  `:modules`.
+
 ## [0.5.2] - 2026-10-14
 
 ### Fixed
@@ -603,7 +645,7 @@ not a list is one element, compared strictly (§8.4).
   the `ichor`/`ichor_runtime` split and docs -- see Ichor's own
   CHANGELOG.md).
 - `RESOLVER_REF_RAW` (`!{resolver:payload}`'s token, in both
-  `casc.aether` and `casc_interp.aether`) now uses Ichor 0.1.1's
+  `casc/aether` and `casc_interp.aether`) now uses Ichor 0.1.1's
   `@native(...)` token-position escape hatch (new module:
   `Cooper.Native.ResolverRef`) instead of a fixed
   one-level-of-nested-braces combinator form — a payload may now

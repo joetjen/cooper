@@ -438,8 +438,8 @@ defmodule Cooper.Actions do
   def handle_token(:TRUE_KW, _text, _ctx), do: {:ok, true}
   def handle_token(:FALSE_KW, _text, _ctx), do: {:ok, false}
 
-  def handle_token(:INF_KW, "-inf", _ctx), do: {:ok, :neg_infinity}
-  def handle_token(:INF_KW, _text, _ctx), do: {:ok, :infinity}
+  def handle_token(:INF_KW, "-inf", _ctx), do: {:ok, %Cooper.Infinity{sign: :negative}}
+  def handle_token(:INF_KW, _text, _ctx), do: {:ok, %Cooper.Infinity{sign: :positive}}
 
   def handle_token(:INTEGER, text, _ctx), do: {:ok, parse_integer(text)}
   def handle_token(:FLOAT, text, _ctx), do: {:ok, parse_float(text)}
@@ -478,14 +478,14 @@ defmodule Cooper.Actions do
 
   def handle_token(:DURATION, text, _ctx) do
     case Cooper.Literals.parse_duration(text) do
-      {:ok, ns} -> {:ok, {:duration, ns}}
+      {:ok, ns} -> {:ok, %Cooper.Duration{nanoseconds: ns}}
       {:error, message} -> {:error, Error.new(message: message, stage: :action)}
     end
   end
 
   def handle_token(:BYTES, text, _ctx) do
     case Cooper.Literals.parse_bytes(text) do
-      {:ok, bytes} -> {:ok, {:bytes, bytes}}
+      {:ok, bytes} -> {:ok, %Cooper.ByteSize{bytes: bytes}}
       {:error, message} -> {:error, Error.new(message: message, stage: :action)}
     end
   end

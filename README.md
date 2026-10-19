@@ -33,13 +33,14 @@ iex> Cooper.load_file("config.casc", env: %{"DB_PASSWORD" => "hunter2"})
      "password" => [~~REDACTED~~],
      "host" => "db.eu-west.internal",
      "pool_size" => 10,
-     "timeout" => {:duration, 500_000_000}
+     "timeout" => %Cooper.Duration{nanoseconds: 500_000_000}
    }
  }}
 ```
 
-Maps come back with string keys, durations/byte sizes as tagged
-`{:duration, nanoseconds}`/`{:bytes, count}` tuples, tuples as real
+Maps come back with string keys, durations/byte sizes as
+`%Cooper.Duration{nanoseconds: n}`/`%Cooper.ByteSize{bytes: n}` structs,
+infinity as `%Cooper.Infinity{}`, tuples as real
 Elixir tuples (never coerced to lists, CASC.md §6.11), and any
 `*key`-prefixed value wrapped in `Cooper.Secret` — redacted by
 `inspect/1` and `to_string/1` by default; call
@@ -124,7 +125,7 @@ along as its own dependency automatically — no separate line needed:
 ```elixir
 def deps do
   [
-    {:cooper, "~> 0.5.2"}
+    {:cooper, "~> 0.6.0"}
   ]
 end
 ```

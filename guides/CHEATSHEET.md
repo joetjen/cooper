@@ -94,11 +94,13 @@ baked in at populate time, refreshed only when the entry invalidates
 `!int(arg)`, `!float(arg)`, `!bool(arg)`, `!duration(arg)`,
 `!bytes(arg)`, `!trim(arg)`, `!downcase(arg)`, `!upcase(arg)`,
 `!module(arg)` — always registered, need no `:tags` entry.
-`!module("Foo.Bar")` yields `Elixir.Foo.Bar`; a lower-case name such as
-`!module("crypto")` yields the Erlang module `:crypto`.
+`!module("Foo.Bar")` yields `Elixir.Foo.Bar`, and reads as `Foo.Bar`
+when interpolated; an Erlang module is reached through the `:modules`
+option (`modules: %{"Crypto" => :crypto}`) -- a lower-case name is
+refused.
 `!duration(...)` and a bare duration literal (`500ms`) both produce
-`{:duration, nanoseconds}`; `!bytes(...)` and a bare byte-size literal
-(`512MiB`) both produce `{:bytes, count}`.
+`%Cooper.Duration{nanoseconds: n}`; `!bytes(...)` and a bare byte-size literal
+(`512MiB`) both produce `%Cooper.ByteSize{bytes: n}`.
 
 ## IP addresses and CIDR
 

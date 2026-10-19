@@ -49,6 +49,7 @@ out of scope (per the spec itself, not a Cooper gap).
 | 9.2 | Extensible resolvers | ✅ | `resolver_test.exs`; `cooper_test.exs` |
 | 9.3 | Extensible import sources | ✅ | `loader_test.exs` (unregistered scheme); `cooper_test.exs` (registered scheme/tag/resolver working together) |
 | 9.4 | Failure semantics (never silent) | ✅ | Every unregistered-{tag,resolver,scheme} test above; all raise naming the offender, none silently pass through |
+| 9.5 | Error categories | ✅ | `cooper_test.exs` (one document per category, each refused at the stage §9.5 names); `dotenv_test.exs` (a malformed `.env`) |
 | 10 | Minimal valid file | ✅ | `grammar_test.exs` |
 
 ## Open design questions CASC.md doesn't answer, each with a regression test

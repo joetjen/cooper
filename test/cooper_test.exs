@@ -159,4 +159,34 @@ defmodule CooperTest do
              }
     end
   end
+
+  describe "error categories (CASC.md §9.5)" do
+    # One document per category, each refused at the stage §9.5 names --
+    # the category is what a conformance suite compares, so it is part of
+    # the language and not an implementation detail.
+    @refused [
+      lexer: "a = \"oops\n",
+      parser: "= = =\n",
+      action: "a = 2026-02-30\n",
+      import: "import \"nope.casc\"\n",
+      merge: "a = 1\n+a = [2]\n",
+      loop: "@x = 1\nfor @i in @{x} as y.\"@{i}\" { v = 1 }\n",
+      resolve: "a = @{nope}\n"
+    ]
+
+    for {category, source} <- @refused do
+      test "a document refused at #{category} says so" do
+        assert {:error, %Ichor.Error{stage: unquote(category)}} =
+                 Cooper.load_string("#@version = 1.0\n" <> unquote(source),
+                   dotenv: false,
+                   env: %{}
+                 )
+      end
+    end
+
+    test "a missing version header is a parser error" do
+      assert {:error, %Ichor.Error{stage: :parser}} =
+               Cooper.load_string("a = 1\n", dotenv: false, env: %{})
+    end
+  end
 end
