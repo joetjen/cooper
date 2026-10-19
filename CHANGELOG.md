@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **CASC.md §7 says how a mapped module reads in a string**: as the
+  value the application's `modules` option maps it to (`"Crypto" =>
+  :crypto` reads `crypto`), not as the name written -- what every
+  implementation already did.
+
 ## [0.6.0] - 2026-10-19
 
 ### Added
