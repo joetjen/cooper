@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   production use before `1.0.0`. Things can and will break, and the
   specification can and will change, between any two releases until
   then. The package description says so too.
+- **HexDocs shows that warning as a warning box.** `mix docs` reads a
+  copy of the README with GitHub's `[!WARNING]` alert turned into
+  ExDoc's own admonition; the README itself is unchanged.
 
 ### Changed
 

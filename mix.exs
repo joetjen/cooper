@@ -118,6 +118,7 @@ defmodule Cooper.MixProject do
   # (slowest, especially its first PLT build) runs last.
   defp aliases do
     [
+      docs: [&readme_for_docs/1, "docs"],
       precommit: [
         "format",
         "compile --warnings-as-errors",
@@ -127,6 +128,20 @@ defmodule Cooper.MixProject do
         "dialyzer"
       ]
     ]
+  end
+
+  # ExDoc can't render GitHub's `> [!WARNING]` alert, so `mix docs` (and
+  # `mix hex.publish`, which builds the docs through it) reads a copy of the
+  # README in `doc_src/` (gitignored) with that line turned into ExDoc's own
+  # warning admonition. The README itself stays as GitHub shows it.
+  defp readme_for_docs(_args) do
+    readme =
+      "README.md"
+      |> File.read!()
+      |> String.replace(~r/^> \[!WARNING\]$/m, "> #### Warning {: .warning}")
+
+    File.mkdir_p!("doc_src")
+    File.write!("doc_src/README.md", readme)
   end
 
   defp description do
@@ -166,7 +181,7 @@ defmodule Cooper.MixProject do
 
   defp extras do
     [
-      "README.md",
+      {"doc_src/README.md", filename: "readme", source: "README.md"},
       "guides/TUTORIAL.md",
       "guides/EXAMPLES.md",
       "guides/CHEATSHEET.md",
