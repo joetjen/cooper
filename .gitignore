@@ -10,6 +10,9 @@
 # Where third-party dependencies like ExDoc output generated docs.
 /doc/
 
+# The README copy `mix docs` reads (see readme_for_docs/1 in mix.exs).
+/doc_src/
+
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump
 
