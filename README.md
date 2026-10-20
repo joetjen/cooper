@@ -1,5 +1,11 @@
 # Cooper
 
+> [!WARNING]
+> **Under heavy development: not for production use before `1.0.0`.**
+> Things can and will break, and the specification can and will change,
+> between any two releases until `1.0.0`. Do not use this library in a
+> production system yet.
+
 Cooper loads [CASC](guides/casc/CASC.md) config files — a hierarchical,
 extensible config language with imports, variables, string
 interpolation, environment/config references, loops, and
