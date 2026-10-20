@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The README opens with a warning**: under heavy development, not for
+  production use before `1.0.0`. Things can and will break, and the
+  specification can and will change, between any two releases until
+  then. The package description says so too.
+
 ### Changed
 
 - **CASC.md §7 says how a mapped module reads in a string**: as the

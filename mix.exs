@@ -130,7 +130,8 @@ defmodule Cooper.MixProject do
   end
 
   defp description do
-    "Parses and loads CASC config files -- a hierarchical, extensible config " <>
+    "Under heavy development: not for production use before 1.0.0. " <>
+      "Parses and loads CASC config files -- a hierarchical, extensible config " <>
       "language with imports, variables, interpolation, loops, and consumer-" <>
       "registered resolvers/tags -- into native Elixir terms, secrets redacted " <>
       "by default."
