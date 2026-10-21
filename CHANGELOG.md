@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **CASC.md §5.5 shows its loop results as Markdown tables**, not TOON,
+  and §1 says a result with many uniform entries is shown as a table.
+
 ## [0.7.0] - 2026-10-21
 
 ### Added

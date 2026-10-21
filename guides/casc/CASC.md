@@ -19,7 +19,7 @@ CASC is a hierarchical configuration language that combines:
 
 This document defines CASC at the language/spec level; implementations may add conveniences but must not break the syntax described here.
 
-**Result values in this document are shown as native Elixir terms**: maps use string keys (`%{"key" => value}`), CASC atoms become Elixir atoms (`:info`), CASC tuples become real Elixir tuples (`{...}`). Where a result has many uniform entries, it's shown in [TOON](https://github.com/toon-format/spec) instead, for density.
+**Result values in this document are shown as native Elixir terms**: maps use string keys (`%{"key" => value}`), CASC atoms become Elixir atoms (`:info`), CASC tuples become real Elixir tuples (`{...}`). Where a result has many uniform entries, it's shown as a table instead, one row per entry.
 
 ---
 
@@ -231,11 +231,10 @@ for @idx, @domain in @{domains}, @port in @{ports} as endpoints."domain-@{idx}" 
 
 **Result:**
 
-```toon
-endpoints[2]{name,url}:
-  domain-0,https://us-east.example.com:8443
-  domain-1,https://eu-west.example.com:8444
-```
+| Key | `url` |
+|---|---|
+| `endpoints.domain-0` | `"https://us-east.example.com:8443"` |
+| `endpoints.domain-1` | `"https://eu-west.example.com:8444"` |
 
 (Mismatched `@domains`/`@ports` lengths would be a load-time error naming both lists, not two endpoints and a dropped port.)
 
@@ -255,14 +254,12 @@ for @instance in @{instances} from defaults.replica as replicas."@{instance}" {
 
 **Result:**
 
-```toon
-defaults.replica: {cpu: 1, memory_mb: 512}
-
-replicas[3]{name,cpu,memory_mb}:
-  a,2,512
-  b,2,512
-  c,2,512
-```
+| Key | `cpu` | `memory_mb` |
+|---|---|---|
+| `defaults.replica` | `1` | `512` |
+| `replicas.a` | `2` | `512` |
+| `replicas.b` | `2` | `512` |
+| `replicas.c` | `2` | `512` |
 
 ### 5.6 Disabled statements
 
