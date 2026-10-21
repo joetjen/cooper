@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Requires `ichor_runtime` 0.6 (and `ichor` 0.7 to regenerate the
+  parsers)**, both generated parsers regenerated with it. A malformed
+  document's parse error now points at the furthest token the parser
+  reached, as `unexpected X -- expected one of: ...`, not where the
+  file's first statement was tried.
 - **CASC.md §7 says how a mapped module reads in a string**: as the
   value the application's `modules` option maps it to (`"Crypto" =>
   :crypto` reads `crypto`), not as the name written -- what every

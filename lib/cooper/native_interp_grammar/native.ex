@@ -535,7 +535,8 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__0(stream, pos, ref_stack, context) do
       case parse_rule__segment(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack, segment: {:rule, :segment, sub_captures}}
+          {:ok, new_pos, new_ref_stack,
+           segment: Ichor.Capture.at({:rule, :segment, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
@@ -549,10 +550,11 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__1(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :AT_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, AT_REF_RAW: {:token, :AT_REF_RAW, text}}
+          {:ok, new_pos, ref_stack,
+           AT_REF_RAW: Ichor.Capture.at({:token, :AT_REF_RAW, text}, pos, new_pos)}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, AT_REF_RAW: capture}
+          {:ok, new_pos, ref_stack, AT_REF_RAW: Ichor.Capture.at(capture, pos, new_pos)}
 
         :fail ->
           :fail
@@ -562,10 +564,11 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__2(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ENV_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, ENV_REF_RAW: {:token, :ENV_REF_RAW, text}}
+          {:ok, new_pos, ref_stack,
+           ENV_REF_RAW: Ichor.Capture.at({:token, :ENV_REF_RAW, text}, pos, new_pos)}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, ENV_REF_RAW: capture}
+          {:ok, new_pos, ref_stack, ENV_REF_RAW: Ichor.Capture.at(capture, pos, new_pos)}
 
         :fail ->
           :fail
@@ -575,10 +578,11 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__3(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :CONFIG_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, CONFIG_REF_RAW: {:token, :CONFIG_REF_RAW, text}}
+          {:ok, new_pos, ref_stack,
+           CONFIG_REF_RAW: Ichor.Capture.at({:token, :CONFIG_REF_RAW, text}, pos, new_pos)}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, CONFIG_REF_RAW: capture}
+          {:ok, new_pos, ref_stack, CONFIG_REF_RAW: Ichor.Capture.at(capture, pos, new_pos)}
 
         :fail ->
           :fail
@@ -588,10 +592,11 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__4(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :RESOLVER_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, RESOLVER_REF_RAW: {:token, :RESOLVER_REF_RAW, text}}
+          {:ok, new_pos, ref_stack,
+           RESOLVER_REF_RAW: Ichor.Capture.at({:token, :RESOLVER_REF_RAW, text}, pos, new_pos)}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, RESOLVER_REF_RAW: capture}
+          {:ok, new_pos, ref_stack, RESOLVER_REF_RAW: Ichor.Capture.at(capture, pos, new_pos)}
 
         :fail ->
           :fail
@@ -601,10 +606,11 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__5(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TAGGED_REF_RAW) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, TAGGED_REF_RAW: {:token, :TAGGED_REF_RAW, text}}
+          {:ok, new_pos, ref_stack,
+           TAGGED_REF_RAW: Ichor.Capture.at({:token, :TAGGED_REF_RAW, text}, pos, new_pos)}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TAGGED_REF_RAW: capture}
+          {:ok, new_pos, ref_stack, TAGGED_REF_RAW: Ichor.Capture.at(capture, pos, new_pos)}
 
         :fail ->
           :fail
@@ -614,10 +620,11 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def parse_expr__6(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TEXT_CHUNK) do
         {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, TEXT_CHUNK: {:token, :TEXT_CHUNK, text}}
+          {:ok, new_pos, ref_stack,
+           TEXT_CHUNK: Ichor.Capture.at({:token, :TEXT_CHUNK, text}, pos, new_pos)}
 
         {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TEXT_CHUNK: capture}
+          {:ok, new_pos, ref_stack, TEXT_CHUNK: Ichor.Capture.at(capture, pos, new_pos)}
 
         :fail ->
           :fail
@@ -641,6 +648,10 @@ defmodule Cooper.NativeInterpGrammar.Native do
       )
     end
 
+    def describe_token(name) do
+      Map.get(%{}, name, Atom.to_string(name))
+    end
+
     (
       @doc "Tokenizes `input` completely via maximal munch, applies any `@keywords`/`@refine` rules, or reports the first position nothing matches. `context` is read-only and only ever consulted by a `Grammar.IR.CustomLexeme` `@native(...)` token, if the grammar has one."
       @spec tokenize(String.t(), term()) :: {:ok, [Token.t()]} | {:error, Ichor.Error.t()}
@@ -657,24 +668,47 @@ defmodule Cooper.NativeInterpGrammar.Native do
     @spec parse(String.t(), term()) ::
             {:ok, non_neg_integer(), Ichor.Capture.raw_captures()} | {:error, Ichor.Error.t()}
     def parse(input, context \\ nil) do
+      with {:ok, pos, raw_captures, _locator} <- match(input, context) do
+        {:ok, pos, Ichor.Capture.plain(raw_captures)}
+      end
+    end
+
+    def match(input, context) do
       with {:ok, tokens} <- tokenize(input, context) do
-        stream = List.to_tuple(tokens)
+        stream = tokens |> Grammar.Source.trimmed(nil) |> List.to_tuple()
 
-        case parse_rule__text(stream, 0, [0], context) do
-          {:ok, pos, _ref_stack, raw_captures} when pos == tuple_size(stream) ->
-            {:ok, pos, raw_captures}
+        (
+          previous = Grammar.Furthest.start()
+          answer = parse_rule__text(stream, 0, [0], context)
+          record = Grammar.Furthest.finish(previous)
 
-          {:ok, pos, _ref_stack, _raw_captures} ->
-            {:error, Parser.unexpected_token_error(stream, pos, input)}
+          case answer do
+            {:ok, pos, _ref_stack, raw_captures} when pos == tuple_size(stream) ->
+              {:ok, pos, raw_captures, Grammar.Source.Locator.new(stream, input)}
 
-          _fail ->
-            {:error,
-             Ichor.Error.new(
-               message: "input does not match #{inspect(:text)}",
-               stage: :parser,
-               source: input
-             )}
-        end
+            {:ok, pos, _ref_stack, _raw_captures} ->
+              left = Parser.skip_leading_trivia(stream, pos, nil)
+
+              {:error,
+               Grammar.Furthest.error(record, stream, input, left, nil, &describe_token/1) ||
+                 Parser.unexpected_token_error(stream, left, input)}
+
+            _fail ->
+              {:error,
+               Grammar.Furthest.error(record, stream, input, nil, nil, &describe_token/1) ||
+                 (
+                   {line, column} = Grammar.Source.position(stream, 0, input)
+
+                   Ichor.Error.new(
+                     message: "input does not match #{inspect(:text)}",
+                     stage: :parser,
+                     line: line,
+                     column: column,
+                     source: input
+                   )
+                 )}
+          end
+        )
       end
     end
 
@@ -682,12 +716,16 @@ defmodule Cooper.NativeInterpGrammar.Native do
     @spec run(String.t(), Ichor.Actions.context()) ::
             {:ok, term()} | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
     def run(input, initial_context \\ nil) do
-      with {:ok, _pos, raw_captures} <- parse(input, initial_context),
+      with {:ok, _pos, raw_captures, locator} <- match(input, initial_context),
            {:ok, value, _context} <-
-             Ichor.Actions.evaluate(:text, raw_captures, Cooper.InterpActions, initial_context, %{
-               text: MapSet.new([:segment]),
-               segment: MapSet.new([])
-             }) do
+             Ichor.Actions.evaluate(
+               :text,
+               raw_captures,
+               Cooper.InterpActions,
+               initial_context,
+               %{text: MapSet.new([:segment]), segment: MapSet.new([])},
+               locator: locator
+             ) do
         {:ok, value}
       end
     end
@@ -698,29 +736,43 @@ defmodule Cooper.NativeInterpGrammar.Native do
             | {:error, Ichor.Error.t() | [Ichor.Error.t()]}
     def run_sequence(input, initial_context) do
       with {:ok, tokens} <- tokenize(input, initial_context) do
-        do_run_sequence(List.to_tuple(tokens), 0, initial_context, [])
+        stream = List.to_tuple(tokens)
+        do_run_sequence(stream, 0, initial_context, [], Grammar.Source.Locator.new(stream, input))
       end
     end
 
-    def do_run_sequence(stream, pos, ctx, acc) do
+    def do_run_sequence(stream, pos, ctx, acc, locator) do
       pos = Parser.skip_leading_trivia(stream, pos, nil)
 
       if pos >= tuple_size(stream) do
         {:ok, Enum.reverse(acc), ctx}
       else
-        case parse_rule__text(stream, pos, [0], ctx) do
+        previous = Grammar.Furthest.start()
+        answer = parse_rule__text(stream, pos, [0], ctx)
+        record = Grammar.Furthest.finish(previous)
+
+        case answer do
           {:ok, new_pos, _ref_stack, raw_captures} ->
-            case Ichor.Actions.evaluate(:text, raw_captures, Cooper.InterpActions, ctx, %{
-                   text: MapSet.new([:segment]),
-                   segment: MapSet.new([])
-                 }) do
-              {:ok, value, new_ctx} -> do_run_sequence(stream, new_pos, new_ctx, [value | acc])
-              {:error, _} = err -> err
+            case Ichor.Actions.evaluate(
+                   :text,
+                   raw_captures,
+                   Cooper.InterpActions,
+                   ctx,
+                   %{text: MapSet.new([:segment]), segment: MapSet.new([])},
+                   locator: locator,
+                   range: {pos, new_pos}
+                 ) do
+              {:ok, value, new_ctx} ->
+                do_run_sequence(stream, new_pos, new_ctx, [value | acc], locator)
+
+              {:error, _} = err ->
+                err
             end
 
           _fail ->
             {:error,
-             Ichor.Error.new(message: "input does not match #{inspect(:text)}", stage: :parser)}
+             Grammar.Furthest.error(record, stream, locator.input, nil, nil, &describe_token/1) ||
+               Ichor.Error.new(message: "input does not match #{inspect(:text)}", stage: :parser)}
         end
       end
     end
