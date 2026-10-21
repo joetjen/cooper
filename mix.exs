@@ -1,7 +1,7 @@
 defmodule Cooper.MixProject do
   use Mix.Project
 
-  @version "0.6.0"
+  @version "0.7.0"
 
   def project do
     [
@@ -95,8 +95,8 @@ defmodule Cooper.MixProject do
       # ExDoc is invoked via `MIX_ENV=dev mix docs`
 
       # === RUNTIME ===
-      {:ichor_runtime, "~> 0.2"},
-      {:ichor, "~> 0.3", only: [:dev, :test], runtime: false},
+      {:ichor_runtime, "~> 0.6"},
+      {:ichor, "~> 0.7", only: [:dev, :test], runtime: false},
       # Not optional: `.env` files are read by default, and an optional
       # dependency made that silently do nothing in any application that
       # had not added it itself -- a default that quietly isn't one. It is
@@ -118,6 +118,7 @@ defmodule Cooper.MixProject do
   # (slowest, especially its first PLT build) runs last.
   defp aliases do
     [
+      docs: [&readme_for_docs/1, "docs"],
       precommit: [
         "format",
         "compile --warnings-as-errors",
@@ -129,8 +130,23 @@ defmodule Cooper.MixProject do
     ]
   end
 
+  # ExDoc can't render GitHub's `> [!WARNING]` alert, so `mix docs` (and
+  # `mix hex.publish`, which builds the docs through it) reads a copy of the
+  # README in `doc_src/` (gitignored) with that line turned into ExDoc's own
+  # warning admonition. The README itself stays as GitHub shows it.
+  defp readme_for_docs(_args) do
+    readme =
+      "README.md"
+      |> File.read!()
+      |> String.replace(~r/^> \[!WARNING\]$/m, "> #### Warning {: .warning}")
+
+    File.mkdir_p!("doc_src")
+    File.write!("doc_src/README.md", readme)
+  end
+
   defp description do
-    "Parses and loads CASC config files -- a hierarchical, extensible config " <>
+    "Under heavy development: not for production use before 1.0.0. " <>
+      "Parses and loads CASC config files -- a hierarchical, extensible config " <>
       "language with imports, variables, interpolation, loops, and consumer-" <>
       "registered resolvers/tags -- into native Elixir terms, secrets redacted " <>
       "by default."
@@ -165,7 +181,7 @@ defmodule Cooper.MixProject do
 
   defp extras do
     [
-      "README.md",
+      {"doc_src/README.md", filename: "readme", source: "README.md"},
       "guides/TUTORIAL.md",
       "guides/EXAMPLES.md",
       "guides/CHEATSHEET.md",

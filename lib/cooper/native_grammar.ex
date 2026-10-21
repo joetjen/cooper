@@ -50,6 +50,13 @@ defmodule Cooper.NativeGrammar do
   defdelegate parse(input, context \\ nil), to: Native
 
   @doc """
+  Like `parse/2`, but keeps what an action error needs to say where it
+  happened: the captures with their spans, and the source locator to
+  pass `Ichor.Actions.evaluate/6` as `locator:`.
+  """
+  defdelegate match(input, context \\ nil), to: Native
+
+  @doc """
   Matches and evaluates `input` through `Cooper.Actions`, discarding
   the final context -- not used by `Cooper.Grammar` itself (see this
   module's own moduledoc), but exposed for parity with what `use Ichor`

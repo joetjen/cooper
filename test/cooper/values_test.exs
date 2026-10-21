@@ -53,6 +53,11 @@ defmodule Cooper.ValuesTest do
       assert message =~ "invalid IP address"
     end
 
+    test "a literal's load-time error says where the literal is" do
+      assert {:error, %Ichor.Error{stage: :action, line: 3, column: 5}} =
+               Cooper.Grammar.run("#@version = 1.0\na = 1\nv = 999.999.999.999")
+    end
+
     test "an out-of-range CIDR prefix is a load-time error" do
       assert {:error, %Ichor.Error{stage: :action, message: message}} =
                Cooper.Grammar.run("#@version = 1.0\nv = 127.0.0.1/33")

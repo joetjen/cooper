@@ -233,9 +233,11 @@ defmodule Cooper.Grammar do
 
   # `Grammar.Native`'s own generated `run/2` (`Cooper.NativeGrammar.run/2`)
   # deliberately only returns `{:ok, value}`, discarding the final
-  # context. But its generated `parse/1` *is* public, returning exactly
-  # the `{:ok, pos, raw_captures}` shape `Ichor.Actions.evaluate/5`
-  # needs -- `capture_shapes` (`Grammar.VM.RuleCompiler.capture_shapes/1`,
+  # context. But its generated `match/2` *is* public, returning exactly
+  # the `{:ok, pos, raw_captures, locator}` shape `Ichor.Actions.evaluate/6`
+  # needs -- the captures keep their spans and the locator turns them
+  # into a line and column, so an action's error says where it happened
+  # (`parse/2` drops both) -- and `capture_shapes` (`Grammar.VM.RuleCompiler.capture_shapes/1`,
   # baked into `run/2`/`run_sequence/2` as a literal at codegen time,
   # but not exposed as its own callable) comes from
   # `Cooper.NativeGrammar.CaptureShapes.get/0` instead, a small sibling
@@ -251,14 +253,15 @@ defmodule Cooper.Grammar do
   # restriction in practice.
   @doc false
   def run_with_context(source_text, actions_module, initial_context) do
-    with {:ok, _pos, raw_captures} <- Cooper.NativeGrammar.parse(source_text) do
+    with {:ok, _pos, raw_captures, locator} <- Cooper.NativeGrammar.match(source_text) do
       result =
         Ichor.Actions.evaluate(
           :file,
           raw_captures,
           actions_module,
           initial_context,
-          Cooper.NativeGrammar.CaptureShapes.get()
+          Cooper.NativeGrammar.CaptureShapes.get(),
+          locator: locator
         )
 
       stamp_scope(result, initial_context)

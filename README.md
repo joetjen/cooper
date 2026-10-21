@@ -1,5 +1,11 @@
 # Cooper
 
+> [!WARNING]
+> **Under heavy development: not for production use before `1.0.0`.**
+> Things can and will break, and the specification can and will change,
+> between any two releases until `1.0.0`. Do not use this library in a
+> production system yet.
+
 Cooper loads [CASC](guides/casc/CASC.md) config files — a hierarchical,
 extensible config language with imports, variables, string
 interpolation, environment/config references, loops, and
@@ -46,14 +52,82 @@ Elixir tuples (never coerced to lists, CASC.md §6.11), and any
 `inspect/1` and `to_string/1` by default; call
 `Cooper.Secret.reveal/1` to get the real value back.
 
-## Why
+## Why use Cooper?
 
-Most config libraries either parse a fixed format (JSON/YAML/TOML) or
-hand you a bespoke DSL with no formal grammar behind it. CASC has a
-real specification ([`guides/casc/CASC.md`](guides/casc/CASC.md)), and
-Cooper implements it via Ichor, a sibling grammar-compiler library,
-rather than hand-rolled string parsing — so the interpreter's behavior
-tracks the grammar, not the other way around.
+Configuration starts as a file of values and grows: a host written in
+three places, a port that differs per environment, a password that must
+never reach a log, a second file for what two services share. CASC is a
+configuration language for that point. It stays data, not a program,
+and adds the few things configuration keeps needing:
+
+- **References instead of repetition.** `%{server.port}` points at
+  another key, resolved against the final, merged configuration, so it
+  follows that key wherever an import or override puts it. `@{region}`
+  reads a variable.
+- **The environment, with defaults and checks.** `${PORT:8080}` falls
+  back, `${DB_URL:?"set DB_URL"}` refuses to load without it, and
+  `${NAME | trim}` normalises it. `.env` files are read for you.
+- **Imports and layering.** Split a document into files, import a glob
+  of them, and override with explicit sigils: `+tags` appends, `-tags`
+  removes, `~tls { ... }` replaces instead of merging.
+- **Secrets marked where they are written.** `*password = ...` comes
+  back wrapped, and is redacted wherever it is printed or logged --
+  including inside a longer string built from it.
+- **The types configuration uses.** Durations (`500ms`), byte sizes
+  (`512MiB`), IP addresses and networks, dates and times, atoms and
+  tuples arrive as values, not strings to parse later.
+- **Extension points you control.** Tags (`!duration("5m")`) and
+  resolvers (`!{vault:secret/db}`) your application registers; an
+  unregistered one is a load error, never passed through silently.
+- **One language, four implementations.** Elixir, Node, PHP and Praxis
+  read the same file into the same structure. CASC has a written
+  specification ([CASC.md](guides/casc/CASC.md)), and the implementations are held
+  to one shared conformance suite, so a document means the same thing
+  wherever it is read.
+- **A parser generated from the grammar.** Cooper implements CASC
+  with Ichor, a sibling grammar-compiler library, rather than
+  hand-rolled string parsing -- so the interpreter's behaviour tracks
+  the grammar, not the other way around.
+
+### Compared with other configuration languages
+
+| | JSON | YAML | TOML | INI / `.env` | CASC |
+|---|---|---|---|---|---|
+| Comments | no | yes | yes | yes | yes |
+| References to other keys | no | anchors, within one document | no | some `.env` loaders expand `${VAR}` | `%{path}`, against the merged result |
+| Environment variables | no | left to the loader | no | it *is* the environment | `${NAME}`, with defaults, checks and filters |
+| Imports | no | left to the loader | no | no | files, globs, custom schemes |
+| Values beyond strings and numbers | no | dates, and implicit typing (`no` can become `false`) | dates and times | no | durations, sizes, addresses, dates, tuples |
+| Secrets | no | no | no | no | marked with `*`, redacted |
+
+**HCL** comes closest in expressiveness, with expressions and
+interpolation, but much of what makes it useful -- variables, modules,
+`sensitive` -- belongs to the tool that embeds it, Terraform above all.
+**Jsonnet, Dhall, CUE and Pkl** go further than CASC: they are
+programmable, with functions and, in CUE, Dhall and Pkl, types and
+schemas. CASC deliberately stops short of that. It has loops, but no
+functions and no schemas, so a document stays something a person reads
+top to bottom.
+
+### Compared with each language's usual configuration
+
+| Language | Usually | With Cooper |
+|---|---|---|
+| Elixir | `config/*.exs`: Elixir code, split between compile time and `runtime.exs`, reading the environment with `System.get_env/1` | [`cooper`](https://hex.pm/packages/cooper) reads CASC; [`cooper_config`](https://hex.pm/packages/cooper_config) replaces Mix's config sources -- `config/runtime.exs` through `Config.Provider` in a release |
+| Node | JSON or YAML files and `dotenv`, often under a library such as `config` or `convict` | [`@joetjen/cooper`](https://www.npmjs.com/package/@joetjen/cooper) reads CASC; `@joetjen/cooper-config` loads it once at startup; `@joetjen/cooper-fastify` and `@joetjen/cooper-nestjs` hand it to Fastify and to `@nestjs/config` |
+| PHP | PHP arrays and YAML: Laravel's `config/*.php` calling `env()`, Symfony's `config/packages/*.yaml` with `%env()%` | [`joetjen/cooper`](https://packagist.org/packages/joetjen/cooper) reads CASC; `joetjen/cooper-config` loads it once at startup; `joetjen/cooper-laravel` replaces `config/*.php`, `joetjen/cooper-symfony` replaces bundle configuration and container parameters |
+| Praxis | CASC is its configuration language: `config/config.casc` | `cooper` reads it; `cooper_prx` loads it before the program starts and hands it to `praxis.app` |
+
+Every one of them also reads `.env` files, the same way. So a service
+in PHP and a worker in Node can share one configuration document and
+read it identically.
+
+### When something else fits better
+
+If a handful of values is all there is, `.env` alone is enough. If
+configuration has to be computed -- functions, generated structures --
+or checked against a schema before it is used, Jsonnet, CUE, Dhall or
+Pkl do what CASC does not try to.
 
 ## How it fits together
 
@@ -125,7 +199,7 @@ along as its own dependency automatically — no separate line needed:
 ```elixir
 def deps do
   [
-    {:cooper, "~> 0.6.0"}
+    {:cooper, "~> 0.7.0"}
   ]
 end
 ```
