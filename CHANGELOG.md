@@ -16,9 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HexDocs shows that warning as a warning box.** `mix docs` reads a
   copy of the README with GitHub's `[!WARNING]` alert turned into
   ExDoc's own admonition; the README itself is unchanged.
+- **A literal's load-time error says where the literal is.** An invalid
+  IP address, date, time or CIDR prefix is reported with its line and
+  column and the source line under it, like a parse error.
 
 ### Changed
 
+- **Requires `ichor_runtime` 0.6 (and `ichor` 0.7 to regenerate the
+  parsers)**, both generated parsers regenerated with it. A malformed
+  document's parse error now points at the furthest token the parser
+  reached, as `unexpected X -- expected one of: ...`, not where the
+  file's first statement was tried.
 - **CASC.md §7 says how a mapped module reads in a string**: as the
   value the application's `modules` option maps it to (`"Crypto" =>
   :crypto` reads `crypto`), not as the name written -- what every
