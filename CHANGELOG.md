@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HexDocs shows that warning as a warning box.** `mix docs` reads a
   copy of the README with GitHub's `[!WARNING]` alert turned into
   ExDoc's own admonition; the README itself is unchanged.
+- **A literal's load-time error says where the literal is.** An invalid
+  IP address, date, time or CIDR prefix is reported with its line and
+  column and the source line under it, like a parse error.
 
 ### Changed
 
