@@ -36,8 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file's first statement was tried.
 - **CASC.md §7 says how a mapped module reads in a string**: as the
   value the application's `modules` option maps it to (`"Crypto" =>
-  :crypto` reads `crypto`), not as the name written -- what every
-  implementation already did.
+  :crypto` reads `crypto`), not as the name written -- what this
+  implementation and php-cooper already did. node-cooper 0.2.1 still
+  read the name written; its fix is on its develop branch.
 
 ## [0.6.0] - 2026-10-19
 
