@@ -95,8 +95,8 @@ defmodule Cooper.MixProject do
       # ExDoc is invoked via `MIX_ENV=dev mix docs`
 
       # === RUNTIME ===
-      {:ichor_runtime, "~> 0.6"},
-      {:ichor, "~> 0.7", only: [:dev, :test], runtime: false},
+      {:ichor_runtime, "~> 0.6.3"},
+      {:ichor, "~> 0.7.3", only: [:dev, :test], runtime: false},
       # Not optional: `.env` files are read by default, and an optional
       # dependency made that silently do nothing in any application that
       # had not added it itself -- a default that quietly isn't one. It is

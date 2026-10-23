@@ -10,23 +10,41 @@ defmodule Cooper.NativeGrammar.Native do
     alias Grammar.Native.Runtime.{Parser, Tokenizer}
     alias Grammar.VM.Token
 
-    def lex_token__ANON_20(input) do
+    def lex_expr__0(input) do
       case input do
-        <<"]", rest::binary>> -> {:ok, "]", rest}
-        _ -> :fail
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {287_948_901_175_001_088, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
-    def lex_token__ANON_19(input) do
+    def lex_expr__1(input) do
       case input do
-        <<"[", rest::binary>> -> {:ok, "[", rest}
-        _ -> :fail
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {10_633_823_810_298_881_996_379_053_697_534_001_152, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
-    def lex_token__FALSE_KW(input) do
+    def lex_token__ALNUM(input) do
+      Tokenizer.first_char_match([&lex_expr__0/1, &lex_expr__1/1], input)
+    end
+
+    def lex_token__ANON_21(input) do
       case input do
-        <<"false", rest::binary>> -> {:ok, "false", rest}
+        <<":", rest::binary>> -> {:ok, ":", rest}
         _ -> :fail
       end
     end
@@ -38,10 +56,79 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_token__ALPHA(input) do
+    def lex_expr__4(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__5(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__3(input) do
+      Tokenizer.first_char_match([&lex_expr__4/1, &lex_expr__5/1], input)
+    end
+
+    def lex_expr__2(input) do
+      Tokenizer.opt_char(&lex_expr__3/1, input)
+    end
+
+    def lex_expr__8(input) do
+      case input do
+        <<"0x", rest::binary>> -> {:ok, "0x", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__9(input) do
+      lex_token__HEX(input)
+    end
+
+    def lex_expr__12(input) do
+      lex_token__HEX(input)
+    end
+
+    def lex_expr__13(input) do
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__11(input) do
+      Tokenizer.first_char_match([&lex_expr__12/1, &lex_expr__13/1], input)
+    end
+
+    def lex_expr__10(input) do
+      Tokenizer.star_char(&lex_expr__11/1, input)
+    end
+
+    def lex_expr__7(input0) do
+      with {:ok, t0, rest0} <- lex_expr__8(input0),
+           {:ok, t1, rest1} <- lex_expr__9(rest0),
+           {:ok, t2, rest2} <- lex_expr__10(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__15(input) do
+      case input do
+        <<"0o", rest::binary>> -> {:ok, "0o", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__16(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{97, 122}, {65, 90}]) do
+          if Tokenizer.in_class?(c, {71_776_119_061_217_280, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -52,106 +139,21 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__0(input) do
+    def lex_expr__19(input) do
       case input do
-        <<"#", rest::binary>> -> {:ok, "#", rest}
-        _ -> :fail
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {71_776_119_061_217_280, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
-    def lex_expr__3(input) do
-      case input do
-        <<"@", rest::binary>> -> {:ok, "@", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__4(input) do
-      lex_token__ALPHA(input)
-    end
-
-    def lex_expr__5(input) do
-      case input do
-        <<"*", rest::binary>> -> {:ok, "*", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__2(input) do
-      Tokenizer.first_char_match([&lex_expr__3/1, &lex_expr__4/1, &lex_expr__5/1], input)
-    end
-
-    def lex_expr__1(input) do
-      Tokenizer.not_pred_char(&lex_expr__2/1, input)
-    end
-
-    def lex_expr__9(input) do
-      case input do
-        <<"\n", rest::binary>> -> {:ok, "\n", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__8(input) do
-      Tokenizer.not_pred_char(&lex_expr__9/1, input)
-    end
-
-    def lex_expr__10(input) do
-      case input do
-        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__7(input0) do
-      with {:ok, t0, rest0} <- lex_expr__8(input0), {:ok, t1, rest1} <- lex_expr__10(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__6(input) do
-      Tokenizer.star_char(&lex_expr__7/1, input)
-    end
-
-    def lex_token__COMMENT(input0) do
-      with {:ok, t0, rest0} <- lex_expr__0(input0),
-           {:ok, t1, rest1} <- lex_expr__1(rest0),
-           {:ok, t2, rest2} <- lex_expr__6(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_token__TRUE_KW(input) do
-      case input do
-        <<"true", rest::binary>> -> {:ok, "true", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__12(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__13(input) do
-      lex_token__ALPHA(input)
-    end
-
-    def lex_expr__11(input) do
-      Tokenizer.first_char_match([&lex_expr__12/1, &lex_expr__13/1], input)
-    end
-
-    def lex_expr__16(input) do
-      lex_token__ALNUM(input)
-    end
-
-    def lex_expr__17(input) do
+    def lex_expr__20(input) do
       case input do
         <<"_", rest::binary>> -> {:ok, "_", rest}
         _ -> :fail
@@ -159,129 +161,94 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def lex_expr__18(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
+      Tokenizer.first_char_match([&lex_expr__19/1, &lex_expr__20/1], input)
     end
 
-    def lex_expr__19(input) do
-      case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
-        _ -> :fail
-      end
+    def lex_expr__17(input) do
+      Tokenizer.star_char(&lex_expr__18/1, input)
     end
 
-    def lex_expr__15(input) do
-      Tokenizer.first_char_match(
-        [&lex_expr__16/1, &lex_expr__17/1, &lex_expr__18/1, &lex_expr__19/1],
-        input
-      )
-    end
-
-    def lex_expr__14(input) do
-      Tokenizer.star_char(&lex_expr__15/1, input)
-    end
-
-    def lex_expr__22(input) do
-      case input do
-        <<"?", rest::binary>> -> {:ok, "?", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__23(input) do
-      case input do
-        <<"!", rest::binary>> -> {:ok, "!", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__21(input) do
-      Tokenizer.first_char_match([&lex_expr__22/1, &lex_expr__23/1], input)
-    end
-
-    def lex_expr__20(input) do
-      Tokenizer.opt_char(&lex_expr__21/1, input)
-    end
-
-    def lex_token__IDENT(input0) do
-      with {:ok, t0, rest0} <- lex_expr__11(input0),
-           {:ok, t1, rest1} <- lex_expr__14(rest0),
-           {:ok, t2, rest2} <- lex_expr__20(rest1) do
+    def lex_expr__14(input0) do
+      with {:ok, t0, rest0} <- lex_expr__15(input0),
+           {:ok, t1, rest1} <- lex_expr__16(rest0),
+           {:ok, t2, rest2} <- lex_expr__17(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
-    def lex_token__ANON_10(input) do
+    def lex_expr__22(input) do
       case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
+        <<"0b", rest::binary>> -> {:ok, "0b", rest}
         _ -> :fail
       end
     end
 
-    def lex_token__ANON_3(input) do
+    def lex_expr__23(input) do
       case input do
-        <<"=", rest::binary>> -> {:ok, "=", rest}
-        _ -> :fail
-      end
-    end
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {844_424_930_131_968, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
 
-    def lex_token__ANON_6(input) do
-      case input do
-        <<"}", rest::binary>> -> {:ok, "}", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__ANON_18(input) do
-      case input do
-        <<")", rest::binary>> -> {:ok, ")", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__ANON_17(input) do
-      case input do
-        <<"(", rest::binary>> -> {:ok, "(", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__24(input) do
-      lex_token__DATE(input)
-    end
-
-    def lex_expr__25(input) do
-      case input do
-        <<"T", rest::binary>> -> {:ok, "T", rest}
-        _ -> :fail
+        _ ->
+          :fail
       end
     end
 
     def lex_expr__26(input) do
-      lex_token__TIME(input)
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {844_424_930_131_968, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__27(input) do
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__25(input) do
+      Tokenizer.first_char_match([&lex_expr__26/1, &lex_expr__27/1], input)
+    end
+
+    def lex_expr__24(input) do
+      Tokenizer.star_char(&lex_expr__25/1, input)
+    end
+
+    def lex_expr__21(input0) do
+      with {:ok, t0, rest0} <- lex_expr__22(input0),
+           {:ok, t1, rest1} <- lex_expr__23(rest0),
+           {:ok, t2, rest2} <- lex_expr__24(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
     end
 
     def lex_expr__29(input) do
-      case input do
-        <<"Z", rest::binary>> -> {:ok, "Z", rest}
-        _ -> :fail
-      end
+      lex_token__DIGIT(input)
     end
 
     def lex_expr__32(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
+      lex_token__DIGIT(input)
     end
 
     def lex_expr__33(input) do
       case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
+        <<"_", rest::binary>> -> {:ok, "_", rest}
         _ -> :fail
       end
     end
@@ -290,17 +257,44 @@ defmodule Cooper.NativeGrammar.Native do
       Tokenizer.first_char_match([&lex_expr__32/1, &lex_expr__33/1], input)
     end
 
+    def lex_expr__30(input) do
+      Tokenizer.star_char(&lex_expr__31/1, input)
+    end
+
+    def lex_expr__28(input0) do
+      with {:ok, t0, rest0} <- lex_expr__29(input0), {:ok, t1, rest1} <- lex_expr__30(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__6(input) do
+      Tokenizer.first_char_match(
+        [&lex_expr__7/1, &lex_expr__14/1, &lex_expr__21/1, &lex_expr__28/1],
+        input
+      )
+    end
+
+    def lex_token__INTEGER(input0) do
+      with {:ok, t0, rest0} <- lex_expr__2(input0), {:ok, t1, rest1} <- lex_expr__6(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
     def lex_expr__35(input) do
       lex_token__DIGIT(input)
     end
 
     def lex_expr__34(input) do
-      Tokenizer.rep_char(&lex_expr__35/1, 2, 2, input)
+      Tokenizer.rep_char(&lex_expr__35/1, 1, 3, input)
     end
 
     def lex_expr__36(input) do
       case input do
-        <<":", rest::binary>> -> {:ok, ":", rest}
+        <<".", rest::binary>> -> {:ok, ".", rest}
         _ -> :fail
       end
     end
@@ -310,206 +304,99 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def lex_expr__37(input) do
-      Tokenizer.rep_char(&lex_expr__38/1, 2, 2, input)
+      Tokenizer.rep_char(&lex_expr__38/1, 1, 3, input)
     end
 
-    def lex_expr__30(input0) do
-      with {:ok, t0, rest0} <- lex_expr__31(input0),
-           {:ok, t1, rest1} <- lex_expr__34(rest0),
-           {:ok, t2, rest2} <- lex_expr__36(rest1),
-           {:ok, t3, rest3} <- lex_expr__37(rest2) do
-        {:ok, t0 <> t1 <> t2 <> t3, rest3}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__28(input) do
-      Tokenizer.first_char_match([&lex_expr__29/1, &lex_expr__30/1], input)
-    end
-
-    def lex_expr__27(input) do
-      Tokenizer.opt_char(&lex_expr__28/1, input)
-    end
-
-    def lex_token__DATETIME(input0) do
-      with {:ok, t0, rest0} <- lex_expr__24(input0),
-           {:ok, t1, rest1} <- lex_expr__25(rest0),
-           {:ok, t2, rest2} <- lex_expr__26(rest1),
-           {:ok, t3, rest3} <- lex_expr__27(rest2) do
-        {:ok, t0 <> t1 <> t2 <> t3, rest3}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_token__ANON_23(input) do
+    def lex_expr__39(input) do
       case input do
-        <<"|", rest::binary>> -> {:ok, "|", rest}
+        <<".", rest::binary>> -> {:ok, ".", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__40(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{112, 112}, {80, 80}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
+    def lex_expr__41(input) do
+      lex_token__DIGIT(input)
     end
 
-    def lex_expr__41(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{105, 105}, {73, 73}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
+    def lex_expr__40(input) do
+      Tokenizer.rep_char(&lex_expr__41/1, 1, 3, input)
     end
 
     def lex_expr__42(input) do
       case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__39(input0) do
-      with {:ok, t0, rest0} <- lex_expr__40(input0),
-           {:ok, t1, rest1} <- lex_expr__41(rest0),
-           {:ok, t2, rest2} <- lex_expr__42(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
+        <<".", rest::binary>> -> {:ok, ".", rest}
+        _ -> :fail
       end
     end
 
     def lex_expr__44(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{116, 116}, {84, 84}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
+      lex_token__DIGIT(input)
     end
 
-    def lex_expr__45(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{105, 105}, {73, 73}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
+    def lex_expr__43(input) do
+      Tokenizer.rep_char(&lex_expr__44/1, 1, 3, input)
     end
 
-    def lex_expr__46(input) do
+    def lex_expr__47(input) do
       case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__43(input0) do
-      with {:ok, t0, rest0} <- lex_expr__44(input0),
-           {:ok, t1, rest1} <- lex_expr__45(rest0),
-           {:ok, t2, rest2} <- lex_expr__46(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__48(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{103, 103}, {71, 71}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
+        <<"/", rest::binary>> -> {:ok, "/", rest}
+        _ -> :fail
       end
     end
 
     def lex_expr__49(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{105, 105}, {73, 73}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
+      lex_token__DIGIT(input)
     end
 
-    def lex_expr__50(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
+    def lex_expr__48(input) do
+      Tokenizer.rep_char(&lex_expr__49/1, 1, 3, input)
     end
 
-    def lex_expr__47(input0) do
-      with {:ok, t0, rest0} <- lex_expr__48(input0),
-           {:ok, t1, rest1} <- lex_expr__49(rest0),
-           {:ok, t2, rest2} <- lex_expr__50(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
+    def lex_expr__46(input0) do
+      with {:ok, t0, rest0} <- lex_expr__47(input0), {:ok, t1, rest1} <- lex_expr__48(rest0) do
+        {:ok, t0 <> t1, rest1}
       else
         :fail -> :fail
+      end
+    end
+
+    def lex_expr__45(input) do
+      Tokenizer.opt_char(&lex_expr__46/1, input)
+    end
+
+    def lex_token__IPV4(input0) do
+      with {:ok, t0, rest0} <- lex_expr__34(input0),
+           {:ok, t1, rest1} <- lex_expr__36(rest0),
+           {:ok, t2, rest2} <- lex_expr__37(rest1),
+           {:ok, t3, rest3} <- lex_expr__39(rest2),
+           {:ok, t4, rest4} <- lex_expr__40(rest3),
+           {:ok, t5, rest5} <- lex_expr__42(rest4),
+           {:ok, t6, rest6} <- lex_expr__43(rest5),
+           {:ok, t7, rest7} <- lex_expr__45(rest6) do
+        {:ok, t0 <> t1 <> t2 <> t3 <> t4 <> t5 <> t6 <> t7, rest7}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__51(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {5_192_296_859_743_753_448_145_125_503_926_272, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
     def lex_expr__52(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{109, 109}, {77, 77}]) do
+          if Tokenizer.in_class?(c, {40_564_819_216_748_073_813_633_792_999_424, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -523,7 +410,7 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_expr__53(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{105, 105}, {73, 73}]) do
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -534,34 +421,34 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__54(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__51(input0) do
-      with {:ok, t0, rest0} <- lex_expr__52(input0),
-           {:ok, t1, rest1} <- lex_expr__53(rest0),
-           {:ok, t2, rest2} <- lex_expr__54(rest1) do
+    def lex_expr__50(input0) do
+      with {:ok, t0, rest0} <- lex_expr__51(input0),
+           {:ok, t1, rest1} <- lex_expr__52(rest0),
+           {:ok, t2, rest2} <- lex_expr__53(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
+    def lex_expr__55(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {83_076_749_755_900_055_170_322_008_062_820_352, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
     def lex_expr__56(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{107, 107}, {75, 75}]) do
+          if Tokenizer.in_class?(c, {40_564_819_216_748_073_813_633_792_999_424, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -575,7 +462,7 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_expr__57(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{105, 105}, {73, 73}]) do
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -586,34 +473,34 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__58(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__55(input0) do
-      with {:ok, t0, rest0} <- lex_expr__56(input0),
-           {:ok, t1, rest1} <- lex_expr__57(rest0),
-           {:ok, t2, rest2} <- lex_expr__58(rest1) do
+    def lex_expr__54(input0) do
+      with {:ok, t0, rest0} <- lex_expr__55(input0),
+           {:ok, t1, rest1} <- lex_expr__56(rest0),
+           {:ok, t2, rest2} <- lex_expr__57(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
+    def lex_expr__59(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {10_141_204_804_187_018_453_408_448_249_856, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
     def lex_expr__60(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{112, 112}, {80, 80}]) do
+          if Tokenizer.in_class?(c, {40_564_819_216_748_073_813_633_792_999_424, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -627,7 +514,7 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_expr__61(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -638,9 +525,11 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__59(input0) do
-      with {:ok, t0, rest0} <- lex_expr__60(input0), {:ok, t1, rest1} <- lex_expr__61(rest0) do
-        {:ok, t0 <> t1, rest1}
+    def lex_expr__58(input0) do
+      with {:ok, t0, rest0} <- lex_expr__59(input0),
+           {:ok, t1, rest1} <- lex_expr__60(rest0),
+           {:ok, t2, rest2} <- lex_expr__61(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
@@ -649,7 +538,7 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_expr__63(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{116, 116}, {84, 84}]) do
+          if Tokenizer.in_class?(c, {649_037_107_467_969_181_018_140_687_990_784, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -663,7 +552,21 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_expr__64(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
+          if Tokenizer.in_class?(c, {40_564_819_216_748_073_813_633_792_999_424, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__65(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -675,31 +578,19 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def lex_expr__62(input0) do
-      with {:ok, t0, rest0} <- lex_expr__63(input0), {:ok, t1, rest1} <- lex_expr__64(rest0) do
-        {:ok, t0 <> t1, rest1}
+      with {:ok, t0, rest0} <- lex_expr__63(input0),
+           {:ok, t1, rest1} <- lex_expr__64(rest0),
+           {:ok, t2, rest2} <- lex_expr__65(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
-      end
-    end
-
-    def lex_expr__66(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{103, 103}, {71, 71}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
       end
     end
 
     def lex_expr__67(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
+          if Tokenizer.in_class?(c, {162_259_276_866_992_295_254_535_171_997_696, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -710,18 +601,24 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__65(input0) do
-      with {:ok, t0, rest0} <- lex_expr__66(input0), {:ok, t1, rest1} <- lex_expr__67(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
+    def lex_expr__68(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {40_564_819_216_748_073_813_633_792_999_424, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
     def lex_expr__69(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{109, 109}, {77, 77}]) do
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -732,32 +629,34 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__70(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__68(input0) do
-      with {:ok, t0, rest0} <- lex_expr__69(input0), {:ok, t1, rest1} <- lex_expr__70(rest0) do
-        {:ok, t0 <> t1, rest1}
+    def lex_expr__66(input0) do
+      with {:ok, t0, rest0} <- lex_expr__67(input0),
+           {:ok, t1, rest1} <- lex_expr__68(rest0),
+           {:ok, t2, rest2} <- lex_expr__69(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
+      end
+    end
+
+    def lex_expr__71(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {5_192_296_859_743_753_448_145_125_503_926_272, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
     def lex_expr__72(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{107, 107}, {75, 75}]) do
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -768,22 +667,8 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__73(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__71(input0) do
-      with {:ok, t0, rest0} <- lex_expr__72(input0), {:ok, t1, rest1} <- lex_expr__73(rest0) do
+    def lex_expr__70(input0) do
+      with {:ok, t0, rest0} <- lex_expr__71(input0), {:ok, t1, rest1} <- lex_expr__72(rest0) do
         {:ok, t0 <> t1, rest1}
       else
         :fail -> :fail
@@ -793,7 +678,151 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_expr__74(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{98, 98}, {66, 66}]) do
+          if Tokenizer.in_class?(c, {83_076_749_755_900_055_170_322_008_062_820_352, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__75(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__73(input0) do
+      with {:ok, t0, rest0} <- lex_expr__74(input0), {:ok, t1, rest1} <- lex_expr__75(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__77(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {10_141_204_804_187_018_453_408_448_249_856, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__78(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__76(input0) do
+      with {:ok, t0, rest0} <- lex_expr__77(input0), {:ok, t1, rest1} <- lex_expr__78(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__80(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {649_037_107_467_969_181_018_140_687_990_784, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__81(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__79(input0) do
+      with {:ok, t0, rest0} <- lex_expr__80(input0), {:ok, t1, rest1} <- lex_expr__81(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__83(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {162_259_276_866_992_295_254_535_171_997_696, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__84(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_expr__82(input0) do
+      with {:ok, t0, rest0} <- lex_expr__83(input0), {:ok, t1, rest1} <- lex_expr__84(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__85(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {316_912_650_130_844_326_669_014_007_808, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -807,433 +836,20 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_token__BYTE_UNIT(input) do
       Tokenizer.first_char_match(
         [
-          &lex_expr__39/1,
-          &lex_expr__43/1,
-          &lex_expr__47/1,
-          &lex_expr__51/1,
-          &lex_expr__55/1,
-          &lex_expr__59/1,
+          &lex_expr__50/1,
+          &lex_expr__54/1,
+          &lex_expr__58/1,
           &lex_expr__62/1,
-          &lex_expr__65/1,
-          &lex_expr__68/1,
-          &lex_expr__71/1,
-          &lex_expr__74/1
+          &lex_expr__66/1,
+          &lex_expr__70/1,
+          &lex_expr__73/1,
+          &lex_expr__76/1,
+          &lex_expr__79/1,
+          &lex_expr__82/1,
+          &lex_expr__85/1
         ],
         input
       )
-    end
-
-    def lex_token__ANON_15(input) do
-      case input do
-        <<"%{", rest::binary>> -> {:ok, "%{", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__75(input) do
-      case input do
-        <<"\"\"\"", rest::binary>> -> {:ok, "\"\"\"", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__79(input) do
-      case input do
-        <<"\"\"\"", rest::binary>> -> {:ok, "\"\"\"", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__78(input) do
-      Tokenizer.not_pred_char(&lex_expr__79/1, input)
-    end
-
-    def lex_expr__80(input) do
-      case input do
-        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__77(input0) do
-      with {:ok, t0, rest0} <- lex_expr__78(input0), {:ok, t1, rest1} <- lex_expr__80(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__76(input) do
-      Tokenizer.star_char(&lex_expr__77/1, input)
-    end
-
-    def lex_expr__81(input) do
-      case input do
-        <<"\"\"\"", rest::binary>> -> {:ok, "\"\"\"", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__TRIPLE_STRING(input0) do
-      with {:ok, t0, rest0} <- lex_expr__75(input0),
-           {:ok, t1, rest1} <- lex_expr__76(rest0),
-           {:ok, t2, rest2} <- lex_expr__81(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__82(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__85(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__86(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__84(input) do
-      Tokenizer.first_char_match([&lex_expr__85/1, &lex_expr__86/1], input)
-    end
-
-    def lex_expr__83(input) do
-      Tokenizer.star_char(&lex_expr__84/1, input)
-    end
-
-    def lex_expr__89(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__90(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__93(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__94(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__92(input) do
-      Tokenizer.first_char_match([&lex_expr__93/1, &lex_expr__94/1], input)
-    end
-
-    def lex_expr__91(input) do
-      Tokenizer.star_char(&lex_expr__92/1, input)
-    end
-
-    def lex_expr__88(input0) do
-      with {:ok, t0, rest0} <- lex_expr__89(input0),
-           {:ok, t1, rest1} <- lex_expr__90(rest0),
-           {:ok, t2, rest2} <- lex_expr__91(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__87(input) do
-      Tokenizer.opt_char(&lex_expr__88/1, input)
-    end
-
-    def lex_expr__95(input) do
-      lex_token__DURATION_UNIT(input)
-    end
-
-    def lex_expr__98(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__101(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__102(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__100(input) do
-      Tokenizer.first_char_match([&lex_expr__101/1, &lex_expr__102/1], input)
-    end
-
-    def lex_expr__99(input) do
-      Tokenizer.star_char(&lex_expr__100/1, input)
-    end
-
-    def lex_expr__103(input) do
-      lex_token__DURATION_UNIT(input)
-    end
-
-    def lex_expr__97(input0) do
-      with {:ok, t0, rest0} <- lex_expr__98(input0),
-           {:ok, t1, rest1} <- lex_expr__99(rest0),
-           {:ok, t2, rest2} <- lex_expr__103(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__96(input) do
-      Tokenizer.star_char(&lex_expr__97/1, input)
-    end
-
-    def lex_token__DURATION(input0) do
-      with {:ok, t0, rest0} <- lex_expr__82(input0),
-           {:ok, t1, rest1} <- lex_expr__83(rest0),
-           {:ok, t2, rest2} <- lex_expr__87(rest1),
-           {:ok, t3, rest3} <- lex_expr__95(rest2),
-           {:ok, t4, rest4} <- lex_expr__96(rest3) do
-        {:ok, t0 <> t1 <> t2 <> t3 <> t4, rest4}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__106(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__107(input) do
-      case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__105(input) do
-      Tokenizer.first_char_match([&lex_expr__106/1, &lex_expr__107/1], input)
-    end
-
-    def lex_expr__104(input) do
-      Tokenizer.opt_char(&lex_expr__105/1, input)
-    end
-
-    def lex_expr__110(input) do
-      case input do
-        <<"0x", rest::binary>> -> {:ok, "0x", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__111(input) do
-      lex_token__HEX(input)
-    end
-
-    def lex_expr__114(input) do
-      lex_token__HEX(input)
-    end
-
-    def lex_expr__115(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__113(input) do
-      Tokenizer.first_char_match([&lex_expr__114/1, &lex_expr__115/1], input)
-    end
-
-    def lex_expr__112(input) do
-      Tokenizer.star_char(&lex_expr__113/1, input)
-    end
-
-    def lex_expr__109(input0) do
-      with {:ok, t0, rest0} <- lex_expr__110(input0),
-           {:ok, t1, rest1} <- lex_expr__111(rest0),
-           {:ok, t2, rest2} <- lex_expr__112(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__117(input) do
-      case input do
-        <<"0o", rest::binary>> -> {:ok, "0o", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__118(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 55}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__121(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 55}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__122(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__120(input) do
-      Tokenizer.first_char_match([&lex_expr__121/1, &lex_expr__122/1], input)
-    end
-
-    def lex_expr__119(input) do
-      Tokenizer.star_char(&lex_expr__120/1, input)
-    end
-
-    def lex_expr__116(input0) do
-      with {:ok, t0, rest0} <- lex_expr__117(input0),
-           {:ok, t1, rest1} <- lex_expr__118(rest0),
-           {:ok, t2, rest2} <- lex_expr__119(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__124(input) do
-      case input do
-        <<"0b", rest::binary>> -> {:ok, "0b", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__125(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 48}, {49, 49}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__128(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 48}, {49, 49}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__129(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__127(input) do
-      Tokenizer.first_char_match([&lex_expr__128/1, &lex_expr__129/1], input)
-    end
-
-    def lex_expr__126(input) do
-      Tokenizer.star_char(&lex_expr__127/1, input)
-    end
-
-    def lex_expr__123(input0) do
-      with {:ok, t0, rest0} <- lex_expr__124(input0),
-           {:ok, t1, rest1} <- lex_expr__125(rest0),
-           {:ok, t2, rest2} <- lex_expr__126(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__131(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__134(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__135(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__133(input) do
-      Tokenizer.first_char_match([&lex_expr__134/1, &lex_expr__135/1], input)
-    end
-
-    def lex_expr__132(input) do
-      Tokenizer.star_char(&lex_expr__133/1, input)
-    end
-
-    def lex_expr__130(input0) do
-      with {:ok, t0, rest0} <- lex_expr__131(input0), {:ok, t1, rest1} <- lex_expr__132(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__108(input) do
-      Tokenizer.first_char_match(
-        [&lex_expr__109/1, &lex_expr__116/1, &lex_expr__123/1, &lex_expr__130/1],
-        input
-      )
-    end
-
-    def lex_token__INTEGER(input0) do
-      with {:ok, t0, rest0} <- lex_expr__104(input0), {:ok, t1, rest1} <- lex_expr__108(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
     end
 
     def lex_token__ANON_2(input) do
@@ -1243,154 +859,522 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_token__ANON_1(input) do
+    def lex_token__ANON_22(input) do
       case input do
-        <<"#", rest::binary>> -> {:ok, "#", rest}
+        <<"?", rest::binary>> -> {:ok, "?", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__138(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__139(input) do
-      case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__137(input) do
-      Tokenizer.first_char_match([&lex_expr__138/1, &lex_expr__139/1], input)
-    end
-
-    def lex_expr__136(input) do
-      Tokenizer.opt_char(&lex_expr__137/1, input)
-    end
-
-    def lex_expr__140(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__143(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__144(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__142(input) do
-      Tokenizer.first_char_match([&lex_expr__143/1, &lex_expr__144/1], input)
-    end
-
-    def lex_expr__141(input) do
-      Tokenizer.star_char(&lex_expr__142/1, input)
-    end
-
-    def lex_expr__147(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__148(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__151(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__152(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__150(input) do
-      Tokenizer.first_char_match([&lex_expr__151/1, &lex_expr__152/1], input)
-    end
-
-    def lex_expr__149(input) do
-      Tokenizer.star_char(&lex_expr__150/1, input)
-    end
-
-    def lex_expr__156(input) do
-      case input do
-        <<"e", rest::binary>> -> {:ok, "e", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__157(input) do
-      case input do
-        <<"E", rest::binary>> -> {:ok, "E", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__155(input) do
-      Tokenizer.first_char_match([&lex_expr__156/1, &lex_expr__157/1], input)
-    end
-
-    def lex_expr__160(input) do
+    def lex_expr__88(input) do
       case input do
         <<"+", rest::binary>> -> {:ok, "+", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__161(input) do
+    def lex_expr__89(input) do
       case input do
         <<"-", rest::binary>> -> {:ok, "-", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__159(input) do
-      Tokenizer.first_char_match([&lex_expr__160/1, &lex_expr__161/1], input)
+    def lex_expr__87(input) do
+      Tokenizer.first_char_match([&lex_expr__88/1, &lex_expr__89/1], input)
     end
 
-    def lex_expr__158(input) do
-      Tokenizer.opt_char(&lex_expr__159/1, input)
+    def lex_expr__86(input) do
+      Tokenizer.opt_char(&lex_expr__87/1, input)
     end
 
-    def lex_expr__163(input) do
-      lex_token__DIGIT(input)
+    def lex_expr__90(input) do
+      case input do
+        <<"inf", rest::binary>> -> {:ok, "inf", rest}
+        _ -> :fail
+      end
     end
 
-    def lex_expr__162(input) do
-      Tokenizer.plus_char(&lex_expr__163/1, input)
+    def lex_expr__93(input) do
+      lex_token__ALNUM(input)
     end
 
-    def lex_expr__154(input0) do
-      with {:ok, t0, rest0} <- lex_expr__155(input0),
-           {:ok, t1, rest1} <- lex_expr__158(rest0),
-           {:ok, t2, rest2} <- lex_expr__162(rest1) do
+    def lex_expr__94(input) do
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__95(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__96(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__97(input) do
+      case input do
+        <<"?", rest::binary>> -> {:ok, "?", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__98(input) do
+      case input do
+        <<"!", rest::binary>> -> {:ok, "!", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__92(input) do
+      Tokenizer.first_char_match(
+        [
+          &lex_expr__93/1,
+          &lex_expr__94/1,
+          &lex_expr__95/1,
+          &lex_expr__96/1,
+          &lex_expr__97/1,
+          &lex_expr__98/1
+        ],
+        input
+      )
+    end
+
+    def lex_expr__91(input) do
+      Tokenizer.not_pred_char(&lex_expr__92/1, input)
+    end
+
+    def lex_token__INF_KW(input0) do
+      with {:ok, t0, rest0} <- lex_expr__86(input0),
+           {:ok, t1, rest1} <- lex_expr__90(rest0),
+           {:ok, t2, rest2} <- lex_expr__91(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
+    def lex_expr__100(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__99(input) do
+      Tokenizer.rep_char(&lex_expr__100/1, 2, 2, input)
+    end
+
+    def lex_expr__101(input) do
+      case input do
+        <<":", rest::binary>> -> {:ok, ":", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__103(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__102(input) do
+      Tokenizer.rep_char(&lex_expr__103/1, 2, 2, input)
+    end
+
+    def lex_expr__104(input) do
+      case input do
+        <<":", rest::binary>> -> {:ok, ":", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__106(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__105(input) do
+      Tokenizer.rep_char(&lex_expr__106/1, 2, 2, input)
+    end
+
+    def lex_expr__109(input) do
+      case input do
+        <<".", rest::binary>> -> {:ok, ".", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__111(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__110(input) do
+      Tokenizer.plus_char(&lex_expr__111/1, input)
+    end
+
+    def lex_expr__108(input0) do
+      with {:ok, t0, rest0} <- lex_expr__109(input0), {:ok, t1, rest1} <- lex_expr__110(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__107(input) do
+      Tokenizer.opt_char(&lex_expr__108/1, input)
+    end
+
+    def lex_token__TIME(input0) do
+      with {:ok, t0, rest0} <- lex_expr__99(input0),
+           {:ok, t1, rest1} <- lex_expr__101(rest0),
+           {:ok, t2, rest2} <- lex_expr__102(rest1),
+           {:ok, t3, rest3} <- lex_expr__104(rest2),
+           {:ok, t4, rest4} <- lex_expr__105(rest3),
+           {:ok, t5, rest5} <- lex_expr__107(rest4) do
+        {:ok, t0 <> t1 <> t2 <> t3 <> t4 <> t5, rest5}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_token__ANON_7(input) do
+      case input do
+        <<"*", rest::binary>> -> {:ok, "*", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__114(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__115(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__113(input) do
+      Tokenizer.first_char_match([&lex_expr__114/1, &lex_expr__115/1], input)
+    end
+
+    def lex_expr__112(input) do
+      Tokenizer.opt_char(&lex_expr__113/1, input)
+    end
+
+    def lex_expr__116(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__119(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__120(input) do
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__118(input) do
+      Tokenizer.first_char_match([&lex_expr__119/1, &lex_expr__120/1], input)
+    end
+
+    def lex_expr__117(input) do
+      Tokenizer.star_char(&lex_expr__118/1, input)
+    end
+
+    def lex_expr__123(input) do
+      case input do
+        <<".", rest::binary>> -> {:ok, ".", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__124(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__127(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__128(input) do
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__126(input) do
+      Tokenizer.first_char_match([&lex_expr__127/1, &lex_expr__128/1], input)
+    end
+
+    def lex_expr__125(input) do
+      Tokenizer.star_char(&lex_expr__126/1, input)
+    end
+
+    def lex_expr__132(input) do
+      case input do
+        <<"e", rest::binary>> -> {:ok, "e", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__133(input) do
+      case input do
+        <<"E", rest::binary>> -> {:ok, "E", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__131(input) do
+      Tokenizer.first_char_match([&lex_expr__132/1, &lex_expr__133/1], input)
+    end
+
+    def lex_expr__136(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__137(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__135(input) do
+      Tokenizer.first_char_match([&lex_expr__136/1, &lex_expr__137/1], input)
+    end
+
+    def lex_expr__134(input) do
+      Tokenizer.opt_char(&lex_expr__135/1, input)
+    end
+
+    def lex_expr__139(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__138(input) do
+      Tokenizer.plus_char(&lex_expr__139/1, input)
+    end
+
+    def lex_expr__130(input0) do
+      with {:ok, t0, rest0} <- lex_expr__131(input0),
+           {:ok, t1, rest1} <- lex_expr__134(rest0),
+           {:ok, t2, rest2} <- lex_expr__138(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__129(input) do
+      Tokenizer.opt_char(&lex_expr__130/1, input)
+    end
+
+    def lex_expr__122(input0) do
+      with {:ok, t0, rest0} <- lex_expr__123(input0),
+           {:ok, t1, rest1} <- lex_expr__124(rest0),
+           {:ok, t2, rest2} <- lex_expr__125(rest1),
+           {:ok, t3, rest3} <- lex_expr__129(rest2) do
+        {:ok, t0 <> t1 <> t2 <> t3, rest3}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__142(input) do
+      case input do
+        <<"e", rest::binary>> -> {:ok, "e", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__143(input) do
+      case input do
+        <<"E", rest::binary>> -> {:ok, "E", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__141(input) do
+      Tokenizer.first_char_match([&lex_expr__142/1, &lex_expr__143/1], input)
+    end
+
+    def lex_expr__146(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__147(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__145(input) do
+      Tokenizer.first_char_match([&lex_expr__146/1, &lex_expr__147/1], input)
+    end
+
+    def lex_expr__144(input) do
+      Tokenizer.opt_char(&lex_expr__145/1, input)
+    end
+
+    def lex_expr__149(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__148(input) do
+      Tokenizer.plus_char(&lex_expr__149/1, input)
+    end
+
+    def lex_expr__140(input0) do
+      with {:ok, t0, rest0} <- lex_expr__141(input0),
+           {:ok, t1, rest1} <- lex_expr__144(rest0),
+           {:ok, t2, rest2} <- lex_expr__148(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__121(input) do
+      Tokenizer.first_char_match([&lex_expr__122/1, &lex_expr__140/1], input)
+    end
+
+    def lex_token__FLOAT(input0) do
+      with {:ok, t0, rest0} <- lex_expr__112(input0),
+           {:ok, t1, rest1} <- lex_expr__116(rest0),
+           {:ok, t2, rest2} <- lex_expr__117(rest1),
+           {:ok, t3, rest3} <- lex_expr__121(rest2) do
+        {:ok, t0 <> t1 <> t2 <> t3, rest3}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_token__ANON_3(input) do
+      case input do
+        <<"=", rest::binary>> -> {:ok, "=", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__ANON_17(input) do
+      case input do
+        <<"(", rest::binary>> -> {:ok, "(", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__ANON_12(input) do
+      case input do
+        <<"{", rest::binary>> -> {:ok, "{", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__150(input) do
+      lex_token__DATE(input)
+    end
+
+    def lex_expr__151(input) do
+      case input do
+        <<"T", rest::binary>> -> {:ok, "T", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__152(input) do
+      lex_token__TIME(input)
+    end
+
+    def lex_expr__155(input) do
+      case input do
+        <<"Z", rest::binary>> -> {:ok, "Z", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__158(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__159(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__157(input) do
+      Tokenizer.first_char_match([&lex_expr__158/1, &lex_expr__159/1], input)
+    end
+
+    def lex_expr__161(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__160(input) do
+      Tokenizer.rep_char(&lex_expr__161/1, 2, 2, input)
+    end
+
+    def lex_expr__162(input) do
+      case input do
+        <<":", rest::binary>> -> {:ok, ":", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__164(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__163(input) do
+      Tokenizer.rep_char(&lex_expr__164/1, 2, 2, input)
+    end
+
+    def lex_expr__156(input0) do
+      with {:ok, t0, rest0} <- lex_expr__157(input0),
+           {:ok, t1, rest1} <- lex_expr__160(rest0),
+           {:ok, t2, rest2} <- lex_expr__162(rest1),
+           {:ok, t3, rest3} <- lex_expr__163(rest2) do
+        {:ok, t0 <> t1 <> t2 <> t3, rest3}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__154(input) do
+      Tokenizer.first_char_match([&lex_expr__155/1, &lex_expr__156/1], input)
+    end
+
     def lex_expr__153(input) do
       Tokenizer.opt_char(&lex_expr__154/1, input)
     end
 
-    def lex_expr__146(input0) do
-      with {:ok, t0, rest0} <- lex_expr__147(input0),
-           {:ok, t1, rest1} <- lex_expr__148(rest0),
-           {:ok, t2, rest2} <- lex_expr__149(rest1),
+    def lex_token__DATETIME(input0) do
+      with {:ok, t0, rest0} <- lex_expr__150(input0),
+           {:ok, t1, rest1} <- lex_expr__151(rest0),
+           {:ok, t2, rest2} <- lex_expr__152(rest1),
            {:ok, t3, rest3} <- lex_expr__153(rest2) do
         {:ok, t0 <> t1 <> t2 <> t3, rest3}
       else
@@ -1398,128 +1382,140 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__166(input) do
+    def lex_token__ANON_18(input) do
       case input do
-        <<"e", rest::binary>> -> {:ok, "e", rest}
+        <<")", rest::binary>> -> {:ok, ")", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__167(input) do
+    def lex_token__SPACE(input) do
       case input do
-        <<"E", rest::binary>> -> {:ok, "E", rest}
-        _ -> :fail
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {4_294_977_024, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
       end
     end
 
-    def lex_expr__165(input) do
-      Tokenizer.first_char_match([&lex_expr__166/1, &lex_expr__167/1], input)
-    end
-
-    def lex_expr__170(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__171(input) do
+    def lex_token__ANON_11(input) do
       case input do
         <<"-", rest::binary>> -> {:ok, "-", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__169(input) do
-      Tokenizer.first_char_match([&lex_expr__170/1, &lex_expr__171/1], input)
+    def lex_expr__165(input) do
+      case input do
+        <<"#", rest::binary>> -> {:ok, "#", rest}
+        _ -> :fail
+      end
     end
 
     def lex_expr__168(input) do
-      Tokenizer.opt_char(&lex_expr__169/1, input)
+      case input do
+        <<"@", rest::binary>> -> {:ok, "@", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__169(input) do
+      lex_token__ALPHA(input)
+    end
+
+    def lex_expr__170(input) do
+      case input do
+        <<"*", rest::binary>> -> {:ok, "*", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__167(input) do
+      Tokenizer.first_char_match([&lex_expr__168/1, &lex_expr__169/1, &lex_expr__170/1], input)
+    end
+
+    def lex_expr__166(input) do
+      Tokenizer.not_pred_char(&lex_expr__167/1, input)
+    end
+
+    def lex_expr__174(input) do
+      case input do
+        <<"\n", rest::binary>> -> {:ok, "\n", rest}
+        _ -> :fail
+      end
     end
 
     def lex_expr__173(input) do
-      lex_token__DIGIT(input)
+      Tokenizer.not_pred_char(&lex_expr__174/1, input)
     end
 
-    def lex_expr__172(input) do
-      Tokenizer.plus_char(&lex_expr__173/1, input)
+    def lex_expr__175(input) do
+      case input do
+        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
+        _ -> :fail
+      end
     end
 
-    def lex_expr__164(input0) do
+    def lex_expr__172(input0) do
+      with {:ok, t0, rest0} <- lex_expr__173(input0), {:ok, t1, rest1} <- lex_expr__175(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__171(input) do
+      Tokenizer.star_char(&lex_expr__172/1, input)
+    end
+
+    def lex_token__COMMENT(input0) do
       with {:ok, t0, rest0} <- lex_expr__165(input0),
-           {:ok, t1, rest1} <- lex_expr__168(rest0),
-           {:ok, t2, rest2} <- lex_expr__172(rest1) do
+           {:ok, t1, rest1} <- lex_expr__166(rest0),
+           {:ok, t2, rest2} <- lex_expr__171(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
-    def lex_expr__145(input) do
-      Tokenizer.first_char_match([&lex_expr__146/1, &lex_expr__164/1], input)
-    end
-
-    def lex_token__FLOAT(input0) do
-      with {:ok, t0, rest0} <- lex_expr__136(input0),
-           {:ok, t1, rest1} <- lex_expr__140(rest0),
-           {:ok, t2, rest2} <- lex_expr__141(rest1),
-           {:ok, t3, rest3} <- lex_expr__145(rest2) do
-        {:ok, t0 <> t1 <> t2 <> t3, rest3}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_token__ANON_4(input) do
+    def lex_token__NIL_KW(input) do
       case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
+        <<"nil", rest::binary>> -> {:ok, "nil", rest}
         _ -> :fail
       end
-    end
-
-    def lex_expr__175(input) do
-      lex_token__SPACE(input)
     end
 
     def lex_expr__176(input) do
-      lex_token__COMMENT(input)
-    end
-
-    def lex_expr__174(input) do
-      Tokenizer.first_char_match([&lex_expr__175/1, &lex_expr__176/1], input)
-    end
-
-    def lex_token__TRIVIA(input) do
-      Tokenizer.star_char(&lex_expr__174/1, input)
-    end
-
-    def lex_expr__178(input) do
       lex_token__DIGIT(input)
     end
 
-    def lex_expr__177(input) do
-      Tokenizer.rep_char(&lex_expr__178/1, 2, 2, input)
-    end
-
     def lex_expr__179(input) do
-      case input do
-        <<":", rest::binary>> -> {:ok, ":", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__181(input) do
       lex_token__DIGIT(input)
     end
 
     def lex_expr__180(input) do
-      Tokenizer.rep_char(&lex_expr__181/1, 2, 2, input)
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
     end
 
-    def lex_expr__182(input) do
+    def lex_expr__178(input) do
+      Tokenizer.first_char_match([&lex_expr__179/1, &lex_expr__180/1], input)
+    end
+
+    def lex_expr__177(input) do
+      Tokenizer.star_char(&lex_expr__178/1, input)
+    end
+
+    def lex_expr__183(input) do
       case input do
-        <<":", rest::binary>> -> {:ok, ":", rest}
+        <<".", rest::binary>> -> {:ok, ".", rest}
         _ -> :fail
       end
     end
@@ -1528,82 +1524,100 @@ defmodule Cooper.NativeGrammar.Native do
       lex_token__DIGIT(input)
     end
 
-    def lex_expr__183(input) do
-      Tokenizer.rep_char(&lex_expr__184/1, 2, 2, input)
-    end
-
     def lex_expr__187(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__189(input) do
       lex_token__DIGIT(input)
     end
 
     def lex_expr__188(input) do
-      Tokenizer.plus_char(&lex_expr__189/1, input)
-    end
-
-    def lex_expr__186(input0) do
-      with {:ok, t0, rest0} <- lex_expr__187(input0), {:ok, t1, rest1} <- lex_expr__188(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__185(input) do
-      Tokenizer.opt_char(&lex_expr__186/1, input)
-    end
-
-    def lex_token__TIME(input0) do
-      with {:ok, t0, rest0} <- lex_expr__177(input0),
-           {:ok, t1, rest1} <- lex_expr__179(rest0),
-           {:ok, t2, rest2} <- lex_expr__180(rest1),
-           {:ok, t3, rest3} <- lex_expr__182(rest2),
-           {:ok, t4, rest4} <- lex_expr__183(rest3),
-           {:ok, t5, rest5} <- lex_expr__185(rest4) do
-        {:ok, t0 <> t1 <> t2 <> t3 <> t4 <> t5, rest5}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__192(input) do
-      lex_token__HEX_GROUP(input)
-    end
-
-    def lex_expr__195(input) do
       case input do
-        <<":", rest::binary>> -> {:ok, ":", rest}
+        <<"_", rest::binary>> -> {:ok, "_", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__196(input) do
-      lex_token__HEX_GROUP(input)
+    def lex_expr__186(input) do
+      Tokenizer.first_char_match([&lex_expr__187/1, &lex_expr__188/1], input)
     end
 
-    def lex_expr__194(input0) do
-      with {:ok, t0, rest0} <- lex_expr__195(input0), {:ok, t1, rest1} <- lex_expr__196(rest0) do
-        {:ok, t0 <> t1, rest1}
+    def lex_expr__185(input) do
+      Tokenizer.star_char(&lex_expr__186/1, input)
+    end
+
+    def lex_expr__182(input0) do
+      with {:ok, t0, rest0} <- lex_expr__183(input0),
+           {:ok, t1, rest1} <- lex_expr__184(rest0),
+           {:ok, t2, rest2} <- lex_expr__185(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
+    def lex_expr__181(input) do
+      Tokenizer.opt_char(&lex_expr__182/1, input)
+    end
+
+    def lex_expr__189(input) do
+      lex_token__DURATION_UNIT(input)
+    end
+
+    def lex_expr__192(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__195(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__196(input) do
+      case input do
+        <<"_", rest::binary>> -> {:ok, "_", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__194(input) do
+      Tokenizer.first_char_match([&lex_expr__195/1, &lex_expr__196/1], input)
+    end
+
     def lex_expr__193(input) do
-      Tokenizer.rep_char(&lex_expr__194/1, 7, 7, input)
+      Tokenizer.star_char(&lex_expr__194/1, input)
+    end
+
+    def lex_expr__197(input) do
+      lex_token__DURATION_UNIT(input)
     end
 
     def lex_expr__191(input0) do
-      with {:ok, t0, rest0} <- lex_expr__192(input0), {:ok, t1, rest1} <- lex_expr__193(rest0) do
-        {:ok, t0 <> t1, rest1}
+      with {:ok, t0, rest0} <- lex_expr__192(input0),
+           {:ok, t1, rest1} <- lex_expr__193(rest0),
+           {:ok, t2, rest2} <- lex_expr__197(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
+      end
+    end
+
+    def lex_expr__190(input) do
+      Tokenizer.star_char(&lex_expr__191/1, input)
+    end
+
+    def lex_token__DURATION(input0) do
+      with {:ok, t0, rest0} <- lex_expr__176(input0),
+           {:ok, t1, rest1} <- lex_expr__177(rest0),
+           {:ok, t2, rest2} <- lex_expr__181(rest1),
+           {:ok, t3, rest3} <- lex_expr__189(rest2),
+           {:ok, t4, rest4} <- lex_expr__190(rest3) do
+        {:ok, t0 <> t1 <> t2 <> t3 <> t4, rest4}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_token__ANON_9(input) do
+      case input do
+        <<"~", rest::binary>> -> {:ok, "~", rest}
+        _ -> :fail
       end
     end
 
@@ -1631,7 +1645,7 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def lex_expr__201(input) do
-      Tokenizer.star_char(&lex_expr__202/1, input)
+      Tokenizer.rep_char(&lex_expr__202/1, 7, 7, input)
     end
 
     def lex_expr__199(input0) do
@@ -1639,17 +1653,6 @@ defmodule Cooper.NativeGrammar.Native do
         {:ok, t0 <> t1, rest1}
       else
         :fail -> :fail
-      end
-    end
-
-    def lex_expr__198(input) do
-      Tokenizer.opt_char(&lex_expr__199/1, input)
-    end
-
-    def lex_expr__205(input) do
-      case input do
-        <<"::", rest::binary>> -> {:ok, "::", rest}
-        _ -> :fail
       end
     end
 
@@ -1692,66 +1695,105 @@ defmodule Cooper.NativeGrammar.Native do
       Tokenizer.opt_char(&lex_expr__207/1, input)
     end
 
-    def lex_expr__197(input0) do
-      with {:ok, t0, rest0} <- lex_expr__198(input0),
-           {:ok, t1, rest1} <- lex_expr__205(rest0),
-           {:ok, t2, rest2} <- lex_expr__206(rest1) do
+    def lex_expr__213(input) do
+      case input do
+        <<"::", rest::binary>> -> {:ok, "::", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__216(input) do
+      lex_token__HEX_GROUP(input)
+    end
+
+    def lex_expr__219(input) do
+      case input do
+        <<":", rest::binary>> -> {:ok, ":", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__220(input) do
+      lex_token__HEX_GROUP(input)
+    end
+
+    def lex_expr__218(input0) do
+      with {:ok, t0, rest0} <- lex_expr__219(input0), {:ok, t1, rest1} <- lex_expr__220(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__217(input) do
+      Tokenizer.star_char(&lex_expr__218/1, input)
+    end
+
+    def lex_expr__215(input0) do
+      with {:ok, t0, rest0} <- lex_expr__216(input0), {:ok, t1, rest1} <- lex_expr__217(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__214(input) do
+      Tokenizer.opt_char(&lex_expr__215/1, input)
+    end
+
+    def lex_expr__205(input0) do
+      with {:ok, t0, rest0} <- lex_expr__206(input0),
+           {:ok, t1, rest1} <- lex_expr__213(rest0),
+           {:ok, t2, rest2} <- lex_expr__214(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
-    def lex_expr__190(input) do
-      Tokenizer.first_char_match([&lex_expr__191/1, &lex_expr__197/1], input)
+    def lex_expr__198(input) do
+      Tokenizer.first_char_match([&lex_expr__199/1, &lex_expr__205/1], input)
     end
 
-    def lex_expr__215(input) do
+    def lex_expr__223(input) do
       case input do
         <<"/", rest::binary>> -> {:ok, "/", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__217(input) do
+    def lex_expr__225(input) do
       lex_token__DIGIT(input)
     end
 
-    def lex_expr__216(input) do
-      Tokenizer.rep_char(&lex_expr__217/1, 1, 3, input)
+    def lex_expr__224(input) do
+      Tokenizer.rep_char(&lex_expr__225/1, 1, 3, input)
     end
 
-    def lex_expr__214(input0) do
-      with {:ok, t0, rest0} <- lex_expr__215(input0), {:ok, t1, rest1} <- lex_expr__216(rest0) do
+    def lex_expr__222(input0) do
+      with {:ok, t0, rest0} <- lex_expr__223(input0), {:ok, t1, rest1} <- lex_expr__224(rest0) do
         {:ok, t0 <> t1, rest1}
       else
         :fail -> :fail
       end
     end
 
-    def lex_expr__213(input) do
-      Tokenizer.opt_char(&lex_expr__214/1, input)
+    def lex_expr__221(input) do
+      Tokenizer.opt_char(&lex_expr__222/1, input)
     end
 
     def lex_token__IPV6(input0) do
-      with {:ok, t0, rest0} <- lex_expr__190(input0), {:ok, t1, rest1} <- lex_expr__213(rest0) do
+      with {:ok, t0, rest0} <- lex_expr__198(input0), {:ok, t1, rest1} <- lex_expr__221(rest0) do
         {:ok, t0 <> t1, rest1}
       else
         :fail -> :fail
       end
     end
 
-    def lex_token__HEX(input) do
+    def lex_token__ANON_20(input) do
       case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{97, 102}, {65, 70}, {48, 57}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
+        <<"]", rest::binary>> -> {:ok, "]", rest}
+        _ -> :fail
       end
     end
 
@@ -1762,56 +1804,63 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__218(input) do
+    def lex_token__TRUE_KW(input) do
+      case input do
+        <<"true", rest::binary>> -> {:ok, "true", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__226(input) do
       case input do
         <<"ns", rest::binary>> -> {:ok, "ns", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__219(input) do
+    def lex_expr__227(input) do
       case input do
         <<"us", rest::binary>> -> {:ok, "us", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__220(input) do
+    def lex_expr__228(input) do
       case input do
         <<"µs", rest::binary>> -> {:ok, "µs", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__221(input) do
+    def lex_expr__229(input) do
       case input do
         <<"ms", rest::binary>> -> {:ok, "ms", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__222(input) do
+    def lex_expr__230(input) do
       case input do
         <<"d", rest::binary>> -> {:ok, "d", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__223(input) do
+    def lex_expr__231(input) do
       case input do
         <<"h", rest::binary>> -> {:ok, "h", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__224(input) do
+    def lex_expr__232(input) do
       case input do
         <<"m", rest::binary>> -> {:ok, "m", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__225(input) do
+    def lex_expr__233(input) do
       case input do
         <<"s", rest::binary>> -> {:ok, "s", rest}
         _ -> :fail
@@ -1821,161 +1870,30 @@ defmodule Cooper.NativeGrammar.Native do
     def lex_token__DURATION_UNIT(input) do
       Tokenizer.first_char_match(
         [
-          &lex_expr__218/1,
-          &lex_expr__219/1,
-          &lex_expr__220/1,
-          &lex_expr__221/1,
-          &lex_expr__222/1,
-          &lex_expr__223/1,
-          &lex_expr__224/1,
-          &lex_expr__225/1
+          &lex_expr__226/1,
+          &lex_expr__227/1,
+          &lex_expr__228/1,
+          &lex_expr__229/1,
+          &lex_expr__230/1,
+          &lex_expr__231/1,
+          &lex_expr__232/1,
+          &lex_expr__233/1
         ],
         input
       )
     end
 
-    def lex_token__ANON_7(input) do
+    def lex_token__ANON_6(input) do
       case input do
-        <<"*", rest::binary>> -> {:ok, "*", rest}
+        <<"}", rest::binary>> -> {:ok, "}", rest}
         _ -> :fail
-      end
-    end
-
-    def lex_token__ANON_22(input) do
-      case input do
-        <<"?", rest::binary>> -> {:ok, "?", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__SPACE(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{32, 32}, {9, 9}, {13, 13}, {10, 10}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_token__ANON_13(input) do
-      case input do
-        <<"@{", rest::binary>> -> {:ok, "@{", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__ANON_9(input) do
-      case input do
-        <<"~", rest::binary>> -> {:ok, "~", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__228(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__229(input) do
-      case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__227(input) do
-      Tokenizer.first_char_match([&lex_expr__228/1, &lex_expr__229/1], input)
-    end
-
-    def lex_expr__226(input) do
-      Tokenizer.opt_char(&lex_expr__227/1, input)
-    end
-
-    def lex_expr__230(input) do
-      case input do
-        <<"inf", rest::binary>> -> {:ok, "inf", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__233(input) do
-      lex_token__ALNUM(input)
-    end
-
-    def lex_expr__234(input) do
-      case input do
-        <<"_", rest::binary>> -> {:ok, "_", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__235(input) do
-      case input do
-        <<"+", rest::binary>> -> {:ok, "+", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__236(input) do
-      case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__237(input) do
-      case input do
-        <<"?", rest::binary>> -> {:ok, "?", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__238(input) do
-      case input do
-        <<"!", rest::binary>> -> {:ok, "!", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__232(input) do
-      Tokenizer.first_char_match(
-        [
-          &lex_expr__233/1,
-          &lex_expr__234/1,
-          &lex_expr__235/1,
-          &lex_expr__236/1,
-          &lex_expr__237/1,
-          &lex_expr__238/1
-        ],
-        input
-      )
-    end
-
-    def lex_expr__231(input) do
-      Tokenizer.not_pred_char(&lex_expr__232/1, input)
-    end
-
-    def lex_token__INF_KW(input0) do
-      with {:ok, t0, rest0} <- lex_expr__226(input0),
-           {:ok, t1, rest1} <- lex_expr__230(rest0),
-           {:ok, t2, rest2} <- lex_expr__231(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
       end
     end
 
     def lex_token__DIGIT(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 57}]) do
+          if Tokenizer.in_class?(c, {287_948_901_175_001_088, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -1983,6 +1901,149 @@ defmodule Cooper.NativeGrammar.Native do
 
         _ ->
           :fail
+      end
+    end
+
+    def lex_token__ANON_19(input) do
+      case input do
+        <<"[", rest::binary>> -> {:ok, "[", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__ANON_23(input) do
+      case input do
+        <<"|", rest::binary>> -> {:ok, "|", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__ANON_1(input) do
+      case input do
+        <<"#", rest::binary>> -> {:ok, "#", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__234(input) do
+      case input do
+        <<"\"", rest::binary>> -> {:ok, "\"", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__238(input) do
+      case input do
+        <<"\\", rest::binary>> -> {:ok, "\\", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__239(input) do
+      case input do
+        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__237(input0) do
+      with {:ok, t0, rest0} <- lex_expr__238(input0), {:ok, t1, rest1} <- lex_expr__239(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__242(input) do
+      case input do
+        <<"\"", rest::binary>> -> {:ok, "\"", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__241(input) do
+      Tokenizer.not_pred_char(&lex_expr__242/1, input)
+    end
+
+    def lex_expr__243(input) do
+      case input do
+        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__240(input0) do
+      with {:ok, t0, rest0} <- lex_expr__241(input0), {:ok, t1, rest1} <- lex_expr__243(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__236(input) do
+      Tokenizer.first_char_match([&lex_expr__237/1, &lex_expr__240/1], input)
+    end
+
+    def lex_expr__235(input) do
+      Tokenizer.star_char(&lex_expr__236/1, input)
+    end
+
+    def lex_expr__244(input) do
+      case input do
+        <<"\"", rest::binary>> -> {:ok, "\"", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__DQ_STRING(input0) do
+      with {:ok, t0, rest0} <- lex_expr__234(input0),
+           {:ok, t1, rest1} <- lex_expr__235(rest0),
+           {:ok, t2, rest2} <- lex_expr__244(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_token__HEX(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {9_982_748_479_121_884_238_975_116_247_040, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_token__ALPHA(input) do
+      case input do
+        <<c::utf8, rest::binary>> ->
+          if Tokenizer.in_class?(c, {10_633_823_810_298_881_996_379_053_697_534_001_152, {}}) do
+            {:ok, <<c::utf8>>, rest}
+          else
+            :fail
+          end
+
+        _ ->
+          :fail
+      end
+    end
+
+    def lex_token__ANON_4(input) do
+      case input do
+        <<".", rest::binary>> -> {:ok, ".", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__ANON_10(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
       end
     end
 
@@ -1993,44 +2054,268 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__239(input) do
+    def lex_expr__245(input) do
+      lex_token__HEX(input)
+    end
+
+    def lex_token__HEX_GROUP(input) do
+      Tokenizer.rep_char(&lex_expr__245/1, 1, 4, input)
+    end
+
+    def lex_expr__247(input) do
       case input do
-        <<"'", rest::binary>> -> {:ok, "'", rest}
+        <<"_", rest::binary>> -> {:ok, "_", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__243(input) do
+    def lex_expr__248(input) do
+      lex_token__ALPHA(input)
+    end
+
+    def lex_expr__246(input) do
+      Tokenizer.first_char_match([&lex_expr__247/1, &lex_expr__248/1], input)
+    end
+
+    def lex_expr__251(input) do
+      lex_token__ALNUM(input)
+    end
+
+    def lex_expr__252(input) do
       case input do
-        <<"'", rest::binary>> -> {:ok, "'", rest}
+        <<"_", rest::binary>> -> {:ok, "_", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__242(input) do
-      Tokenizer.not_pred_char(&lex_expr__243/1, input)
+    def lex_expr__253(input) do
+      case input do
+        <<"+", rest::binary>> -> {:ok, "+", rest}
+        _ -> :fail
+      end
     end
 
-    def lex_expr__244(input) do
+    def lex_expr__254(input) do
+      case input do
+        <<"-", rest::binary>> -> {:ok, "-", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__250(input) do
+      Tokenizer.first_char_match(
+        [&lex_expr__251/1, &lex_expr__252/1, &lex_expr__253/1, &lex_expr__254/1],
+        input
+      )
+    end
+
+    def lex_expr__249(input) do
+      Tokenizer.star_char(&lex_expr__250/1, input)
+    end
+
+    def lex_expr__257(input) do
+      case input do
+        <<"?", rest::binary>> -> {:ok, "?", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__258(input) do
+      case input do
+        <<"!", rest::binary>> -> {:ok, "!", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__256(input) do
+      Tokenizer.first_char_match([&lex_expr__257/1, &lex_expr__258/1], input)
+    end
+
+    def lex_expr__255(input) do
+      Tokenizer.opt_char(&lex_expr__256/1, input)
+    end
+
+    def lex_token__IDENT(input0) do
+      with {:ok, t0, rest0} <- lex_expr__246(input0),
+           {:ok, t1, rest1} <- lex_expr__249(rest0),
+           {:ok, t2, rest2} <- lex_expr__255(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_token__ANON_15(input) do
+      case input do
+        <<"%{", rest::binary>> -> {:ok, "%{", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__259(input) do
+      case input do
+        <<"\"\"\"", rest::binary>> -> {:ok, "\"\"\"", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__263(input) do
+      case input do
+        <<"\"\"\"", rest::binary>> -> {:ok, "\"\"\"", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__262(input) do
+      Tokenizer.not_pred_char(&lex_expr__263/1, input)
+    end
+
+    def lex_expr__264(input) do
       case input do
         <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__241(input0) do
-      with {:ok, t0, rest0} <- lex_expr__242(input0), {:ok, t1, rest1} <- lex_expr__244(rest0) do
+    def lex_expr__261(input0) do
+      with {:ok, t0, rest0} <- lex_expr__262(input0), {:ok, t1, rest1} <- lex_expr__264(rest0) do
         {:ok, t0 <> t1, rest1}
       else
         :fail -> :fail
       end
     end
 
-    def lex_expr__240(input) do
-      Tokenizer.star_char(&lex_expr__241/1, input)
+    def lex_expr__260(input) do
+      Tokenizer.star_char(&lex_expr__261/1, input)
     end
 
-    def lex_expr__245(input) do
+    def lex_expr__265(input) do
+      case input do
+        <<"\"\"\"", rest::binary>> -> {:ok, "\"\"\"", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_token__TRIPLE_STRING(input0) do
+      with {:ok, t0, rest0} <- lex_expr__259(input0),
+           {:ok, t1, rest1} <- lex_expr__260(rest0),
+           {:ok, t2, rest2} <- lex_expr__265(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__267(input) do
+      lex_token__SPACE(input)
+    end
+
+    def lex_expr__268(input) do
+      lex_token__COMMENT(input)
+    end
+
+    def lex_expr__266(input) do
+      Tokenizer.first_char_match([&lex_expr__267/1, &lex_expr__268/1], input)
+    end
+
+    def lex_token__TRIVIA(input) do
+      Tokenizer.star_char(&lex_expr__266/1, input)
+    end
+
+    def lex_token__ANON_13(input) do
+      case input do
+        <<"@{", rest::binary>> -> {:ok, "@{", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__270(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__269(input) do
+      Tokenizer.plus_char(&lex_expr__270/1, input)
+    end
+
+    def lex_expr__273(input) do
+      case input do
+        <<".", rest::binary>> -> {:ok, ".", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__275(input) do
+      lex_token__DIGIT(input)
+    end
+
+    def lex_expr__274(input) do
+      Tokenizer.plus_char(&lex_expr__275/1, input)
+    end
+
+    def lex_expr__272(input0) do
+      with {:ok, t0, rest0} <- lex_expr__273(input0), {:ok, t1, rest1} <- lex_expr__274(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__271(input) do
+      Tokenizer.opt_char(&lex_expr__272/1, input)
+    end
+
+    def lex_expr__276(input) do
+      lex_token__BYTE_UNIT(input)
+    end
+
+    def lex_token__BYTES(input0) do
+      with {:ok, t0, rest0} <- lex_expr__269(input0),
+           {:ok, t1, rest1} <- lex_expr__271(rest0),
+           {:ok, t2, rest2} <- lex_expr__276(rest1) do
+        {:ok, t0 <> t1 <> t2, rest2}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__277(input) do
+      case input do
+        <<"'", rest::binary>> -> {:ok, "'", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__281(input) do
+      case input do
+        <<"'", rest::binary>> -> {:ok, "'", rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__280(input) do
+      Tokenizer.not_pred_char(&lex_expr__281/1, input)
+    end
+
+    def lex_expr__282(input) do
+      case input do
+        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
+        _ -> :fail
+      end
+    end
+
+    def lex_expr__279(input0) do
+      with {:ok, t0, rest0} <- lex_expr__280(input0), {:ok, t1, rest1} <- lex_expr__282(rest0) do
+        {:ok, t0 <> t1, rest1}
+      else
+        :fail -> :fail
+      end
+    end
+
+    def lex_expr__278(input) do
+      Tokenizer.star_char(&lex_expr__279/1, input)
+    end
+
+    def lex_expr__283(input) do
       case input do
         <<"'", rest::binary>> -> {:ok, "'", rest}
         _ -> :fail
@@ -2038,275 +2323,63 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def lex_token__SQ_STRING(input0) do
-      with {:ok, t0, rest0} <- lex_expr__239(input0),
-           {:ok, t1, rest1} <- lex_expr__240(rest0),
-           {:ok, t2, rest2} <- lex_expr__245(rest1) do
+      with {:ok, t0, rest0} <- lex_expr__277(input0),
+           {:ok, t1, rest1} <- lex_expr__278(rest0),
+           {:ok, t2, rest2} <- lex_expr__283(rest1) do
         {:ok, t0 <> t1 <> t2, rest2}
       else
         :fail -> :fail
       end
     end
 
-    def lex_expr__247(input) do
+    def lex_expr__285(input) do
       lex_token__DIGIT(input)
     end
 
-    def lex_expr__246(input) do
-      Tokenizer.plus_char(&lex_expr__247/1, input)
+    def lex_expr__284(input) do
+      Tokenizer.rep_char(&lex_expr__285/1, 4, 4, input)
     end
 
-    def lex_expr__250(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__252(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__251(input) do
-      Tokenizer.plus_char(&lex_expr__252/1, input)
-    end
-
-    def lex_expr__249(input0) do
-      with {:ok, t0, rest0} <- lex_expr__250(input0), {:ok, t1, rest1} <- lex_expr__251(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__248(input) do
-      Tokenizer.opt_char(&lex_expr__249/1, input)
-    end
-
-    def lex_expr__253(input) do
-      lex_token__BYTE_UNIT(input)
-    end
-
-    def lex_token__BYTES(input0) do
-      with {:ok, t0, rest0} <- lex_expr__246(input0),
-           {:ok, t1, rest1} <- lex_expr__248(rest0),
-           {:ok, t2, rest2} <- lex_expr__253(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__255(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__254(input) do
-      Tokenizer.rep_char(&lex_expr__255/1, 4, 4, input)
-    end
-
-    def lex_expr__256(input) do
+    def lex_expr__286(input) do
       case input do
         <<"-", rest::binary>> -> {:ok, "-", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__258(input) do
+    def lex_expr__288(input) do
       lex_token__DIGIT(input)
     end
 
-    def lex_expr__257(input) do
-      Tokenizer.rep_char(&lex_expr__258/1, 2, 2, input)
+    def lex_expr__287(input) do
+      Tokenizer.rep_char(&lex_expr__288/1, 2, 2, input)
     end
 
-    def lex_expr__259(input) do
+    def lex_expr__289(input) do
       case input do
         <<"-", rest::binary>> -> {:ok, "-", rest}
         _ -> :fail
       end
     end
 
-    def lex_expr__261(input) do
+    def lex_expr__291(input) do
       lex_token__DIGIT(input)
     end
 
-    def lex_expr__260(input) do
-      Tokenizer.rep_char(&lex_expr__261/1, 2, 2, input)
+    def lex_expr__290(input) do
+      Tokenizer.rep_char(&lex_expr__291/1, 2, 2, input)
     end
 
     def lex_token__DATE(input0) do
-      with {:ok, t0, rest0} <- lex_expr__254(input0),
-           {:ok, t1, rest1} <- lex_expr__256(rest0),
-           {:ok, t2, rest2} <- lex_expr__257(rest1),
-           {:ok, t3, rest3} <- lex_expr__259(rest2),
-           {:ok, t4, rest4} <- lex_expr__260(rest3) do
+      with {:ok, t0, rest0} <- lex_expr__284(input0),
+           {:ok, t1, rest1} <- lex_expr__286(rest0),
+           {:ok, t2, rest2} <- lex_expr__287(rest1),
+           {:ok, t3, rest3} <- lex_expr__289(rest2),
+           {:ok, t4, rest4} <- lex_expr__290(rest3) do
         {:ok, t0 <> t1 <> t2 <> t3 <> t4, rest4}
       else
         :fail -> :fail
       end
-    end
-
-    def lex_token__ANON_21(input) do
-      case input do
-        <<":", rest::binary>> -> {:ok, ":", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__262(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 57}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_expr__263(input) do
-      case input do
-        <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{97, 122}, {65, 90}]) do
-            {:ok, <<c::utf8>>, rest}
-          else
-            :fail
-          end
-
-        _ ->
-          :fail
-      end
-    end
-
-    def lex_token__ALNUM(input) do
-      Tokenizer.first_char_match([&lex_expr__262/1, &lex_expr__263/1], input)
-    end
-
-    def lex_expr__265(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__264(input) do
-      Tokenizer.rep_char(&lex_expr__265/1, 1, 3, input)
-    end
-
-    def lex_expr__266(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__268(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__267(input) do
-      Tokenizer.rep_char(&lex_expr__268/1, 1, 3, input)
-    end
-
-    def lex_expr__269(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__271(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__270(input) do
-      Tokenizer.rep_char(&lex_expr__271/1, 1, 3, input)
-    end
-
-    def lex_expr__272(input) do
-      case input do
-        <<".", rest::binary>> -> {:ok, ".", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__274(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__273(input) do
-      Tokenizer.rep_char(&lex_expr__274/1, 1, 3, input)
-    end
-
-    def lex_expr__277(input) do
-      case input do
-        <<"/", rest::binary>> -> {:ok, "/", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__279(input) do
-      lex_token__DIGIT(input)
-    end
-
-    def lex_expr__278(input) do
-      Tokenizer.rep_char(&lex_expr__279/1, 1, 3, input)
-    end
-
-    def lex_expr__276(input0) do
-      with {:ok, t0, rest0} <- lex_expr__277(input0), {:ok, t1, rest1} <- lex_expr__278(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__275(input) do
-      Tokenizer.opt_char(&lex_expr__276/1, input)
-    end
-
-    def lex_token__IPV4(input0) do
-      with {:ok, t0, rest0} <- lex_expr__264(input0),
-           {:ok, t1, rest1} <- lex_expr__266(rest0),
-           {:ok, t2, rest2} <- lex_expr__267(rest1),
-           {:ok, t3, rest3} <- lex_expr__269(rest2),
-           {:ok, t4, rest4} <- lex_expr__270(rest3),
-           {:ok, t5, rest5} <- lex_expr__272(rest4),
-           {:ok, t6, rest6} <- lex_expr__273(rest5),
-           {:ok, t7, rest7} <- lex_expr__275(rest6) do
-        {:ok, t0 <> t1 <> t2 <> t3 <> t4 <> t5 <> t6 <> t7, rest7}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_token__ANON_11(input) do
-      case input do
-        <<"-", rest::binary>> -> {:ok, "-", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__NIL_KW(input) do
-      case input do
-        <<"nil", rest::binary>> -> {:ok, "nil", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__ANON_12(input) do
-      case input do
-        <<"{", rest::binary>> -> {:ok, "{", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__280(input) do
-      lex_token__HEX(input)
-    end
-
-    def lex_token__HEX_GROUP(input) do
-      Tokenizer.rep_char(&lex_expr__280/1, 1, 4, input)
     end
 
     def lex_token__ANON_16(input) do
@@ -2316,343 +2389,1526 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def lex_expr__281(input) do
+    def lex_token__FALSE_KW(input) do
       case input do
-        <<"\"", rest::binary>> -> {:ok, "\"", rest}
+        <<"false", rest::binary>> -> {:ok, "false", rest}
         _ -> :fail
-      end
-    end
-
-    def lex_expr__285(input) do
-      case input do
-        <<"\\", rest::binary>> -> {:ok, "\\", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__286(input) do
-      case input do
-        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__284(input0) do
-      with {:ok, t0, rest0} <- lex_expr__285(input0), {:ok, t1, rest1} <- lex_expr__286(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__289(input) do
-      case input do
-        <<"\"", rest::binary>> -> {:ok, "\"", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__288(input) do
-      Tokenizer.not_pred_char(&lex_expr__289/1, input)
-    end
-
-    def lex_expr__290(input) do
-      case input do
-        <<c::utf8, rest::binary>> -> {:ok, <<c::utf8>>, rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_expr__287(input0) do
-      with {:ok, t0, rest0} <- lex_expr__288(input0), {:ok, t1, rest1} <- lex_expr__290(rest0) do
-        {:ok, t0 <> t1, rest1}
-      else
-        :fail -> :fail
-      end
-    end
-
-    def lex_expr__283(input) do
-      Tokenizer.first_char_match([&lex_expr__284/1, &lex_expr__287/1], input)
-    end
-
-    def lex_expr__282(input) do
-      Tokenizer.star_char(&lex_expr__283/1, input)
-    end
-
-    def lex_expr__291(input) do
-      case input do
-        <<"\"", rest::binary>> -> {:ok, "\"", rest}
-        _ -> :fail
-      end
-    end
-
-    def lex_token__DQ_STRING(input0) do
-      with {:ok, t0, rest0} <- lex_expr__281(input0),
-           {:ok, t1, rest1} <- lex_expr__282(rest0),
-           {:ok, t2, rest2} <- lex_expr__291(rest1) do
-        {:ok, t0 <> t1 <> t2, rest2}
-      else
-        :fail -> :fail
       end
     end
 
     def lex_candidates(input, context) do
-      [
-        TRIVIA: fn ->
-          case lex_token__TRIVIA(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        NIL_KW: fn ->
-          case lex_token__NIL_KW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        TRUE_KW: fn ->
-          case lex_token__TRUE_KW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        FALSE_KW: fn ->
-          case lex_token__FALSE_KW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        INF_KW: fn ->
-          case lex_token__INF_KW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        IDENT: fn ->
-          case lex_token__IDENT(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        DATE: fn ->
-          case lex_token__DATE(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        TIME: fn ->
-          case lex_token__TIME(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        DATETIME: fn ->
-          case lex_token__DATETIME(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        IPV4: fn ->
-          case lex_token__IPV4(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        IPV6: fn ->
-          case lex_token__IPV6(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        DURATION: fn ->
-          case lex_token__DURATION(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        BYTES: fn ->
-          case lex_token__BYTES(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        INTEGER: fn ->
-          case lex_token__INTEGER(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        FLOAT: fn ->
-          case lex_token__FLOAT(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        TRIPLE_STRING: fn ->
-          case lex_token__TRIPLE_STRING(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        DQ_STRING: fn ->
-          case lex_token__DQ_STRING(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        SQ_STRING: fn ->
-          case lex_token__SQ_STRING(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        RESOLVER_REF_RAW: fn ->
-          rule_matchers = Map.new([])
+      case input do
+        <<char::utf8, _::binary>> when char < 128 ->
+          case lex_ascii_group(char) do
+            0 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
 
-          case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
-            {:ok, text, rest, capture} -> {:ok, text, rest, capture}
-            :fail -> :fail
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            1 ->
+              [
+                TRIVIA: fn ->
+                  case lex_token__TRIVIA(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            2 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_16: fn ->
+                  case lex_token__ANON_16(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            3 ->
+              [
+                TRIPLE_STRING: fn ->
+                  case lex_token__TRIPLE_STRING(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                DQ_STRING: fn ->
+                  case lex_token__DQ_STRING(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            4 ->
+              [
+                TRIVIA: fn ->
+                  case lex_token__TRIVIA(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_1: fn ->
+                  case lex_token__ANON_1(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            5 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_5: fn ->
+                  case lex_token__ANON_5(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_14: fn ->
+                  case lex_token__ANON_14(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            6 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_15: fn ->
+                  case lex_token__ANON_15(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            7 ->
+              [
+                SQ_STRING: fn ->
+                  case lex_token__SQ_STRING(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            8 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_17: fn ->
+                  case lex_token__ANON_17(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            9 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_18: fn ->
+                  case lex_token__ANON_18(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            10 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_7: fn ->
+                  case lex_token__ANON_7(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            11 ->
+              [
+                INF_KW: fn ->
+                  case lex_token__INF_KW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                INTEGER: fn ->
+                  case lex_token__INTEGER(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                FLOAT: fn ->
+                  case lex_token__FLOAT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_10: fn ->
+                  case lex_token__ANON_10(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            12 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_8: fn ->
+                  case lex_token__ANON_8(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            13 ->
+              [
+                INF_KW: fn ->
+                  case lex_token__INF_KW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                INTEGER: fn ->
+                  case lex_token__INTEGER(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                FLOAT: fn ->
+                  case lex_token__FLOAT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_11: fn ->
+                  case lex_token__ANON_11(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            14 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_4: fn ->
+                  case lex_token__ANON_4(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            15 ->
+              [
+                DATE: fn ->
+                  case lex_token__DATE(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                TIME: fn ->
+                  case lex_token__TIME(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                DATETIME: fn ->
+                  case lex_token__DATETIME(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IPV4: fn ->
+                  case lex_token__IPV4(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IPV6: fn ->
+                  case lex_token__IPV6(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                DURATION: fn ->
+                  case lex_token__DURATION(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                BYTES: fn ->
+                  case lex_token__BYTES(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                INTEGER: fn ->
+                  case lex_token__INTEGER(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                FLOAT: fn ->
+                  case lex_token__FLOAT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            16 ->
+              [
+                IPV6: fn ->
+                  case lex_token__IPV6(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_21: fn ->
+                  case lex_token__ANON_21(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            17 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_3: fn ->
+                  case lex_token__ANON_3(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            18 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_22: fn ->
+                  case lex_token__ANON_22(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            19 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_2: fn ->
+                  case lex_token__ANON_2(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_13: fn ->
+                  case lex_token__ANON_13(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            20 ->
+              [
+                IDENT: fn ->
+                  case lex_token__IDENT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IPV6: fn ->
+                  case lex_token__IPV6(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            21 ->
+              [
+                IDENT: fn ->
+                  case lex_token__IDENT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            22 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_19: fn ->
+                  case lex_token__ANON_19(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            23 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_20: fn ->
+                  case lex_token__ANON_20(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            24 ->
+              [
+                FALSE_KW: fn ->
+                  case lex_token__FALSE_KW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IDENT: fn ->
+                  case lex_token__IDENT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IPV6: fn ->
+                  case lex_token__IPV6(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            25 ->
+              [
+                INF_KW: fn ->
+                  case lex_token__INF_KW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IDENT: fn ->
+                  case lex_token__IDENT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            26 ->
+              [
+                NIL_KW: fn ->
+                  case lex_token__NIL_KW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IDENT: fn ->
+                  case lex_token__IDENT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            27 ->
+              [
+                TRUE_KW: fn ->
+                  case lex_token__TRUE_KW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                IDENT: fn ->
+                  case lex_token__IDENT(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            28 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_12: fn ->
+                  case lex_token__ANON_12(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            29 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_23: fn ->
+                  case lex_token__ANON_23(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            30 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_6: fn ->
+                  case lex_token__ANON_6(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            31 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                ANON_9: fn ->
+                  case lex_token__ANON_9(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
           end
-        end,
-        ANON_1: fn ->
-          case lex_token__ANON_1(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_2: fn ->
-          case lex_token__ANON_2(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_3: fn ->
-          case lex_token__ANON_3(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_4: fn ->
-          case lex_token__ANON_4(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_5: fn ->
-          case lex_token__ANON_5(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_6: fn ->
-          case lex_token__ANON_6(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_7: fn ->
-          case lex_token__ANON_7(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_8: fn ->
-          case lex_token__ANON_8(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_9: fn ->
-          case lex_token__ANON_9(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_10: fn ->
-          case lex_token__ANON_10(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_11: fn ->
-          case lex_token__ANON_11(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_12: fn ->
-          case lex_token__ANON_12(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_13: fn ->
-          case lex_token__ANON_13(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_14: fn ->
-          case lex_token__ANON_14(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_15: fn ->
-          case lex_token__ANON_15(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_16: fn ->
-          case lex_token__ANON_16(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_17: fn ->
-          case lex_token__ANON_17(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_18: fn ->
-          case lex_token__ANON_18(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_19: fn ->
-          case lex_token__ANON_19(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_20: fn ->
-          case lex_token__ANON_20(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_21: fn ->
-          case lex_token__ANON_21(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_22: fn ->
-          case lex_token__ANON_22(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ANON_23: fn ->
-          case lex_token__ANON_23(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end
-      ]
+
+        <<_::utf8, _::binary>> ->
+          acc = []
+
+          acc = [
+            {:RESOLVER_REF_RAW,
+             fn ->
+               rule_matchers = Map.new([])
+
+               case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                 {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                 :fail -> :fail
+               end
+             end}
+            | acc
+          ]
+
+          acc
+
+        _ ->
+          [
+            TRIVIA: fn ->
+              case lex_token__TRIVIA(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            NIL_KW: fn ->
+              case lex_token__NIL_KW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            TRUE_KW: fn ->
+              case lex_token__TRUE_KW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            FALSE_KW: fn ->
+              case lex_token__FALSE_KW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            INF_KW: fn ->
+              case lex_token__INF_KW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            IDENT: fn ->
+              case lex_token__IDENT(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            DATE: fn ->
+              case lex_token__DATE(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            TIME: fn ->
+              case lex_token__TIME(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            DATETIME: fn ->
+              case lex_token__DATETIME(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            IPV4: fn ->
+              case lex_token__IPV4(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            IPV6: fn ->
+              case lex_token__IPV6(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            DURATION: fn ->
+              case lex_token__DURATION(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            BYTES: fn ->
+              case lex_token__BYTES(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            INTEGER: fn ->
+              case lex_token__INTEGER(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            FLOAT: fn ->
+              case lex_token__FLOAT(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            TRIPLE_STRING: fn ->
+              case lex_token__TRIPLE_STRING(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            DQ_STRING: fn ->
+              case lex_token__DQ_STRING(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            SQ_STRING: fn ->
+              case lex_token__SQ_STRING(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            RESOLVER_REF_RAW: fn ->
+              rule_matchers = Map.new([])
+
+              case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                :fail -> :fail
+              end
+            end,
+            ANON_1: fn ->
+              case lex_token__ANON_1(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_2: fn ->
+              case lex_token__ANON_2(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_3: fn ->
+              case lex_token__ANON_3(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_4: fn ->
+              case lex_token__ANON_4(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_5: fn ->
+              case lex_token__ANON_5(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_6: fn ->
+              case lex_token__ANON_6(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_7: fn ->
+              case lex_token__ANON_7(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_8: fn ->
+              case lex_token__ANON_8(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_9: fn ->
+              case lex_token__ANON_9(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_10: fn ->
+              case lex_token__ANON_10(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_11: fn ->
+              case lex_token__ANON_11(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_12: fn ->
+              case lex_token__ANON_12(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_13: fn ->
+              case lex_token__ANON_13(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_14: fn ->
+              case lex_token__ANON_14(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_15: fn ->
+              case lex_token__ANON_15(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_16: fn ->
+              case lex_token__ANON_16(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_17: fn ->
+              case lex_token__ANON_17(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_18: fn ->
+              case lex_token__ANON_18(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_19: fn ->
+              case lex_token__ANON_19(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_20: fn ->
+              case lex_token__ANON_20(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_21: fn ->
+              case lex_token__ANON_21(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_22: fn ->
+              case lex_token__ANON_22(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ANON_23: fn ->
+              case lex_token__ANON_23(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end
+          ]
+      end
+    end
+
+    def lex_ascii_group(0) do
+      0
+    end
+
+    def lex_ascii_group(1) do
+      0
+    end
+
+    def lex_ascii_group(2) do
+      0
+    end
+
+    def lex_ascii_group(3) do
+      0
+    end
+
+    def lex_ascii_group(4) do
+      0
+    end
+
+    def lex_ascii_group(5) do
+      0
+    end
+
+    def lex_ascii_group(6) do
+      0
+    end
+
+    def lex_ascii_group(7) do
+      0
+    end
+
+    def lex_ascii_group(8) do
+      0
+    end
+
+    def lex_ascii_group(9) do
+      1
+    end
+
+    def lex_ascii_group(10) do
+      1
+    end
+
+    def lex_ascii_group(11) do
+      0
+    end
+
+    def lex_ascii_group(12) do
+      0
+    end
+
+    def lex_ascii_group(13) do
+      1
+    end
+
+    def lex_ascii_group(14) do
+      0
+    end
+
+    def lex_ascii_group(15) do
+      0
+    end
+
+    def lex_ascii_group(16) do
+      0
+    end
+
+    def lex_ascii_group(17) do
+      0
+    end
+
+    def lex_ascii_group(18) do
+      0
+    end
+
+    def lex_ascii_group(19) do
+      0
+    end
+
+    def lex_ascii_group(20) do
+      0
+    end
+
+    def lex_ascii_group(21) do
+      0
+    end
+
+    def lex_ascii_group(22) do
+      0
+    end
+
+    def lex_ascii_group(23) do
+      0
+    end
+
+    def lex_ascii_group(24) do
+      0
+    end
+
+    def lex_ascii_group(25) do
+      0
+    end
+
+    def lex_ascii_group(26) do
+      0
+    end
+
+    def lex_ascii_group(27) do
+      0
+    end
+
+    def lex_ascii_group(28) do
+      0
+    end
+
+    def lex_ascii_group(29) do
+      0
+    end
+
+    def lex_ascii_group(30) do
+      0
+    end
+
+    def lex_ascii_group(31) do
+      0
+    end
+
+    def lex_ascii_group(32) do
+      1
+    end
+
+    def lex_ascii_group(33) do
+      2
+    end
+
+    def lex_ascii_group(34) do
+      3
+    end
+
+    def lex_ascii_group(35) do
+      4
+    end
+
+    def lex_ascii_group(36) do
+      5
+    end
+
+    def lex_ascii_group(37) do
+      6
+    end
+
+    def lex_ascii_group(38) do
+      0
+    end
+
+    def lex_ascii_group(39) do
+      7
+    end
+
+    def lex_ascii_group(40) do
+      8
+    end
+
+    def lex_ascii_group(41) do
+      9
+    end
+
+    def lex_ascii_group(42) do
+      10
+    end
+
+    def lex_ascii_group(43) do
+      11
+    end
+
+    def lex_ascii_group(44) do
+      12
+    end
+
+    def lex_ascii_group(45) do
+      13
+    end
+
+    def lex_ascii_group(46) do
+      14
+    end
+
+    def lex_ascii_group(47) do
+      0
+    end
+
+    def lex_ascii_group(48) do
+      15
+    end
+
+    def lex_ascii_group(49) do
+      15
+    end
+
+    def lex_ascii_group(50) do
+      15
+    end
+
+    def lex_ascii_group(51) do
+      15
+    end
+
+    def lex_ascii_group(52) do
+      15
+    end
+
+    def lex_ascii_group(53) do
+      15
+    end
+
+    def lex_ascii_group(54) do
+      15
+    end
+
+    def lex_ascii_group(55) do
+      15
+    end
+
+    def lex_ascii_group(56) do
+      15
+    end
+
+    def lex_ascii_group(57) do
+      15
+    end
+
+    def lex_ascii_group(58) do
+      16
+    end
+
+    def lex_ascii_group(59) do
+      0
+    end
+
+    def lex_ascii_group(60) do
+      0
+    end
+
+    def lex_ascii_group(61) do
+      17
+    end
+
+    def lex_ascii_group(62) do
+      0
+    end
+
+    def lex_ascii_group(63) do
+      18
+    end
+
+    def lex_ascii_group(64) do
+      19
+    end
+
+    def lex_ascii_group(65) do
+      20
+    end
+
+    def lex_ascii_group(66) do
+      20
+    end
+
+    def lex_ascii_group(67) do
+      20
+    end
+
+    def lex_ascii_group(68) do
+      20
+    end
+
+    def lex_ascii_group(69) do
+      20
+    end
+
+    def lex_ascii_group(70) do
+      20
+    end
+
+    def lex_ascii_group(71) do
+      21
+    end
+
+    def lex_ascii_group(72) do
+      21
+    end
+
+    def lex_ascii_group(73) do
+      21
+    end
+
+    def lex_ascii_group(74) do
+      21
+    end
+
+    def lex_ascii_group(75) do
+      21
+    end
+
+    def lex_ascii_group(76) do
+      21
+    end
+
+    def lex_ascii_group(77) do
+      21
+    end
+
+    def lex_ascii_group(78) do
+      21
+    end
+
+    def lex_ascii_group(79) do
+      21
+    end
+
+    def lex_ascii_group(80) do
+      21
+    end
+
+    def lex_ascii_group(81) do
+      21
+    end
+
+    def lex_ascii_group(82) do
+      21
+    end
+
+    def lex_ascii_group(83) do
+      21
+    end
+
+    def lex_ascii_group(84) do
+      21
+    end
+
+    def lex_ascii_group(85) do
+      21
+    end
+
+    def lex_ascii_group(86) do
+      21
+    end
+
+    def lex_ascii_group(87) do
+      21
+    end
+
+    def lex_ascii_group(88) do
+      21
+    end
+
+    def lex_ascii_group(89) do
+      21
+    end
+
+    def lex_ascii_group(90) do
+      21
+    end
+
+    def lex_ascii_group(91) do
+      22
+    end
+
+    def lex_ascii_group(92) do
+      0
+    end
+
+    def lex_ascii_group(93) do
+      23
+    end
+
+    def lex_ascii_group(94) do
+      0
+    end
+
+    def lex_ascii_group(95) do
+      21
+    end
+
+    def lex_ascii_group(96) do
+      0
+    end
+
+    def lex_ascii_group(97) do
+      20
+    end
+
+    def lex_ascii_group(98) do
+      20
+    end
+
+    def lex_ascii_group(99) do
+      20
+    end
+
+    def lex_ascii_group(100) do
+      20
+    end
+
+    def lex_ascii_group(101) do
+      20
+    end
+
+    def lex_ascii_group(102) do
+      24
+    end
+
+    def lex_ascii_group(103) do
+      21
+    end
+
+    def lex_ascii_group(104) do
+      21
+    end
+
+    def lex_ascii_group(105) do
+      25
+    end
+
+    def lex_ascii_group(106) do
+      21
+    end
+
+    def lex_ascii_group(107) do
+      21
+    end
+
+    def lex_ascii_group(108) do
+      21
+    end
+
+    def lex_ascii_group(109) do
+      21
+    end
+
+    def lex_ascii_group(110) do
+      26
+    end
+
+    def lex_ascii_group(111) do
+      21
+    end
+
+    def lex_ascii_group(112) do
+      21
+    end
+
+    def lex_ascii_group(113) do
+      21
+    end
+
+    def lex_ascii_group(114) do
+      21
+    end
+
+    def lex_ascii_group(115) do
+      21
+    end
+
+    def lex_ascii_group(116) do
+      27
+    end
+
+    def lex_ascii_group(117) do
+      21
+    end
+
+    def lex_ascii_group(118) do
+      21
+    end
+
+    def lex_ascii_group(119) do
+      21
+    end
+
+    def lex_ascii_group(120) do
+      21
+    end
+
+    def lex_ascii_group(121) do
+      21
+    end
+
+    def lex_ascii_group(122) do
+      21
+    end
+
+    def lex_ascii_group(123) do
+      28
+    end
+
+    def lex_ascii_group(124) do
+      29
+    end
+
+    def lex_ascii_group(125) do
+      30
+    end
+
+    def lex_ascii_group(126) do
+      31
+    end
+
+    def lex_ascii_group(127) do
+      0
     end
 
     def parse_expr__1(stream, pos, ref_stack, _context) do
@@ -2975,36 +4231,66 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__38(stream, pos, ref_stack, context) do
-      case parse_rule__block(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           block: Ichor.Capture.at({:rule, :block, sub_captures}, pos, new_pos)}
+    def parse_expr__38(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
 
-        _fail ->
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
           :fail
+      end
+    end
+
+    def parse_expr__40(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
       end
     end
 
     def parse_expr__39(stream, pos, ref_stack, context) do
-      case parse_rule__value(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__40/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__43(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_21) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__45(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__44(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__45/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__46(stream, pos, ref_stack, context) do
+      case parse_rule__filter_arg(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           value: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+           arg: Ichor.Capture.at({:rule, :filter_arg, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_rule__rhs(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__38/4, &parse_expr__39/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__42(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_7) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
+    def parse_expr__42(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__43(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__44(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__46(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
       end
     end
 
@@ -3012,8 +4298,61 @@ defmodule Cooper.NativeGrammar.Native do
       Parser.opt(&parse_expr__42/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__40(stream, pos, ref_stack, context) do
-      case (&parse_expr__41/4).(stream, pos, ref_stack, context) do
+    def parse_rule__filter(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__38(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__39(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__41(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__47(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__48(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :SQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__filter_arg(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__47/4, &parse_expr__48/4], stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__51(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_7) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__50(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__51/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__49(stream, pos, ref_stack, context) do
+      case (&parse_expr__50/4).(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, inner_caps} ->
           text = Parser.concat_text(stream, pos, new_pos)
 
@@ -3027,18 +4366,18 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__44(stream, pos, ref_stack, _context) do
+    def parse_expr__53(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__43(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__44/4, stream, pos, ref_stack, context)
+    def parse_expr__52(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__53/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__45(stream, pos, ref_stack, context) do
+    def parse_expr__54(stream, pos, ref_stack, context) do
       case parse_rule__seg(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -3050,146 +4389,39 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def parse_rule__key_segment(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__40(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__43(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__45(stream, pos2, ref2, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__49(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__52(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__54(stream, pos2, ref2, context) do
         {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
       else
         _fail -> :fail
       end
     end
 
-    def parse_expr__46(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_1) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__48(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__47(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__48/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__49(stream, pos, ref_stack, context) do
-      case parse_rule__real_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           real_statement: Ichor.Capture.at({:rule, :real_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__disabled_statement(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__46(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__47(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__49(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__50(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_5) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__52(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__51(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__52/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__53(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__55(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__54(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__55/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__56(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_6) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__env_guard(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__50(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__51(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__53(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__54(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__56(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__60(stream, pos, ref_stack, _context) do
+    def parse_expr__58(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_9) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__61(stream, pos, ref_stack, _context) do
+    def parse_expr__59(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_10) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__62(stream, pos, ref_stack, _context) do
+    def parse_expr__60(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_11) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__59(stream, pos, ref_stack, context) do
+    def parse_expr__57(stream, pos, ref_stack, context) do
       Parser.try_alts(
-        [&parse_expr__60/4, &parse_expr__61/4, &parse_expr__62/4],
+        [&parse_expr__58/4, &parse_expr__59/4, &parse_expr__60/4],
         stream,
         pos,
         ref_stack,
@@ -3197,12 +4429,12 @@ defmodule Cooper.NativeGrammar.Native do
       )
     end
 
-    def parse_expr__58(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__59/4, stream, pos, ref_stack, context)
+    def parse_expr__56(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__57/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__57(stream, pos, ref_stack, context) do
-      case (&parse_expr__58/4).(stream, pos, ref_stack, context) do
+    def parse_expr__55(stream, pos, ref_stack, context) do
+      case (&parse_expr__56/4).(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, inner_caps} ->
           text = Parser.concat_text(stream, pos, new_pos)
 
@@ -3214,18 +4446,18 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__64(stream, pos, ref_stack, _context) do
+    def parse_expr__62(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__63(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__64/4, stream, pos, ref_stack, context)
+    def parse_expr__61(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__62/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__65(stream, pos, ref_stack, context) do
+    def parse_expr__63(stream, pos, ref_stack, context) do
       case parse_rule__key_path(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -3236,40 +4468,40 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__67(stream, pos, ref_stack, _context) do
+    def parse_expr__65(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__66(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__67/4, stream, pos, ref_stack, context)
+    def parse_expr__64(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__65/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__69(stream, pos, ref_stack, _context) do
+    def parse_expr__67(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_3) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__68(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__69/4, stream, pos, ref_stack, context)
+    def parse_expr__66(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__67/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__71(stream, pos, ref_stack, _context) do
+    def parse_expr__69(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__70(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__71/4, stream, pos, ref_stack, context)
+    def parse_expr__68(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__69/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__72(stream, pos, ref_stack, context) do
+    def parse_expr__70(stream, pos, ref_stack, context) do
       case parse_rule__rhs(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -3281,13 +4513,13 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def parse_rule__sigil_kv_statement(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__57(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__63(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__65(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__66(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__68(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__70(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__72(stream, pos6, ref6, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__55(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__61(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__63(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__64(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__66(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__68(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__70(stream, pos6, ref6, context) do
         {:ok, pos7, ref7,
          Parser.merge_captures(
            cap0,
@@ -3307,8 +4539,39 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
+    def parse_expr__71(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :FLOAT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__72(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__version_head(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__71/4, &parse_expr__72/4], stream, pos, ref_stack, context)
+    end
+
     def parse_expr__73(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_19) do
+      case Parser.match_token(stream, pos, :ANON_21) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
@@ -3325,765 +4588,7 @@ defmodule Cooper.NativeGrammar.Native do
       Parser.star(&parse_expr__75/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__77(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
     def parse_expr__76(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__77/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__79(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__78(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__79/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__80(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_20) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__env_bracket(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__73(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__74(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__76(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__78(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__80(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__81(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_13) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__83(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__82(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__83/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__84(stream, pos, ref_stack, context) do
-      case parse_rule__ref_name(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           name: Ichor.Capture.at({:rule, :ref_name, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__86(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__85(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__86/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__88(stream, pos, ref_stack, context) do
-      case parse_rule__idx_suffix(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           idx_suffix: Ichor.Capture.at({:rule, :idx_suffix, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__87(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__88/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__90(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__89(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__90/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__92(stream, pos, ref_stack, context) do
-      case parse_rule__ref_suffix(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           ref_suffix: Ichor.Capture.at({:rule, :ref_suffix, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__91(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__92/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__94(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__93(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__94/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__96(stream, pos, ref_stack, context) do
-      case parse_rule__filters(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           filters: Ichor.Capture.at({:rule, :filters, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__95(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__96/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__98(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__97(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__98/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__99(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_6) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__at_ref(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__81(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__82(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__84(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__85(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__87(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__89(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__91(stream, pos6, ref6, context),
-           {:ok, pos8, ref8, cap7} <- parse_expr__93(stream, pos7, ref7, context),
-           {:ok, pos9, ref9, cap8} <- parse_expr__95(stream, pos8, ref8, context),
-           {:ok, pos10, ref10, cap9} <- parse_expr__97(stream, pos9, ref9, context),
-           {:ok, pos11, ref11, cap10} <- parse_expr__99(stream, pos10, ref10, context) do
-        {:ok, pos11, ref11,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(
-               cap2,
-               Parser.merge_captures(
-                 cap3,
-                 Parser.merge_captures(
-                   cap4,
-                   Parser.merge_captures(
-                     cap5,
-                     Parser.merge_captures(
-                       cap6,
-                       Parser.merge_captures(
-                         cap7,
-                         Parser.merge_captures(cap8, Parser.merge_captures(cap9, cap10))
-                       )
-                     )
-                   )
-                 )
-               )
-             )
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__101(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_23) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__103(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__102(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__103/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__104(stream, pos, ref_stack, context) do
-      case parse_rule__filter(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           filter: Ichor.Capture.at({:rule, :filter, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__100(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__101(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__102(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__104(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__108(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__107(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__108/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__110(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_23) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__112(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__111(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__112/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__113(stream, pos, ref_stack, context) do
-      case parse_rule__filter(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           filter: Ichor.Capture.at({:rule, :filter, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__109(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__110(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__111(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__113(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__106(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__107(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__109(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__105(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__106/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_rule__filters(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__100(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__105(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__114(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :NIL_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           NIL_KW: Ichor.Capture.at({:token, :NIL_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, NIL_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__115(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRUE_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           TRUE_KW: Ichor.Capture.at({:token, :TRUE_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TRUE_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__116(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :FALSE_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           FALSE_KW: Ichor.Capture.at({:token, :FALSE_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, FALSE_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__117(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INF_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INF_KW: Ichor.Capture.at({:token, :INF_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INF_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__118(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DATETIME) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DATETIME: Ichor.Capture.at({:token, :DATETIME, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DATETIME: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__119(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DATE) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at({:token, :DATE, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__120(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TIME) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at({:token, :TIME, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__121(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IPV6) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at({:token, :IPV6, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__122(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IPV4) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at({:token, :IPV4, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__123(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DURATION) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DURATION: Ichor.Capture.at({:token, :DURATION, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DURATION: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__124(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :BYTES) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at({:token, :BYTES, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__125(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :FLOAT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__126(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__127(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIPLE_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           TRIPLE_STRING: Ichor.Capture.at({:token, :TRIPLE_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TRIPLE_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__128(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__129(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :SQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__130(stream, pos, ref_stack, context) do
-      case parse_rule__list(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           list: Ichor.Capture.at({:rule, :list, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__131(stream, pos, ref_stack, context) do
-      case parse_rule__tuple(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           tuple: Ichor.Capture.at({:rule, :tuple, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__132(stream, pos, ref_stack, context) do
-      case parse_rule__at_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           at_ref: Ichor.Capture.at({:rule, :at_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__133(stream, pos, ref_stack, context) do
-      case parse_rule__env_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           env_ref: Ichor.Capture.at({:rule, :env_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__134(stream, pos, ref_stack, context) do
-      case parse_rule__config_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           config_ref: Ichor.Capture.at({:rule, :config_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__135(stream, pos, ref_stack, context) do
-      case parse_rule__resolver_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           resolver_ref: Ichor.Capture.at({:rule, :resolver_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__136(stream, pos, ref_stack, context) do
-      case parse_rule__tagged_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           tagged_ref: Ichor.Capture.at({:rule, :tagged_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__iterable_value(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [
-          &parse_expr__114/4,
-          &parse_expr__115/4,
-          &parse_expr__116/4,
-          &parse_expr__117/4,
-          &parse_expr__118/4,
-          &parse_expr__119/4,
-          &parse_expr__120/4,
-          &parse_expr__121/4,
-          &parse_expr__122/4,
-          &parse_expr__123/4,
-          &parse_expr__124/4,
-          &parse_expr__125/4,
-          &parse_expr__126/4,
-          &parse_expr__127/4,
-          &parse_expr__128/4,
-          &parse_expr__129/4,
-          &parse_expr__130/4,
-          &parse_expr__131/4,
-          &parse_expr__132/4,
-          &parse_expr__133/4,
-          &parse_expr__134/4,
-          &parse_expr__135/4,
-          &parse_expr__136/4
-        ],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
-    end
-
-    def parse_expr__137(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__139(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__138(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__139/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__142(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_21) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__144(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__143(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__144/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__145(stream, pos, ref_stack, context) do
-      case parse_rule__filter_arg(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           arg: Ichor.Capture.at({:rule, :filter_arg, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__141(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__142(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__143(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__145(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__140(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__141/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_rule__filter(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__137(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__138(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__140(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__146(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_21) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__148(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__147(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__148/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__149(stream, pos, ref_stack, context) do
       case parse_rule__atom_word(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -4095,693 +4600,27 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def parse_rule__colon_atom(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__146(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__147(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__149(stream, pos2, ref2, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__73(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__74(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__76(stream, pos2, ref2, context) do
         {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
       else
         _fail -> :fail
       end
     end
 
-    def parse_expr__150(stream, pos, ref_stack, context) do
-      case parse_rule__disabled_statement(stream, pos, ref_stack, context) do
+    def parse_expr__77(stream, pos, ref_stack, context) do
+      case parse_rule__colon_atom(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           disabled_statement:
-             Ichor.Capture.at({:rule, :disabled_statement, sub_captures}, pos, new_pos)}
+           colon_atom: Ichor.Capture.at({:rule, :colon_atom, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__151(stream, pos, ref_stack, context) do
-      case parse_rule__conditional_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           conditional_statement:
-             Ichor.Capture.at({:rule, :conditional_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__152(stream, pos, ref_stack, context) do
-      case parse_rule__real_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           real_statement: Ichor.Capture.at({:rule, :real_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__statement(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [&parse_expr__150/4, &parse_expr__151/4, &parse_expr__152/4],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
-    end
-
-    def parse_expr__153(stream, pos, ref_stack, context) do
-      case parse_rule__var_decl(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           var_decl: Ichor.Capture.at({:rule, :var_decl, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__154(stream, pos, ref_stack, context) do
-      case parse_rule__for_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           for_statement: Ichor.Capture.at({:rule, :for_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__155(stream, pos, ref_stack, context) do
-      case parse_rule__import_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           import_statement:
-             Ichor.Capture.at({:rule, :import_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__156(stream, pos, ref_stack, context) do
-      case parse_rule__followed_delete(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           followed_delete:
-             Ichor.Capture.at({:rule, :followed_delete, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__157(stream, pos, ref_stack, context) do
-      case parse_rule__sigil_kv_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           sigil_kv_statement:
-             Ichor.Capture.at({:rule, :sigil_kv_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__158(stream, pos, ref_stack, context) do
-      case parse_rule__delete_statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           delete_statement:
-             Ichor.Capture.at({:rule, :delete_statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__real_statement(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [
-          &parse_expr__153/4,
-          &parse_expr__154/4,
-          &parse_expr__155/4,
-          &parse_expr__156/4,
-          &parse_expr__157/4,
-          &parse_expr__158/4
-        ],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
-    end
-
-    def parse_expr__159(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :NIL_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           NIL_KW: Ichor.Capture.at({:token, :NIL_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, NIL_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__160(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRUE_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           TRUE_KW: Ichor.Capture.at({:token, :TRUE_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TRUE_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__161(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :FALSE_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           FALSE_KW: Ichor.Capture.at({:token, :FALSE_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, FALSE_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__162(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INF_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INF_KW: Ichor.Capture.at({:token, :INF_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INF_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__163(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DATETIME) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DATETIME: Ichor.Capture.at({:token, :DATETIME, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DATETIME: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__164(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DATE) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at({:token, :DATE, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__165(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TIME) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at({:token, :TIME, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__166(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IPV6) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at({:token, :IPV6, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__167(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IPV4) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at({:token, :IPV4, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__168(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DURATION) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DURATION: Ichor.Capture.at({:token, :DURATION, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DURATION: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__169(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :BYTES) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at({:token, :BYTES, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__170(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :FLOAT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__171(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__172(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIPLE_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           TRIPLE_STRING: Ichor.Capture.at({:token, :TRIPLE_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TRIPLE_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__173(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__174(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :SQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__175(stream, pos, ref_stack, context) do
-      case parse_rule__list(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           list: Ichor.Capture.at({:rule, :list, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__176(stream, pos, ref_stack, context) do
-      case parse_rule__tuple(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           tuple: Ichor.Capture.at({:rule, :tuple, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__177(stream, pos, ref_stack, context) do
-      case parse_rule__at_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           at_ref: Ichor.Capture.at({:rule, :at_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__178(stream, pos, ref_stack, context) do
-      case parse_rule__env_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           env_ref: Ichor.Capture.at({:rule, :env_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__179(stream, pos, ref_stack, context) do
-      case parse_rule__config_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           config_ref: Ichor.Capture.at({:rule, :config_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__180(stream, pos, ref_stack, context) do
-      case parse_rule__resolver_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           resolver_ref: Ichor.Capture.at({:rule, :resolver_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__181(stream, pos, ref_stack, context) do
-      case parse_rule__tagged_ref(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           tagged_ref: Ichor.Capture.at({:rule, :tagged_ref, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__182(stream, pos, ref_stack, context) do
-      case parse_rule__atom_value(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           atom_value: Ichor.Capture.at({:rule, :atom_value, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__value(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [
-          &parse_expr__159/4,
-          &parse_expr__160/4,
-          &parse_expr__161/4,
-          &parse_expr__162/4,
-          &parse_expr__163/4,
-          &parse_expr__164/4,
-          &parse_expr__165/4,
-          &parse_expr__166/4,
-          &parse_expr__167/4,
-          &parse_expr__168/4,
-          &parse_expr__169/4,
-          &parse_expr__170/4,
-          &parse_expr__171/4,
-          &parse_expr__172/4,
-          &parse_expr__173/4,
-          &parse_expr__174/4,
-          &parse_expr__175/4,
-          &parse_expr__176/4,
-          &parse_expr__177/4,
-          &parse_expr__178/4,
-          &parse_expr__179/4,
-          &parse_expr__180/4,
-          &parse_expr__181/4,
-          &parse_expr__182/4
-        ],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
-    end
-
-    def parse_expr__183(stream, pos, ref_stack, context) do
-      case parse_rule__block(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           block: Ichor.Capture.at({:rule, :block, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__184(stream, pos, ref_stack, context) do
-      case parse_rule__value(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           value: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__element(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__183/4, &parse_expr__184/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__185(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_19) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__187(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__186(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__187/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__191(stream, pos, ref_stack, context) do
-      case parse_rule__element(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__193(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__192(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__193/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__195(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__194(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__195/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__190(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__191(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__192(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__194(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__199(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__198(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__199/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__201(stream, pos, ref_stack, context) do
-      case parse_rule__element(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__203(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__202(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__203/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__205(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__204(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__205/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__200(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__201(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__202(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__204(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__197(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__198(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__200(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__196(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__197/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__189(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__190(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__196(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__188(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__189/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__207(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__206(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__207/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__208(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_20) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__list(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__185(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__186(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__188(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__206(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__208(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__209(stream, pos, ref_stack, _context) do
+    def parse_expr__78(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :IDENT) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
@@ -4794,314 +4633,47 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__210(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :NIL_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           NIL_KW: Ichor.Capture.at({:token, :NIL_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, NIL_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
+    def parse_rule__atom_value(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__77/4, &parse_expr__78/4], stream, pos, ref_stack, context)
     end
 
-    def parse_expr__211(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRUE_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           TRUE_KW: Ichor.Capture.at({:token, :TRUE_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, TRUE_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__212(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :FALSE_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           FALSE_KW: Ichor.Capture.at({:token, :FALSE_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, FALSE_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__213(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INF_KW) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INF_KW: Ichor.Capture.at({:token, :INF_KW, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INF_KW: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__atom_word(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [
-          &parse_expr__209/4,
-          &parse_expr__210/4,
-          &parse_expr__211/4,
-          &parse_expr__212/4,
-          &parse_expr__213/4
-        ],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
-    end
-
-    def parse_expr__214(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_14) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__216(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__215(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__216/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__217(stream, pos, ref_stack, context) do
-      case parse_rule__ref_name(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           name: Ichor.Capture.at({:rule, :ref_name, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__219(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__218(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__219/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__221(stream, pos, ref_stack, context) do
-      case parse_rule__env_bracket(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           env_bracket: Ichor.Capture.at({:rule, :env_bracket, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__220(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__221/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__223(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__222(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__223/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__225(stream, pos, ref_stack, context) do
-      case parse_rule__ref_suffix(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           ref_suffix: Ichor.Capture.at({:rule, :ref_suffix, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__224(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__225/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__227(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__226(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__227/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__229(stream, pos, ref_stack, context) do
-      case parse_rule__filters(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           filters: Ichor.Capture.at({:rule, :filters, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__228(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__229/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__231(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__230(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__231/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__232(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_6) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__env_ref(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__214(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__215(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__217(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__218(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__220(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__222(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__224(stream, pos6, ref6, context),
-           {:ok, pos8, ref8, cap7} <- parse_expr__226(stream, pos7, ref7, context),
-           {:ok, pos9, ref9, cap8} <- parse_expr__228(stream, pos8, ref8, context),
-           {:ok, pos10, ref10, cap9} <- parse_expr__230(stream, pos9, ref9, context),
-           {:ok, pos11, ref11, cap10} <- parse_expr__232(stream, pos10, ref10, context) do
-        {:ok, pos11, ref11,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(
-               cap2,
-               Parser.merge_captures(
-                 cap3,
-                 Parser.merge_captures(
-                   cap4,
-                   Parser.merge_captures(
-                     cap5,
-                     Parser.merge_captures(
-                       cap6,
-                       Parser.merge_captures(
-                         cap7,
-                         Parser.merge_captures(cap8, Parser.merge_captures(cap9, cap10))
-                       )
-                     )
-                   )
-                 )
-               )
-             )
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__233(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__234(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__ref_name(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__233/4, &parse_expr__234/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__235(stream, pos, ref_stack, _context) do
+    def parse_expr__79(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_1) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__237(stream, pos, ref_stack, _context) do
+    def parse_expr__81(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__236(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__237/4, stream, pos, ref_stack, context)
+    def parse_expr__80(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__81/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__238(stream, pos, ref_stack, _context) do
+    def parse_expr__82(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_2) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__240(stream, pos, ref_stack, _context) do
+    def parse_expr__84(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__239(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__240/4, stream, pos, ref_stack, context)
+    def parse_expr__83(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__84/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__241(stream, pos, ref_stack, _context) do
+    def parse_expr__85(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :IDENT) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack, kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
@@ -5114,40 +4686,40 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__243(stream, pos, ref_stack, _context) do
+    def parse_expr__87(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__242(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__243/4, stream, pos, ref_stack, context)
+    def parse_expr__86(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__87/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__245(stream, pos, ref_stack, _context) do
+    def parse_expr__89(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :ANON_3) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__244(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__245/4, stream, pos, ref_stack, context)
+    def parse_expr__88(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__89/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__247(stream, pos, ref_stack, _context) do
+    def parse_expr__91(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__246(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__247/4, stream, pos, ref_stack, context)
+    def parse_expr__90(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__91/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__248(stream, pos, ref_stack, context) do
+    def parse_expr__92(stream, pos, ref_stack, context) do
       case parse_rule__version_number(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -5159,15 +4731,15 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def parse_rule__version_header(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__235(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__236(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__238(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__239(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__241(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__242(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__244(stream, pos6, ref6, context),
-           {:ok, pos8, ref8, cap7} <- parse_expr__246(stream, pos7, ref7, context),
-           {:ok, pos9, ref9, cap8} <- parse_expr__248(stream, pos8, ref8, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__79(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__80(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__82(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__83(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__85(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__86(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__88(stream, pos6, ref6, context),
+           {:ok, pos8, ref8, cap7} <- parse_expr__90(stream, pos7, ref7, context),
+           {:ok, pos9, ref9, cap8} <- parse_expr__92(stream, pos8, ref8, context) do
         {:ok, pos9, ref9,
          Parser.merge_captures(
            cap0,
@@ -5193,248 +4765,105 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__250(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_21) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__252(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__251(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__252/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__253(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_22) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__255(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__254(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__255/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__256(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           msg: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, msg: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__249(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__250(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__251(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__253(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__254(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__256(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__258(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_21) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__260(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__259(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__260/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__261(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_10) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__263(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__262(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__263/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__264(stream, pos, ref_stack, context) do
-      case parse_rule__value(stream, pos, ref_stack, context) do
+    def parse_expr__93(stream, pos, ref_stack, context) do
+      case parse_rule__env_guard(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           alt: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+           env_guard: Ichor.Capture.at({:rule, :env_guard, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__257(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__258(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__259(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__261(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__262(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__264(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__266(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_21) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__268(stream, pos, ref_stack, _context) do
+    def parse_expr__95(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__267(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__268/4, stream, pos, ref_stack, context)
+    def parse_expr__94(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__95/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__269(stream, pos, ref_stack, context) do
-      case parse_rule__signed_number(stream, pos, ref_stack, context) do
+    def parse_expr__96(stream, pos, ref_stack, context) do
+      case parse_rule__real_statement(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           signed_alt: Ichor.Capture.at({:rule, :signed_number, sub_captures}, pos, new_pos)}
+           real_statement: Ichor.Capture.at({:rule, :real_statement, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__265(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__266(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__267(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__269(stream, pos2, ref2, context) do
+    def parse_rule__conditional_statement(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__93(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__94(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__96(stream, pos2, ref2, context) do
         {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
       else
         _fail -> :fail
       end
     end
 
-    def parse_expr__271(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_21) do
+    def parse_expr__97(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_2) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__273(stream, pos, ref_stack, _context) do
+    def parse_expr__99(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__272(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__273/4, stream, pos, ref_stack, context)
+    def parse_expr__98(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__99/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__274(stream, pos, ref_stack, context) do
-      case parse_rule__value(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
+    def parse_expr__102(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_7) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__101(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__102/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__100(stream, pos, ref_stack, context) do
+      case (&parse_expr__101/4).(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, inner_caps} ->
+          text = Parser.concat_text(stream, pos, new_pos)
+
           {:ok, new_pos, new_ref_stack,
-           default: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+           Parser.merge_captures(inner_caps,
+             private: Ichor.Capture.at({:text, text}, pos, new_pos)
+           )}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__270(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__271(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__272(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__274(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_rule__ref_suffix(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [&parse_expr__249/4, &parse_expr__257/4, &parse_expr__265/4, &parse_expr__270/4],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
-    end
-
-    def parse_expr__275(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_16) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__277(stream, pos, ref_stack, _context) do
+    def parse_expr__104(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__276(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__277/4, stream, pos, ref_stack, context)
+    def parse_expr__103(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__104/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__278(stream, pos, ref_stack, _context) do
+    def parse_expr__105(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :IDENT) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
@@ -5447,19 +4876,1705 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__280(stream, pos, ref_stack, _context) do
+    def parse_expr__107(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__279(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__280/4, stream, pos, ref_stack, context)
+    def parse_expr__106(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__107/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__109(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_3) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__108(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__109/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__111(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__110(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__111/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__112(stream, pos, ref_stack, context) do
+      case parse_rule__value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           value: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__var_decl(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__97(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__98(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__100(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__103(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__105(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__106(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__108(stream, pos6, ref6, context),
+           {:ok, pos8, ref8, cap7} <- parse_expr__110(stream, pos7, ref7, context),
+           {:ok, pos9, ref9, cap8} <- parse_expr__112(stream, pos8, ref8, context) do
+        {:ok, pos9, ref9,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(
+               cap2,
+               Parser.merge_captures(
+                 cap3,
+                 Parser.merge_captures(
+                   cap4,
+                   Parser.merge_captures(
+                     cap5,
+                     Parser.merge_captures(cap6, Parser.merge_captures(cap7, cap8))
+                   )
+                 )
+               )
+             )
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__113(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_16) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__115(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__114(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__115/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__116(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__118(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__117(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__118/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__119(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_17) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__121(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__120(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__121/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__122(stream, pos, ref_stack, context) do
+      case parse_rule__value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           arg: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__124(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__123(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__124/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__125(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_18) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__tagged_ref(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__113(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__114(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__116(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__117(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__119(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__120(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__122(stream, pos6, ref6, context),
+           {:ok, pos8, ref8, cap7} <- parse_expr__123(stream, pos7, ref7, context),
+           {:ok, pos9, ref9, cap8} <- parse_expr__125(stream, pos8, ref8, context) do
+        {:ok, pos9, ref9,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(
+               cap2,
+               Parser.merge_captures(
+                 cap3,
+                 Parser.merge_captures(
+                   cap4,
+                   Parser.merge_captures(
+                     cap5,
+                     Parser.merge_captures(cap6, Parser.merge_captures(cap7, cap8))
+                   )
+                 )
+               )
+             )
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__126(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_14) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__128(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__127(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__128/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__129(stream, pos, ref_stack, context) do
+      case parse_rule__ref_name(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           name: Ichor.Capture.at({:rule, :ref_name, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__131(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__130(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__131/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__133(stream, pos, ref_stack, context) do
+      case parse_rule__env_bracket(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           env_bracket: Ichor.Capture.at({:rule, :env_bracket, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__132(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__133/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__135(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__134(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__135/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__137(stream, pos, ref_stack, context) do
+      case parse_rule__ref_suffix(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           ref_suffix: Ichor.Capture.at({:rule, :ref_suffix, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__136(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__137/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__139(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__138(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__139/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__141(stream, pos, ref_stack, context) do
+      case parse_rule__filters(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           filters: Ichor.Capture.at({:rule, :filters, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__140(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__141/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__143(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__142(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__143/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__144(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_6) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__env_ref(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__126(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__127(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__129(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__130(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__132(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__134(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__136(stream, pos6, ref6, context),
+           {:ok, pos8, ref8, cap7} <- parse_expr__138(stream, pos7, ref7, context),
+           {:ok, pos9, ref9, cap8} <- parse_expr__140(stream, pos8, ref8, context),
+           {:ok, pos10, ref10, cap9} <- parse_expr__142(stream, pos9, ref9, context),
+           {:ok, pos11, ref11, cap10} <- parse_expr__144(stream, pos10, ref10, context) do
+        {:ok, pos11, ref11,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(
+               cap2,
+               Parser.merge_captures(
+                 cap3,
+                 Parser.merge_captures(
+                   cap4,
+                   Parser.merge_captures(
+                     cap5,
+                     Parser.merge_captures(
+                       cap6,
+                       Parser.merge_captures(
+                         cap7,
+                         Parser.merge_captures(cap8, Parser.merge_captures(cap9, cap10))
+                       )
+                     )
+                   )
+                 )
+               )
+             )
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__145(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__146(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :NIL_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           NIL_KW: Ichor.Capture.at({:token, :NIL_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, NIL_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__147(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRUE_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           TRUE_KW: Ichor.Capture.at({:token, :TRUE_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TRUE_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__148(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :FALSE_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           FALSE_KW: Ichor.Capture.at({:token, :FALSE_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, FALSE_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__149(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INF_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INF_KW: Ichor.Capture.at({:token, :INF_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INF_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__atom_word(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [
+          &parse_expr__145/4,
+          &parse_expr__146/4,
+          &parse_expr__147/4,
+          &parse_expr__148/4,
+          &parse_expr__149/4
+        ],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
+    end
+
+    def parse_expr__150(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :NIL_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           NIL_KW: Ichor.Capture.at({:token, :NIL_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, NIL_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__151(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRUE_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           TRUE_KW: Ichor.Capture.at({:token, :TRUE_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TRUE_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__152(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :FALSE_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           FALSE_KW: Ichor.Capture.at({:token, :FALSE_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, FALSE_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__153(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INF_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INF_KW: Ichor.Capture.at({:token, :INF_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INF_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__154(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DATETIME) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DATETIME: Ichor.Capture.at({:token, :DATETIME, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DATETIME: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__155(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DATE) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at({:token, :DATE, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__156(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TIME) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at({:token, :TIME, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__157(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IPV6) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at({:token, :IPV6, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__158(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IPV4) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at({:token, :IPV4, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__159(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DURATION) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DURATION: Ichor.Capture.at({:token, :DURATION, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DURATION: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__160(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :BYTES) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at({:token, :BYTES, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__161(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :FLOAT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__162(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__163(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIPLE_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           TRIPLE_STRING: Ichor.Capture.at({:token, :TRIPLE_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TRIPLE_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__164(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__165(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :SQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__166(stream, pos, ref_stack, context) do
+      case parse_rule__list(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           list: Ichor.Capture.at({:rule, :list, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__167(stream, pos, ref_stack, context) do
+      case parse_rule__tuple(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           tuple: Ichor.Capture.at({:rule, :tuple, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__168(stream, pos, ref_stack, context) do
+      case parse_rule__at_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           at_ref: Ichor.Capture.at({:rule, :at_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__169(stream, pos, ref_stack, context) do
+      case parse_rule__env_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           env_ref: Ichor.Capture.at({:rule, :env_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__170(stream, pos, ref_stack, context) do
+      case parse_rule__config_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           config_ref: Ichor.Capture.at({:rule, :config_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__171(stream, pos, ref_stack, context) do
+      case parse_rule__resolver_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           resolver_ref: Ichor.Capture.at({:rule, :resolver_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__172(stream, pos, ref_stack, context) do
+      case parse_rule__tagged_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           tagged_ref: Ichor.Capture.at({:rule, :tagged_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__173(stream, pos, ref_stack, context) do
+      case parse_rule__atom_value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           atom_value: Ichor.Capture.at({:rule, :atom_value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__value(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [
+          &parse_expr__150/4,
+          &parse_expr__151/4,
+          &parse_expr__152/4,
+          &parse_expr__153/4,
+          &parse_expr__154/4,
+          &parse_expr__155/4,
+          &parse_expr__156/4,
+          &parse_expr__157/4,
+          &parse_expr__158/4,
+          &parse_expr__159/4,
+          &parse_expr__160/4,
+          &parse_expr__161/4,
+          &parse_expr__162/4,
+          &parse_expr__163/4,
+          &parse_expr__164/4,
+          &parse_expr__165/4,
+          &parse_expr__166/4,
+          &parse_expr__167/4,
+          &parse_expr__168/4,
+          &parse_expr__169/4,
+          &parse_expr__170/4,
+          &parse_expr__171/4,
+          &parse_expr__172/4,
+          &parse_expr__173/4
+        ],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
+    end
+
+    def parse_expr__174(stream, pos, ref_stack, context) do
+      case parse_rule__block(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           block: Ichor.Capture.at({:rule, :block, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__175(stream, pos, ref_stack, context) do
+      case parse_rule__value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           value: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__element(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__174/4, &parse_expr__175/4], stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__176(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_19) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__178(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__177(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__178/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__182(stream, pos, ref_stack, context) do
+      case parse_rule__element(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__184(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__183(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__184/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__186(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__185(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__186/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__181(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__182(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__183(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__185(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__190(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__189(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__190/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__192(stream, pos, ref_stack, context) do
+      case parse_rule__element(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__194(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__193(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__194/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__196(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__195(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__196/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__191(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__192(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__193(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__195(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__188(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__189(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__191(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__187(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__188/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__180(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__181(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__187(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__179(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__180/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__198(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__197(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__198/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__199(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_20) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__list(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__176(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__177(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__179(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__197(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__199(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__201(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_23) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__203(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__202(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__203/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__204(stream, pos, ref_stack, context) do
+      case parse_rule__filter(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           filter: Ichor.Capture.at({:rule, :filter, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__200(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__201(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__202(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__204(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__208(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__207(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__208/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__210(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_23) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__212(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__211(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__212/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__213(stream, pos, ref_stack, context) do
+      case parse_rule__filter(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           filter: Ichor.Capture.at({:rule, :filter, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__209(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__210(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__211(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__213(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__206(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__207(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__209(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__205(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__206/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_rule__filters(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__200(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__205(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__214(stream, pos, ref_stack, context) do
+      case parse_rule__version_head(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           version_head: Ichor.Capture.at({:rule, :version_head, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__216(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__215(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__216/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__220(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_4) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__222(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__221(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__222/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__223(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, n: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, n: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__219(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__220(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__221(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__223(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__227(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__226(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__227/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__229(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_4) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__231(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__230(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__231/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__232(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, n: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, n: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__228(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__229(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__230(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__232(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__225(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__226(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__228(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__224(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__225/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__218(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__219(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__224(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__217(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__218/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_rule__version_number(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__214(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__215(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__217(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__233(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           for_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, for_kw: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__235(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__234(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__235/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__236(stream, pos, ref_stack, context) do
+      case parse_rule__binding(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           binding: Ichor.Capture.at({:rule, :binding, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__238(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__237(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__238/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__242(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__244(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__243(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__244/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__245(stream, pos, ref_stack, context) do
+      case parse_rule__binding(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           binding: Ichor.Capture.at({:rule, :binding, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__241(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__242(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__243(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__245(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__249(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__248(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__249/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__251(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__253(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__252(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__253/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__254(stream, pos, ref_stack, context) do
+      case parse_rule__binding(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           binding: Ichor.Capture.at({:rule, :binding, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__250(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__251(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__252(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__254(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__247(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__248(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__250(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__246(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__247/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__240(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__241(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__246(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__239(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__240/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__256(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__255(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__256/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__259(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           from_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, from_kw: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__261(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__260(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__261/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__262(stream, pos, ref_stack, context) do
+      case parse_rule__key_path(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           template: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__264(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__263(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__264/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__265(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__267(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__266(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__267/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__268(stream, pos, ref_stack, context) do
+      case parse_rule__key_path(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           dest: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__258(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__259(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__260(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__262(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__263(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__265(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__266(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__268(stream, pos6, ref6, context) do
+        {:ok, pos7, ref7,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(
+               cap2,
+               Parser.merge_captures(
+                 cap3,
+                 Parser.merge_captures(cap4, Parser.merge_captures(cap5, cap6))
+               )
+             )
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__270(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__272(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__271(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__272/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__273(stream, pos, ref_stack, context) do
+      case parse_rule__key_path(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           dest: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__269(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__270(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__271(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__273(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__257(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__258/4, &parse_expr__269/4], stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__275(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__274(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__275/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__276(stream, pos, ref_stack, context) do
+      case parse_rule__block(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           block: Ichor.Capture.at({:rule, :block, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__for_statement(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__233(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__234(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__236(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__237(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__239(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__255(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__257(stream, pos6, ref6, context),
+           {:ok, pos8, ref8, cap7} <- parse_expr__274(stream, pos7, ref7, context),
+           {:ok, pos9, ref9, cap8} <- parse_expr__276(stream, pos8, ref8, context) do
+        {:ok, pos9, ref9,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(
+               cap2,
+               Parser.merge_captures(
+                 cap3,
+                 Parser.merge_captures(
+                   cap4,
+                   Parser.merge_captures(
+                     cap5,
+                     Parser.merge_captures(cap6, Parser.merge_captures(cap7, cap8))
+                   )
+                 )
+               )
+             )
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__277(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           import_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, import_kw: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__279(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__278(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__279/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__280(stream, pos, ref_stack, context) do
+      case parse_rule__import_path(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           path: Ichor.Capture.at({:rule, :import_path, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__import_statement(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__277(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__278(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__280(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
     end
 
     def parse_expr__281(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_17) do
+      case Parser.match_token(stream, pos, :ANON_13) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
@@ -5477,10 +6592,10 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def parse_expr__284(stream, pos, ref_stack, context) do
-      case parse_rule__value(stream, pos, ref_stack, context) do
+      case parse_rule__ref_name(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           arg: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+           name: Ichor.Capture.at({:rule, :ref_name, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
@@ -5498,24 +6613,104 @@ defmodule Cooper.NativeGrammar.Native do
       Parser.star(&parse_expr__286/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__287(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_18) do
+    def parse_expr__288(stream, pos, ref_stack, context) do
+      case parse_rule__idx_suffix(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           idx_suffix: Ichor.Capture.at({:rule, :idx_suffix, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__287(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__288/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__290(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_rule__tagged_ref(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__275(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__276(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__278(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__279(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__281(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__282(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__284(stream, pos6, ref6, context),
-           {:ok, pos8, ref8, cap7} <- parse_expr__285(stream, pos7, ref7, context),
-           {:ok, pos9, ref9, cap8} <- parse_expr__287(stream, pos8, ref8, context) do
-        {:ok, pos9, ref9,
+    def parse_expr__289(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__290/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__292(stream, pos, ref_stack, context) do
+      case parse_rule__ref_suffix(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           ref_suffix: Ichor.Capture.at({:rule, :ref_suffix, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__291(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__292/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__294(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__293(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__294/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__296(stream, pos, ref_stack, context) do
+      case parse_rule__filters(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           filters: Ichor.Capture.at({:rule, :filters, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__295(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__296/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__298(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__297(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__298/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__299(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_6) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__at_ref(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__281(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__282(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__284(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__285(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__287(stream, pos4, ref4, context),
+           {:ok, pos6, ref6, cap5} <- parse_expr__289(stream, pos5, ref5, context),
+           {:ok, pos7, ref7, cap6} <- parse_expr__291(stream, pos6, ref6, context),
+           {:ok, pos8, ref8, cap7} <- parse_expr__293(stream, pos7, ref7, context),
+           {:ok, pos9, ref9, cap8} <- parse_expr__295(stream, pos8, ref8, context),
+           {:ok, pos10, ref10, cap9} <- parse_expr__297(stream, pos9, ref9, context),
+           {:ok, pos11, ref11, cap10} <- parse_expr__299(stream, pos10, ref10, context) do
+        {:ok, pos11, ref11,
          Parser.merge_captures(
            cap0,
            Parser.merge_captures(
@@ -5528,7 +6723,13 @@ defmodule Cooper.NativeGrammar.Native do
                    cap4,
                    Parser.merge_captures(
                      cap5,
-                     Parser.merge_captures(cap6, Parser.merge_captures(cap7, cap8))
+                     Parser.merge_captures(
+                       cap6,
+                       Parser.merge_captures(
+                         cap7,
+                         Parser.merge_captures(cap8, Parser.merge_captures(cap9, cap10))
+                       )
+                     )
                    )
                  )
                )
@@ -5540,7 +6741,33 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__288(stream, pos, ref_stack, _context) do
+    def parse_expr__300(stream, pos, ref_stack, context) do
+      case parse_rule__block(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           block: Ichor.Capture.at({:rule, :block, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__301(stream, pos, ref_stack, context) do
+      case parse_rule__value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           value: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__rhs(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__300/4, &parse_expr__301/4], stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__302(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :INTEGER) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack,
@@ -5554,7 +6781,7 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__289(stream, pos, ref_stack, _context) do
+    def parse_expr__303(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :FLOAT) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
@@ -5567,7 +6794,7 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__290(stream, pos, ref_stack, _context) do
+    def parse_expr__304(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :INF_KW) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack,
@@ -5583,7 +6810,7 @@ defmodule Cooper.NativeGrammar.Native do
 
     def parse_rule__signed_number(stream, pos, ref_stack, context) do
       Parser.try_alts(
-        [&parse_expr__288/4, &parse_expr__289/4, &parse_expr__290/4],
+        [&parse_expr__302/4, &parse_expr__303/4, &parse_expr__304/4],
         stream,
         pos,
         ref_stack,
@@ -5591,103 +6818,609 @@ defmodule Cooper.NativeGrammar.Native do
       )
     end
 
-    def parse_expr__291(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_2) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__293(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__292(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__293/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__294(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__296(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__295(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__296/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__299(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, in_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, in_kw: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__301(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__300(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__301/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__302(stream, pos, ref_stack, context) do
-      case parse_rule__iterable_value(stream, pos, ref_stack, context) do
+    def parse_expr__305(stream, pos, ref_stack, context) do
+      case parse_rule__key_segment(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           iterable: Ichor.Capture.at({:rule, :iterable_value, sub_captures}, pos, new_pos)}
+           key_segment: Ichor.Capture.at({:rule, :key_segment, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__298(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__299(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__300(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__302(stream, pos2, ref2, context) do
+    def parse_expr__307(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__306(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__307/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__311(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_4) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__313(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__312(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__313/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__314(stream, pos, ref_stack, context) do
+      case parse_rule__key_segment(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           key_segment: Ichor.Capture.at({:rule, :key_segment, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__310(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__311(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__312(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__314(stream, pos2, ref2, context) do
         {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
       else
         _fail -> :fail
       end
     end
 
-    def parse_expr__297(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__298/4, stream, pos, ref_stack, context)
+    def parse_expr__318(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
     end
 
-    def parse_rule__binding(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__291(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__292(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__294(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__295(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__297(stream, pos4, ref4, context) do
+    def parse_expr__317(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__318/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__320(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_4) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__322(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__321(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__322/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__323(stream, pos, ref_stack, context) do
+      case parse_rule__key_segment(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           key_segment: Ichor.Capture.at({:rule, :key_segment, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__319(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__320(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__321(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__323(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__316(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__317(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__319(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__315(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__316/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__309(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__310(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__315(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__308(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__309/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_rule__key_path(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__305(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__306(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__308(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__324(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__325(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :SQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__import_path(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__324/4, &parse_expr__325/4], stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__326(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_1) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__328(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__327(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__328/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__329(stream, pos, ref_stack, context) do
+      case parse_rule__real_statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           real_statement: Ichor.Capture.at({:rule, :real_statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__disabled_statement(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__326(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__327(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__329(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__330(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :NIL_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           NIL_KW: Ichor.Capture.at({:token, :NIL_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, NIL_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__331(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRUE_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           TRUE_KW: Ichor.Capture.at({:token, :TRUE_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TRUE_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__332(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :FALSE_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           FALSE_KW: Ichor.Capture.at({:token, :FALSE_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, FALSE_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__333(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INF_KW) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INF_KW: Ichor.Capture.at({:token, :INF_KW, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INF_KW: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__334(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DATETIME) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DATETIME: Ichor.Capture.at({:token, :DATETIME, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DATETIME: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__335(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DATE) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at({:token, :DATE, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DATE: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__336(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TIME) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at({:token, :TIME, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TIME: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__337(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IPV6) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at({:token, :IPV6, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, IPV6: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__338(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IPV4) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at({:token, :IPV4, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, IPV4: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__339(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DURATION) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DURATION: Ichor.Capture.at({:token, :DURATION, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DURATION: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__340(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :BYTES) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at({:token, :BYTES, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, BYTES: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__341(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :FLOAT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__342(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__343(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIPLE_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           TRIPLE_STRING: Ichor.Capture.at({:token, :TRIPLE_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, TRIPLE_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__344(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__345(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :SQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__346(stream, pos, ref_stack, context) do
+      case parse_rule__list(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           list: Ichor.Capture.at({:rule, :list, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__347(stream, pos, ref_stack, context) do
+      case parse_rule__tuple(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           tuple: Ichor.Capture.at({:rule, :tuple, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__348(stream, pos, ref_stack, context) do
+      case parse_rule__at_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           at_ref: Ichor.Capture.at({:rule, :at_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__349(stream, pos, ref_stack, context) do
+      case parse_rule__env_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           env_ref: Ichor.Capture.at({:rule, :env_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__350(stream, pos, ref_stack, context) do
+      case parse_rule__config_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           config_ref: Ichor.Capture.at({:rule, :config_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__351(stream, pos, ref_stack, context) do
+      case parse_rule__resolver_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           resolver_ref: Ichor.Capture.at({:rule, :resolver_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__352(stream, pos, ref_stack, context) do
+      case parse_rule__tagged_ref(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           tagged_ref: Ichor.Capture.at({:rule, :tagged_ref, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__iterable_value(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [
+          &parse_expr__330/4,
+          &parse_expr__331/4,
+          &parse_expr__332/4,
+          &parse_expr__333/4,
+          &parse_expr__334/4,
+          &parse_expr__335/4,
+          &parse_expr__336/4,
+          &parse_expr__337/4,
+          &parse_expr__338/4,
+          &parse_expr__339/4,
+          &parse_expr__340/4,
+          &parse_expr__341/4,
+          &parse_expr__342/4,
+          &parse_expr__343/4,
+          &parse_expr__344/4,
+          &parse_expr__345/4,
+          &parse_expr__346/4,
+          &parse_expr__347/4,
+          &parse_expr__348/4,
+          &parse_expr__349/4,
+          &parse_expr__350/4,
+          &parse_expr__351/4,
+          &parse_expr__352/4
+        ],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
+    end
+
+    def parse_expr__354(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_21) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__356(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__355(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__356/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__357(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_22) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__359(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__358(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__359/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__360(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           msg: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, msg: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__353(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__354(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__355(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__357(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__358(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__360(stream, pos4, ref4, context) do
         {:ok, pos5, ref5,
          Parser.merge_captures(
            cap0,
@@ -5701,29 +7434,823 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__303(stream, pos, ref_stack, context) do
-      case parse_rule__env_guard(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           env_guard: Ichor.Capture.at({:rule, :env_guard, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
+    def parse_expr__362(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_21) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
       end
     end
 
-    def parse_expr__305(stream, pos, ref_stack, _context) do
+    def parse_expr__364(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__304(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__305/4, stream, pos, ref_stack, context)
+    def parse_expr__363(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__364/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__306(stream, pos, ref_stack, context) do
+    def parse_expr__365(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_10) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__367(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__366(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__367/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__368(stream, pos, ref_stack, context) do
+      case parse_rule__value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           alt: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__361(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__362(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__363(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__365(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__366(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__368(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__370(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_21) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__372(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__371(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__372/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__373(stream, pos, ref_stack, context) do
+      case parse_rule__signed_number(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           signed_alt: Ichor.Capture.at({:rule, :signed_number, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__369(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__370(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__371(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__373(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__375(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_21) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__377(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__376(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__377/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__378(stream, pos, ref_stack, context) do
+      case parse_rule__value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           default: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__374(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__375(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__376(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__378(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_rule__ref_suffix(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [&parse_expr__353/4, &parse_expr__361/4, &parse_expr__369/4, &parse_expr__374/4],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
+    end
+
+    def parse_expr__379(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__380(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :DQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__381(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :SQ_STRING) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_rule__seg(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [&parse_expr__379/4, &parse_expr__380/4, &parse_expr__381/4],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
+    end
+
+    def parse_expr__382(stream, pos, ref_stack, context) do
+      case parse_rule__delete_statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           delete_statement:
+             Ichor.Capture.at({:rule, :delete_statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__384(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__383(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__384/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__386(stream, pos, ref_stack, context) do
+      case parse_rule__statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           statement: Ichor.Capture.at({:rule, :statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__385(stream, pos, ref_stack, context) do
+      Parser.and_pred(&parse_expr__386/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_rule__followed_delete(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__382(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__383(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__385(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__387(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_12) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__389(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__388(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__389/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__393(stream, pos, ref_stack, context) do
+      case parse_rule__statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           statement: Ichor.Capture.at({:rule, :statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__395(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__394(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__395/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__397(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__396(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__397/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__392(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__393(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__394(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__396(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__401(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__400(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__401/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__403(stream, pos, ref_stack, context) do
+      case parse_rule__statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           statement: Ichor.Capture.at({:rule, :statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__405(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__404(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__405/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__407(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__406(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__407/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__402(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__403(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__404(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__406(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__399(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__400(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__402(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__398(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__399/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__391(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__392(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__398(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__390(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__391/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__409(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__408(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__409/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__410(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_6) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__block(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__387(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__388(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__390(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__408(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__410(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__411(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_17) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__413(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__412(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__413/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__417(stream, pos, ref_stack, context) do
+      case parse_rule__element(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__419(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__418(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__419/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__421(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__420(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__421/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__416(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__417(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__418(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__420(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__425(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__424(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__425/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__427(stream, pos, ref_stack, context) do
+      case parse_rule__element(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__429(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__428(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__429/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__431(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_8) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__430(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__431/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__426(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__427(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__428(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__430(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__423(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__424(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__426(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__422(stream, pos, ref_stack, context) do
+      Parser.rep(&parse_expr__423/4, 0, :infinity, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__415(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__416(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__422(stream, pos1, ref1, context) do
+        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__414(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__415/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__433(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__432(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__433/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__434(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_18) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__tuple(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__411(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__412(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__414(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__432(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__434(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__435(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_19) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__437(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__436(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__437/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__439(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__438(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__439/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__441(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__440(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__441/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__442(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_20) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__env_bracket(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__435(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__436(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__438(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__440(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__442(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__443(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_2) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__445(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__444(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__445/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__446(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__448(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__447(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__448/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__451(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, in_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, in_kw: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__453(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__452(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__453/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__454(stream, pos, ref_stack, context) do
+      case parse_rule__iterable_value(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           iterable: Ichor.Capture.at({:rule, :iterable_value, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__450(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__451(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__452(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__454(stream, pos2, ref2, context) do
+        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__449(stream, pos, ref_stack, context) do
+      Parser.opt(&parse_expr__450/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_rule__binding(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__443(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__444(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__446(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__447(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__449(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
+      else
+        _fail -> :fail
+      end
+    end
+
+    def parse_expr__455(stream, pos, ref_stack, context) do
+      case parse_rule__disabled_statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           disabled_statement:
+             Ichor.Capture.at({:rule, :disabled_statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__456(stream, pos, ref_stack, context) do
+      case parse_rule__conditional_statement(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           conditional_statement:
+             Ichor.Capture.at({:rule, :conditional_statement, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__457(stream, pos, ref_stack, context) do
       case parse_rule__real_statement(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -5734,50 +8261,79 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_rule__conditional_statement(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__303(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__304(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__306(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
+    def parse_rule__statement(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [&parse_expr__455/4, &parse_expr__456/4, &parse_expr__457/4],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
     end
 
-    def parse_expr__307(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_11) do
+    def parse_expr__458(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_5) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__309(stream, pos, ref_stack, _context) do
+    def parse_expr__460(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_expr__308(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__309/4, stream, pos, ref_stack, context)
+    def parse_expr__459(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__460/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__310(stream, pos, ref_stack, context) do
-      case parse_rule__key_path(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           key_path: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
+    def parse_expr__461(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :IDENT) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
 
-        _fail ->
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
           :fail
       end
     end
 
-    def parse_rule__delete_statement(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__307(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__308(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__310(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
+    def parse_expr__463(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_expr__462(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__463/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__464(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_6) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__env_guard(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__458(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__459(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__461(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__462(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__464(stream, pos4, ref4, context) do
+        {:ok, pos5, ref5,
+         Parser.merge_captures(
+           cap0,
+           Parser.merge_captures(
+             cap1,
+             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
+           )
+         )}
       else
         _fail -> :fail
       end
@@ -5797,265 +8353,7 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__311(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_19) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__313(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__312(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__313/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__314(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__316(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__315(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__316/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__317(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_20) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__idx_suffix(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__311(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__312(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__314(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__315(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__317(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__318(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_12) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__320(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__319(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__320/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__324(stream, pos, ref_stack, context) do
-      case parse_rule__statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           statement: Ichor.Capture.at({:rule, :statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__326(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__325(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__326/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__328(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__327(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__328/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__323(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__324(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__325(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__327(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__332(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__331(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__332/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__334(stream, pos, ref_stack, context) do
-      case parse_rule__statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           statement: Ichor.Capture.at({:rule, :statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__336(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__335(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__336/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__338(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__337(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__338/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__333(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__334(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__335(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__337(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__330(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__331(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__333(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__329(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__330/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__322(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__323(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__329(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__321(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__322/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__340(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__339(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__340/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__341(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_6) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_rule__block(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__318(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__319(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__321(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__339(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__341(stream, pos4, ref4, context) do
-        {:ok, pos5, ref5,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(cap2, Parser.merge_captures(cap3, cap4))
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__342(stream, pos, ref_stack, context) do
-      case parse_rule__colon_atom(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           colon_atom: Ichor.Capture.at({:rule, :colon_atom, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__343(stream, pos, ref_stack, _context) do
+    def parse_expr__465(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :IDENT) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
@@ -6068,158 +8366,7 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_rule__atom_value(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__342/4, &parse_expr__343/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__344(stream, pos, ref_stack, context) do
-      case parse_rule__key_segment(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           key_segment: Ichor.Capture.at({:rule, :key_segment, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__346(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__345(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__346/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__350(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_4) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__352(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__351(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__352/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__353(stream, pos, ref_stack, context) do
-      case parse_rule__key_segment(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           key_segment: Ichor.Capture.at({:rule, :key_segment, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__349(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__350(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__351(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__353(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__357(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__356(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__357/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__359(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_4) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__361(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__360(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__361/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__362(stream, pos, ref_stack, context) do
-      case parse_rule__key_segment(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           key_segment: Ichor.Capture.at({:rule, :key_segment, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__358(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__359(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__360(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__362(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__355(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__356(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__358(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__354(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__355/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__348(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__349(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__354(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__347(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__348/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_rule__key_path(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__344(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__345(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__347(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__363(stream, pos, ref_stack, _context) do
+    def parse_expr__466(stream, pos, ref_stack, _context) do
       case Parser.match_token(stream, pos, :DQ_STRING) do
         {:ok, new_pos, text, nil} ->
           {:ok, new_pos, ref_stack,
@@ -6233,669 +8380,69 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__364(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :SQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
+    def parse_rule__ref_name(stream, pos, ref_stack, context) do
+      Parser.try_alts([&parse_expr__465/4, &parse_expr__466/4], stream, pos, ref_stack, context)
     end
 
-    def parse_rule__import_path(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__363/4, &parse_expr__364/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__365(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__366(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :SQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__filter_arg(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__365/4, &parse_expr__366/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__367(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           import_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, import_kw: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__369(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__368(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__369/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__370(stream, pos, ref_stack, context) do
-      case parse_rule__import_path(stream, pos, ref_stack, context) do
+    def parse_expr__467(stream, pos, ref_stack, context) do
+      case parse_rule__var_decl(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           path: Ichor.Capture.at({:rule, :import_path, sub_captures}, pos, new_pos)}
+           var_decl: Ichor.Capture.at({:rule, :var_decl, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_rule__import_statement(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__367(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__368(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__370(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__371(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           for_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, for_kw: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__373(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__372(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__373/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__374(stream, pos, ref_stack, context) do
-      case parse_rule__binding(stream, pos, ref_stack, context) do
+    def parse_expr__468(stream, pos, ref_stack, context) do
+      case parse_rule__for_statement(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           binding: Ichor.Capture.at({:rule, :binding, sub_captures}, pos, new_pos)}
+           for_statement: Ichor.Capture.at({:rule, :for_statement, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__376(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__375(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__376/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__380(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__382(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__381(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__382/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__383(stream, pos, ref_stack, context) do
-      case parse_rule__binding(stream, pos, ref_stack, context) do
+    def parse_expr__469(stream, pos, ref_stack, context) do
+      case parse_rule__import_statement(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           binding: Ichor.Capture.at({:rule, :binding, sub_captures}, pos, new_pos)}
+           import_statement:
+             Ichor.Capture.at({:rule, :import_statement, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__379(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__380(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__381(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__383(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__387(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__386(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__387/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__389(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__391(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__390(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__391/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__392(stream, pos, ref_stack, context) do
-      case parse_rule__binding(stream, pos, ref_stack, context) do
+    def parse_expr__470(stream, pos, ref_stack, context) do
+      case parse_rule__followed_delete(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           binding: Ichor.Capture.at({:rule, :binding, sub_captures}, pos, new_pos)}
+           followed_delete:
+             Ichor.Capture.at({:rule, :followed_delete, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__388(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__389(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__390(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__392(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__385(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__386(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__388(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__384(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__385/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__378(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__379(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__384(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__377(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__378/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__394(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__393(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__394/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__397(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           from_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, from_kw: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__399(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__398(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__399/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__400(stream, pos, ref_stack, context) do
-      case parse_rule__key_path(stream, pos, ref_stack, context) do
+    def parse_expr__471(stream, pos, ref_stack, context) do
+      case parse_rule__sigil_kv_statement(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
-           template: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
+           sigil_kv_statement:
+             Ichor.Capture.at({:rule, :sigil_kv_statement, sub_captures}, pos, new_pos)}
 
         _fail ->
           :fail
       end
     end
 
-    def parse_expr__402(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__401(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__402/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__403(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__405(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__404(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__405/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__406(stream, pos, ref_stack, context) do
-      case parse_rule__key_path(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           dest: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__396(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__397(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__398(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__400(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__401(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__403(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__404(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__406(stream, pos6, ref6, context) do
-        {:ok, pos7, ref7,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(
-               cap2,
-               Parser.merge_captures(
-                 cap3,
-                 Parser.merge_captures(cap4, Parser.merge_captures(cap5, cap6))
-               )
-             )
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__408(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, as_kw: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__410(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__409(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__410/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__411(stream, pos, ref_stack, context) do
-      case parse_rule__key_path(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           dest: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__407(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__408(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__409(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__411(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__395(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__396/4, &parse_expr__407/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__413(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__412(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__413/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__414(stream, pos, ref_stack, context) do
-      case parse_rule__block(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           block: Ichor.Capture.at({:rule, :block, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__for_statement(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__371(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__372(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__374(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__375(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__377(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__393(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__395(stream, pos6, ref6, context),
-           {:ok, pos8, ref8, cap7} <- parse_expr__412(stream, pos7, ref7, context),
-           {:ok, pos9, ref9, cap8} <- parse_expr__414(stream, pos8, ref8, context) do
-        {:ok, pos9, ref9,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(
-               cap2,
-               Parser.merge_captures(
-                 cap3,
-                 Parser.merge_captures(
-                   cap4,
-                   Parser.merge_captures(
-                     cap5,
-                     Parser.merge_captures(cap6, Parser.merge_captures(cap7, cap8))
-                   )
-                 )
-               )
-             )
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__415(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :FLOAT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at({:token, :FLOAT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, FLOAT: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__416(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__version_head(stream, pos, ref_stack, context) do
-      Parser.try_alts([&parse_expr__415/4, &parse_expr__416/4], stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__417(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_2) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__419(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__418(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__419/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__422(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_7) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__421(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__422/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__420(stream, pos, ref_stack, context) do
-      case (&parse_expr__421/4).(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, inner_caps} ->
-          text = Parser.concat_text(stream, pos, new_pos)
-
-          {:ok, new_pos, new_ref_stack,
-           Parser.merge_captures(inner_caps,
-             private: Ichor.Capture.at({:text, text}, pos, new_pos)
-           )}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__424(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__423(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__424/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__425(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, name: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__427(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__426(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__427/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__429(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_3) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__428(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__429/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__431(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__430(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__431/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__432(stream, pos, ref_stack, context) do
-      case parse_rule__value(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           value: Ichor.Capture.at({:rule, :value, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__var_decl(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__417(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__418(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__420(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__423(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__425(stream, pos4, ref4, context),
-           {:ok, pos6, ref6, cap5} <- parse_expr__426(stream, pos5, ref5, context),
-           {:ok, pos7, ref7, cap6} <- parse_expr__428(stream, pos6, ref6, context),
-           {:ok, pos8, ref8, cap7} <- parse_expr__430(stream, pos7, ref7, context),
-           {:ok, pos9, ref9, cap8} <- parse_expr__432(stream, pos8, ref8, context) do
-        {:ok, pos9, ref9,
-         Parser.merge_captures(
-           cap0,
-           Parser.merge_captures(
-             cap1,
-             Parser.merge_captures(
-               cap2,
-               Parser.merge_captures(
-                 cap3,
-                 Parser.merge_captures(
-                   cap4,
-                   Parser.merge_captures(
-                     cap5,
-                     Parser.merge_captures(cap6, Parser.merge_captures(cap7, cap8))
-                   )
-                 )
-               )
-             )
-           )
-         )}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__433(stream, pos, ref_stack, context) do
+    def parse_expr__472(stream, pos, ref_stack, context) do
       case parse_rule__delete_statement(stream, pos, ref_stack, context) do
         {:ok, new_pos, new_ref_stack, sub_captures} ->
           {:ok, new_pos, new_ref_stack,
@@ -6907,273 +8454,27 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__435(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
+    def parse_rule__real_statement(stream, pos, ref_stack, context) do
+      Parser.try_alts(
+        [
+          &parse_expr__467/4,
+          &parse_expr__468/4,
+          &parse_expr__469/4,
+          &parse_expr__470/4,
+          &parse_expr__471/4,
+          &parse_expr__472/4
+        ],
+        stream,
+        pos,
+        ref_stack,
+        context
+      )
+    end
+
+    def parse_expr__473(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_11) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
-      end
-    end
-
-    def parse_expr__434(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__435/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__437(stream, pos, ref_stack, context) do
-      case parse_rule__statement(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           statement: Ichor.Capture.at({:rule, :statement, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__436(stream, pos, ref_stack, context) do
-      Parser.and_pred(&parse_expr__437/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_rule__followed_delete(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__433(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__434(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__436(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__438(stream, pos, ref_stack, context) do
-      case parse_rule__version_head(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           version_head: Ichor.Capture.at({:rule, :version_head, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__440(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__439(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__440/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__444(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_4) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__446(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__445(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__446/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__447(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, n: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, n: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__443(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__444(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__445(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__447(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__451(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__450(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__451/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__453(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_4) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__455(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__454(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__455/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__456(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :INTEGER) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, n: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, n: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__452(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__453(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__454(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__456(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__449(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__450(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__452(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__448(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__449/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__442(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__443(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__448(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__441(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__442/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_rule__version_number(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__438(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__439(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__441(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__457(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_17) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__459(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__458(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__459/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__463(stream, pos, ref_stack, context) do
-      case parse_rule__element(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__465(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__464(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__465/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__467(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__466(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__467/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__462(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__463(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__464(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__466(stream, pos2, ref2, context) do
-        {:ok, pos3, ref3, Parser.merge_captures(cap0, Parser.merge_captures(cap1, cap2))}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__471(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :TRIVIA) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
-      end
-    end
-
-    def parse_expr__470(stream, pos, ref_stack, context) do
-      Parser.star(&parse_expr__471/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__473(stream, pos, ref_stack, context) do
-      case parse_rule__element(stream, pos, ref_stack, context) do
-        {:ok, new_pos, new_ref_stack, sub_captures} ->
-          {:ok, new_pos, new_ref_stack,
-           element: Ichor.Capture.at({:rule, :element, sub_captures}, pos, new_pos)}
-
-        _fail ->
-          :fail
       end
     end
 
@@ -7188,18 +8489,18 @@ defmodule Cooper.NativeGrammar.Native do
       Parser.star(&parse_expr__475/4, stream, pos, ref_stack, context)
     end
 
-    def parse_expr__477(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_8) do
-        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
-        :fail -> :fail
+    def parse_expr__476(stream, pos, ref_stack, context) do
+      case parse_rule__key_path(stream, pos, ref_stack, context) do
+        {:ok, new_pos, new_ref_stack, sub_captures} ->
+          {:ok, new_pos, new_ref_stack,
+           key_path: Ichor.Capture.at({:rule, :key_path, sub_captures}, pos, new_pos)}
+
+        _fail ->
+          :fail
       end
     end
 
-    def parse_expr__476(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__477/4, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__472(stream, pos, ref_stack, context) do
+    def parse_rule__delete_statement(stream, pos, ref_stack, context) do
       with {:ok, pos1, ref1, cap0} <- parse_expr__473(stream, pos, ref_stack, context),
            {:ok, pos2, ref2, cap1} <- parse_expr__474(stream, pos1, ref1, context),
            {:ok, pos3, ref3, cap2} <- parse_expr__476(stream, pos2, ref2, context) do
@@ -7209,30 +8510,11 @@ defmodule Cooper.NativeGrammar.Native do
       end
     end
 
-    def parse_expr__469(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__470(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__472(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
+    def parse_expr__477(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_19) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
       end
-    end
-
-    def parse_expr__468(stream, pos, ref_stack, context) do
-      Parser.rep(&parse_expr__469/4, 0, :infinity, stream, pos, ref_stack, context)
-    end
-
-    def parse_expr__461(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__462(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__468(stream, pos1, ref1, context) do
-        {:ok, pos2, ref2, Parser.merge_captures(cap0, cap1)}
-      else
-        _fail -> :fail
-      end
-    end
-
-    def parse_expr__460(stream, pos, ref_stack, context) do
-      Parser.opt(&parse_expr__461/4, stream, pos, ref_stack, context)
     end
 
     def parse_expr__479(stream, pos, ref_stack, _context) do
@@ -7247,18 +8529,43 @@ defmodule Cooper.NativeGrammar.Native do
     end
 
     def parse_expr__480(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :ANON_18) do
+      case Parser.match_token(stream, pos, :INTEGER) do
+        {:ok, new_pos, text, nil} ->
+          {:ok, new_pos, ref_stack,
+           INTEGER: Ichor.Capture.at({:token, :INTEGER, text}, pos, new_pos)}
+
+        {:ok, new_pos, _text, capture} ->
+          {:ok, new_pos, ref_stack, INTEGER: Ichor.Capture.at(capture, pos, new_pos)}
+
+        :fail ->
+          :fail
+      end
+    end
+
+    def parse_expr__482(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :TRIVIA) do
         {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
         :fail -> :fail
       end
     end
 
-    def parse_rule__tuple(stream, pos, ref_stack, context) do
-      with {:ok, pos1, ref1, cap0} <- parse_expr__457(stream, pos, ref_stack, context),
-           {:ok, pos2, ref2, cap1} <- parse_expr__458(stream, pos1, ref1, context),
-           {:ok, pos3, ref3, cap2} <- parse_expr__460(stream, pos2, ref2, context),
-           {:ok, pos4, ref4, cap3} <- parse_expr__478(stream, pos3, ref3, context),
-           {:ok, pos5, ref5, cap4} <- parse_expr__480(stream, pos4, ref4, context) do
+    def parse_expr__481(stream, pos, ref_stack, context) do
+      Parser.star(&parse_expr__482/4, stream, pos, ref_stack, context)
+    end
+
+    def parse_expr__483(stream, pos, ref_stack, _context) do
+      case Parser.match_token(stream, pos, :ANON_20) do
+        {:ok, new_pos, _text, _capture} -> {:ok, new_pos, ref_stack, []}
+        :fail -> :fail
+      end
+    end
+
+    def parse_rule__idx_suffix(stream, pos, ref_stack, context) do
+      with {:ok, pos1, ref1, cap0} <- parse_expr__477(stream, pos, ref_stack, context),
+           {:ok, pos2, ref2, cap1} <- parse_expr__478(stream, pos1, ref1, context),
+           {:ok, pos3, ref3, cap2} <- parse_expr__480(stream, pos2, ref2, context),
+           {:ok, pos4, ref4, cap3} <- parse_expr__481(stream, pos3, ref3, context),
+           {:ok, pos5, ref5, cap4} <- parse_expr__483(stream, pos4, ref4, context) do
         {:ok, pos5, ref5,
          Parser.merge_captures(
            cap0,
@@ -7270,57 +8577,6 @@ defmodule Cooper.NativeGrammar.Native do
       else
         _fail -> :fail
       end
-    end
-
-    def parse_expr__481(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :IDENT) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at({:token, :IDENT, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, IDENT: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__482(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :DQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           DQ_STRING: Ichor.Capture.at({:token, :DQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, DQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_expr__483(stream, pos, ref_stack, _context) do
-      case Parser.match_token(stream, pos, :SQ_STRING) do
-        {:ok, new_pos, text, nil} ->
-          {:ok, new_pos, ref_stack,
-           SQ_STRING: Ichor.Capture.at({:token, :SQ_STRING, text}, pos, new_pos)}
-
-        {:ok, new_pos, _text, capture} ->
-          {:ok, new_pos, ref_stack, SQ_STRING: Ichor.Capture.at(capture, pos, new_pos)}
-
-        :fail ->
-          :fail
-      end
-    end
-
-    def parse_rule__seg(stream, pos, ref_stack, context) do
-      Parser.try_alts(
-        [&parse_expr__481/4, &parse_expr__482/4, &parse_expr__483/4],
-        stream,
-        pos,
-        ref_stack,
-        context
-      )
     end
 
     def describe_token(name) do
@@ -7429,47 +8685,47 @@ defmodule Cooper.NativeGrammar.Native do
                %{
                  file: MapSet.new([:statement]),
                  config_ref: MapSet.new([]),
-                 rhs: MapSet.new([]),
-                 key_segment: MapSet.new([]),
-                 disabled_statement: MapSet.new([]),
-                 env_guard: MapSet.new([]),
-                 sigil_kv_statement: MapSet.new([]),
-                 env_bracket: MapSet.new([]),
-                 at_ref: MapSet.new([]),
-                 filters: MapSet.new([:filter]),
-                 iterable_value: MapSet.new([]),
                  filter: MapSet.new([]),
+                 filter_arg: MapSet.new([]),
+                 key_segment: MapSet.new([]),
+                 sigil_kv_statement: MapSet.new([]),
+                 version_head: MapSet.new([]),
                  colon_atom: MapSet.new([]),
-                 statement: MapSet.new([]),
-                 real_statement: MapSet.new([]),
+                 atom_value: MapSet.new([]),
+                 version_header: MapSet.new([]),
+                 conditional_statement: MapSet.new([]),
+                 var_decl: MapSet.new([]),
+                 tagged_ref: MapSet.new([]),
+                 env_ref: MapSet.new([]),
+                 atom_word: MapSet.new([]),
                  value: MapSet.new([]),
                  element: MapSet.new([]),
                  list: MapSet.new([:element]),
-                 atom_word: MapSet.new([]),
-                 env_ref: MapSet.new([]),
-                 ref_name: MapSet.new([]),
-                 version_header: MapSet.new([]),
-                 ref_suffix: MapSet.new([]),
-                 tagged_ref: MapSet.new([]),
+                 filters: MapSet.new([:filter]),
+                 version_number: MapSet.new([:n]),
+                 for_statement: MapSet.new([:binding]),
+                 import_statement: MapSet.new([]),
+                 at_ref: MapSet.new([]),
+                 rhs: MapSet.new([]),
                  signed_number: MapSet.new([]),
-                 binding: MapSet.new([]),
-                 conditional_statement: MapSet.new([]),
-                 delete_statement: MapSet.new([]),
-                 resolver_ref: MapSet.new([]),
-                 idx_suffix: MapSet.new([]),
-                 block: MapSet.new([:statement]),
-                 atom_value: MapSet.new([]),
                  key_path: MapSet.new([:key_segment]),
                  import_path: MapSet.new([]),
-                 filter_arg: MapSet.new([]),
-                 import_statement: MapSet.new([]),
-                 for_statement: MapSet.new([:binding]),
-                 version_head: MapSet.new([]),
-                 var_decl: MapSet.new([]),
+                 disabled_statement: MapSet.new([]),
+                 iterable_value: MapSet.new([]),
+                 ref_suffix: MapSet.new([]),
+                 seg: MapSet.new([]),
                  followed_delete: MapSet.new([]),
-                 version_number: MapSet.new([:n]),
+                 block: MapSet.new([:statement]),
                  tuple: MapSet.new([:element]),
-                 seg: MapSet.new([])
+                 env_bracket: MapSet.new([]),
+                 binding: MapSet.new([]),
+                 statement: MapSet.new([]),
+                 env_guard: MapSet.new([]),
+                 resolver_ref: MapSet.new([]),
+                 ref_name: MapSet.new([]),
+                 real_statement: MapSet.new([]),
+                 delete_statement: MapSet.new([]),
+                 idx_suffix: MapSet.new([])
                },
                locator: locator
              ) do
@@ -7508,47 +8764,47 @@ defmodule Cooper.NativeGrammar.Native do
                    %{
                      file: MapSet.new([:statement]),
                      config_ref: MapSet.new([]),
-                     rhs: MapSet.new([]),
-                     key_segment: MapSet.new([]),
-                     disabled_statement: MapSet.new([]),
-                     env_guard: MapSet.new([]),
-                     sigil_kv_statement: MapSet.new([]),
-                     env_bracket: MapSet.new([]),
-                     at_ref: MapSet.new([]),
-                     filters: MapSet.new([:filter]),
-                     iterable_value: MapSet.new([]),
                      filter: MapSet.new([]),
+                     filter_arg: MapSet.new([]),
+                     key_segment: MapSet.new([]),
+                     sigil_kv_statement: MapSet.new([]),
+                     version_head: MapSet.new([]),
                      colon_atom: MapSet.new([]),
-                     statement: MapSet.new([]),
-                     real_statement: MapSet.new([]),
+                     atom_value: MapSet.new([]),
+                     version_header: MapSet.new([]),
+                     conditional_statement: MapSet.new([]),
+                     var_decl: MapSet.new([]),
+                     tagged_ref: MapSet.new([]),
+                     env_ref: MapSet.new([]),
+                     atom_word: MapSet.new([]),
                      value: MapSet.new([]),
                      element: MapSet.new([]),
                      list: MapSet.new([:element]),
-                     atom_word: MapSet.new([]),
-                     env_ref: MapSet.new([]),
-                     ref_name: MapSet.new([]),
-                     version_header: MapSet.new([]),
-                     ref_suffix: MapSet.new([]),
-                     tagged_ref: MapSet.new([]),
+                     filters: MapSet.new([:filter]),
+                     version_number: MapSet.new([:n]),
+                     for_statement: MapSet.new([:binding]),
+                     import_statement: MapSet.new([]),
+                     at_ref: MapSet.new([]),
+                     rhs: MapSet.new([]),
                      signed_number: MapSet.new([]),
-                     binding: MapSet.new([]),
-                     conditional_statement: MapSet.new([]),
-                     delete_statement: MapSet.new([]),
-                     resolver_ref: MapSet.new([]),
-                     idx_suffix: MapSet.new([]),
-                     block: MapSet.new([:statement]),
-                     atom_value: MapSet.new([]),
                      key_path: MapSet.new([:key_segment]),
                      import_path: MapSet.new([]),
-                     filter_arg: MapSet.new([]),
-                     import_statement: MapSet.new([]),
-                     for_statement: MapSet.new([:binding]),
-                     version_head: MapSet.new([]),
-                     var_decl: MapSet.new([]),
+                     disabled_statement: MapSet.new([]),
+                     iterable_value: MapSet.new([]),
+                     ref_suffix: MapSet.new([]),
+                     seg: MapSet.new([]),
                      followed_delete: MapSet.new([]),
-                     version_number: MapSet.new([:n]),
+                     block: MapSet.new([:statement]),
                      tuple: MapSet.new([:element]),
-                     seg: MapSet.new([])
+                     env_bracket: MapSet.new([]),
+                     binding: MapSet.new([]),
+                     statement: MapSet.new([]),
+                     env_guard: MapSet.new([]),
+                     resolver_ref: MapSet.new([]),
+                     ref_name: MapSet.new([]),
+                     real_statement: MapSet.new([]),
+                     delete_statement: MapSet.new([]),
+                     idx_suffix: MapSet.new([])
                    },
                    locator: locator,
                    range: {pos, new_pos}
