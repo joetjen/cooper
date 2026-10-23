@@ -13,7 +13,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def lex_token__DIGIT(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 57}]) do
+          if Tokenizer.in_class?(c, {287_948_901_175_001_088, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -27,7 +27,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def lex_token__ALPHA(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{97, 122}, {65, 90}]) do
+          if Tokenizer.in_class?(c, {10_633_823_810_298_881_996_379_053_697_534_001_152, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -41,7 +41,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def lex_expr__0(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{48, 57}]) do
+          if Tokenizer.in_class?(c, {287_948_901_175_001_088, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -55,7 +55,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def lex_expr__1(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{97, 122}, {65, 90}]) do
+          if Tokenizer.in_class?(c, {10_633_823_810_298_881_996_379_053_697_534_001_152, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -73,7 +73,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def lex_token__SPACE(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{32, 32}, {9, 9}, {13, 13}, {10, 10}]) do
+          if Tokenizer.in_class?(c, {4_294_977_024, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -87,7 +87,7 @@ defmodule Cooper.NativeInterpGrammar.Native do
     def lex_token__HEX(input) do
       case input do
         <<c::utf8, rest::binary>> ->
-          if Tokenizer.in_ranges?(c, [{97, 102}, {65, 70}, {48, 57}]) do
+          if Tokenizer.in_class?(c, {9_982_748_479_121_884_238_975_116_247_040, {}}) do
             {:ok, <<c::utf8>>, rest}
           else
             :fail
@@ -490,46 +490,707 @@ defmodule Cooper.NativeInterpGrammar.Native do
     end
 
     def lex_candidates(input, context) do
-      [
-        AT_REF_RAW: fn ->
-          case lex_token__AT_REF_RAW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        ENV_REF_RAW: fn ->
-          case lex_token__ENV_REF_RAW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        CONFIG_REF_RAW: fn ->
-          case lex_token__CONFIG_REF_RAW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        RESOLVER_REF_RAW: fn ->
-          rule_matchers = Map.new([])
+      case input do
+        <<char::utf8, _::binary>> when char < 128 ->
+          case lex_ascii_group(char) do
+            0 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
 
-          case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
-            {:ok, text, rest, capture} -> {:ok, text, rest, capture}
-            :fail -> :fail
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                TEXT_CHUNK: fn ->
+                  case lex_token__TEXT_CHUNK(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            1 ->
+              [
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                TAGGED_REF_RAW: fn ->
+                  case lex_token__TAGGED_REF_RAW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                TEXT_CHUNK: fn ->
+                  case lex_token__TEXT_CHUNK(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            2 ->
+              [
+                ENV_REF_RAW: fn ->
+                  case lex_token__ENV_REF_RAW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                TEXT_CHUNK: fn ->
+                  case lex_token__TEXT_CHUNK(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            3 ->
+              [
+                CONFIG_REF_RAW: fn ->
+                  case lex_token__CONFIG_REF_RAW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                TEXT_CHUNK: fn ->
+                  case lex_token__TEXT_CHUNK(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
+
+            4 ->
+              [
+                AT_REF_RAW: fn ->
+                  case lex_token__AT_REF_RAW(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end,
+                RESOLVER_REF_RAW: fn ->
+                  rule_matchers = Map.new([])
+
+                  case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                    {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                    :fail -> :fail
+                  end
+                end,
+                TEXT_CHUNK: fn ->
+                  case lex_token__TEXT_CHUNK(input) do
+                    {:ok, text, rest} -> {:ok, text, rest, nil}
+                    :fail -> :fail
+                  end
+                end
+              ]
           end
-        end,
-        TAGGED_REF_RAW: fn ->
-          case lex_token__TAGGED_REF_RAW(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end,
-        TEXT_CHUNK: fn ->
-          case lex_token__TEXT_CHUNK(input) do
-            {:ok, text, rest} -> {:ok, text, rest, nil}
-            :fail -> :fail
-          end
-        end
-      ]
+
+        <<_::utf8, _::binary>> ->
+          acc = []
+
+          acc = [
+            {:TEXT_CHUNK,
+             fn ->
+               case lex_token__TEXT_CHUNK(input) do
+                 {:ok, text, rest} -> {:ok, text, rest, nil}
+                 :fail -> :fail
+               end
+             end}
+            | acc
+          ]
+
+          acc = [
+            {:RESOLVER_REF_RAW,
+             fn ->
+               rule_matchers = Map.new([])
+
+               case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                 {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                 :fail -> :fail
+               end
+             end}
+            | acc
+          ]
+
+          acc
+
+        _ ->
+          [
+            AT_REF_RAW: fn ->
+              case lex_token__AT_REF_RAW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            ENV_REF_RAW: fn ->
+              case lex_token__ENV_REF_RAW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            CONFIG_REF_RAW: fn ->
+              case lex_token__CONFIG_REF_RAW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            RESOLVER_REF_RAW: fn ->
+              rule_matchers = Map.new([])
+
+              case apply(Cooper.Native.ResolverRef, :scan, [input, context, rule_matchers]) do
+                {:ok, text, rest, capture} -> {:ok, text, rest, capture}
+                :fail -> :fail
+              end
+            end,
+            TAGGED_REF_RAW: fn ->
+              case lex_token__TAGGED_REF_RAW(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end,
+            TEXT_CHUNK: fn ->
+              case lex_token__TEXT_CHUNK(input) do
+                {:ok, text, rest} -> {:ok, text, rest, nil}
+                :fail -> :fail
+              end
+            end
+          ]
+      end
+    end
+
+    def lex_ascii_group(0) do
+      0
+    end
+
+    def lex_ascii_group(1) do
+      0
+    end
+
+    def lex_ascii_group(2) do
+      0
+    end
+
+    def lex_ascii_group(3) do
+      0
+    end
+
+    def lex_ascii_group(4) do
+      0
+    end
+
+    def lex_ascii_group(5) do
+      0
+    end
+
+    def lex_ascii_group(6) do
+      0
+    end
+
+    def lex_ascii_group(7) do
+      0
+    end
+
+    def lex_ascii_group(8) do
+      0
+    end
+
+    def lex_ascii_group(9) do
+      0
+    end
+
+    def lex_ascii_group(10) do
+      0
+    end
+
+    def lex_ascii_group(11) do
+      0
+    end
+
+    def lex_ascii_group(12) do
+      0
+    end
+
+    def lex_ascii_group(13) do
+      0
+    end
+
+    def lex_ascii_group(14) do
+      0
+    end
+
+    def lex_ascii_group(15) do
+      0
+    end
+
+    def lex_ascii_group(16) do
+      0
+    end
+
+    def lex_ascii_group(17) do
+      0
+    end
+
+    def lex_ascii_group(18) do
+      0
+    end
+
+    def lex_ascii_group(19) do
+      0
+    end
+
+    def lex_ascii_group(20) do
+      0
+    end
+
+    def lex_ascii_group(21) do
+      0
+    end
+
+    def lex_ascii_group(22) do
+      0
+    end
+
+    def lex_ascii_group(23) do
+      0
+    end
+
+    def lex_ascii_group(24) do
+      0
+    end
+
+    def lex_ascii_group(25) do
+      0
+    end
+
+    def lex_ascii_group(26) do
+      0
+    end
+
+    def lex_ascii_group(27) do
+      0
+    end
+
+    def lex_ascii_group(28) do
+      0
+    end
+
+    def lex_ascii_group(29) do
+      0
+    end
+
+    def lex_ascii_group(30) do
+      0
+    end
+
+    def lex_ascii_group(31) do
+      0
+    end
+
+    def lex_ascii_group(32) do
+      0
+    end
+
+    def lex_ascii_group(33) do
+      1
+    end
+
+    def lex_ascii_group(34) do
+      0
+    end
+
+    def lex_ascii_group(35) do
+      0
+    end
+
+    def lex_ascii_group(36) do
+      2
+    end
+
+    def lex_ascii_group(37) do
+      3
+    end
+
+    def lex_ascii_group(38) do
+      0
+    end
+
+    def lex_ascii_group(39) do
+      0
+    end
+
+    def lex_ascii_group(40) do
+      0
+    end
+
+    def lex_ascii_group(41) do
+      0
+    end
+
+    def lex_ascii_group(42) do
+      0
+    end
+
+    def lex_ascii_group(43) do
+      0
+    end
+
+    def lex_ascii_group(44) do
+      0
+    end
+
+    def lex_ascii_group(45) do
+      0
+    end
+
+    def lex_ascii_group(46) do
+      0
+    end
+
+    def lex_ascii_group(47) do
+      0
+    end
+
+    def lex_ascii_group(48) do
+      0
+    end
+
+    def lex_ascii_group(49) do
+      0
+    end
+
+    def lex_ascii_group(50) do
+      0
+    end
+
+    def lex_ascii_group(51) do
+      0
+    end
+
+    def lex_ascii_group(52) do
+      0
+    end
+
+    def lex_ascii_group(53) do
+      0
+    end
+
+    def lex_ascii_group(54) do
+      0
+    end
+
+    def lex_ascii_group(55) do
+      0
+    end
+
+    def lex_ascii_group(56) do
+      0
+    end
+
+    def lex_ascii_group(57) do
+      0
+    end
+
+    def lex_ascii_group(58) do
+      0
+    end
+
+    def lex_ascii_group(59) do
+      0
+    end
+
+    def lex_ascii_group(60) do
+      0
+    end
+
+    def lex_ascii_group(61) do
+      0
+    end
+
+    def lex_ascii_group(62) do
+      0
+    end
+
+    def lex_ascii_group(63) do
+      0
+    end
+
+    def lex_ascii_group(64) do
+      4
+    end
+
+    def lex_ascii_group(65) do
+      0
+    end
+
+    def lex_ascii_group(66) do
+      0
+    end
+
+    def lex_ascii_group(67) do
+      0
+    end
+
+    def lex_ascii_group(68) do
+      0
+    end
+
+    def lex_ascii_group(69) do
+      0
+    end
+
+    def lex_ascii_group(70) do
+      0
+    end
+
+    def lex_ascii_group(71) do
+      0
+    end
+
+    def lex_ascii_group(72) do
+      0
+    end
+
+    def lex_ascii_group(73) do
+      0
+    end
+
+    def lex_ascii_group(74) do
+      0
+    end
+
+    def lex_ascii_group(75) do
+      0
+    end
+
+    def lex_ascii_group(76) do
+      0
+    end
+
+    def lex_ascii_group(77) do
+      0
+    end
+
+    def lex_ascii_group(78) do
+      0
+    end
+
+    def lex_ascii_group(79) do
+      0
+    end
+
+    def lex_ascii_group(80) do
+      0
+    end
+
+    def lex_ascii_group(81) do
+      0
+    end
+
+    def lex_ascii_group(82) do
+      0
+    end
+
+    def lex_ascii_group(83) do
+      0
+    end
+
+    def lex_ascii_group(84) do
+      0
+    end
+
+    def lex_ascii_group(85) do
+      0
+    end
+
+    def lex_ascii_group(86) do
+      0
+    end
+
+    def lex_ascii_group(87) do
+      0
+    end
+
+    def lex_ascii_group(88) do
+      0
+    end
+
+    def lex_ascii_group(89) do
+      0
+    end
+
+    def lex_ascii_group(90) do
+      0
+    end
+
+    def lex_ascii_group(91) do
+      0
+    end
+
+    def lex_ascii_group(92) do
+      0
+    end
+
+    def lex_ascii_group(93) do
+      0
+    end
+
+    def lex_ascii_group(94) do
+      0
+    end
+
+    def lex_ascii_group(95) do
+      0
+    end
+
+    def lex_ascii_group(96) do
+      0
+    end
+
+    def lex_ascii_group(97) do
+      0
+    end
+
+    def lex_ascii_group(98) do
+      0
+    end
+
+    def lex_ascii_group(99) do
+      0
+    end
+
+    def lex_ascii_group(100) do
+      0
+    end
+
+    def lex_ascii_group(101) do
+      0
+    end
+
+    def lex_ascii_group(102) do
+      0
+    end
+
+    def lex_ascii_group(103) do
+      0
+    end
+
+    def lex_ascii_group(104) do
+      0
+    end
+
+    def lex_ascii_group(105) do
+      0
+    end
+
+    def lex_ascii_group(106) do
+      0
+    end
+
+    def lex_ascii_group(107) do
+      0
+    end
+
+    def lex_ascii_group(108) do
+      0
+    end
+
+    def lex_ascii_group(109) do
+      0
+    end
+
+    def lex_ascii_group(110) do
+      0
+    end
+
+    def lex_ascii_group(111) do
+      0
+    end
+
+    def lex_ascii_group(112) do
+      0
+    end
+
+    def lex_ascii_group(113) do
+      0
+    end
+
+    def lex_ascii_group(114) do
+      0
+    end
+
+    def lex_ascii_group(115) do
+      0
+    end
+
+    def lex_ascii_group(116) do
+      0
+    end
+
+    def lex_ascii_group(117) do
+      0
+    end
+
+    def lex_ascii_group(118) do
+      0
+    end
+
+    def lex_ascii_group(119) do
+      0
+    end
+
+    def lex_ascii_group(120) do
+      0
+    end
+
+    def lex_ascii_group(121) do
+      0
+    end
+
+    def lex_ascii_group(122) do
+      0
+    end
+
+    def lex_ascii_group(123) do
+      0
+    end
+
+    def lex_ascii_group(124) do
+      0
+    end
+
+    def lex_ascii_group(125) do
+      0
+    end
+
+    def lex_ascii_group(126) do
+      0
+    end
+
+    def lex_ascii_group(127) do
+      0
     end
 
     def parse_expr__0(stream, pos, ref_stack, context) do

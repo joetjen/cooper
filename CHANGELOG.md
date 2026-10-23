@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CASC.md §5.5 shows its loop results as Markdown tables**, not TOON,
   and §1 says a result with many uniform entries is shown as a table.
+- **Requires `ichor_runtime` 0.6.3 (and `ichor` 0.7.3 to regenerate)**,
+  both generated parsers regenerated with it: the tokenizer now tries
+  only the tokens that can begin with the next character, so a
+  document tokenizes faster. Nothing else changes.
 
 ## [0.7.0] - 2026-10-21
 
