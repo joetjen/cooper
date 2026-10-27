@@ -16,8 +16,9 @@ defmodule Cooper.Conformance do
   can use them and every implementation sees the same: the variables in
   `@env`, no `.env` file, the document's own directory as the root, the
   resolvers `echo` (answers its payload) and `fail` (refuses), the tag
-  `twice` (doubles an integer, repeats a string) and the import scheme
-  `mem:` (`mem:base`, `mem:vars`).
+  `twice` (doubles an integer, repeats a string), the import scheme
+  `mem:` (`mem:base`, `mem:vars`) and the module mapping `"Crypto"` =>
+  `:crypto`, so a mapped module reads as what it maps to (`crypto`).
 
   ## Values
 
@@ -168,7 +169,8 @@ defmodule Cooper.Conformance do
             :error -> {:error, :enoent}
           end
         end
-      }
+      },
+      modules: %{"Crypto" => :crypto}
     ]
   end
 end
